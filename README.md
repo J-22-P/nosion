@@ -103,19 +103,39 @@ packages/
 
 ## Tech Stack และเหตุผล
 
-| ชั้น | เทคโนโลยี | เหตุผลสั้น ๆ |
-|---|---|---|
-| Frontend | Next.js 15 + React 19 | App Router, RSC, ระบบนิเวศใหญ่ |
-| Styling | Tailwind CSS 4 + design token | คุมดีไซน์เองได้ ไม่ใช่เทมเพลตสำเร็จรูป |
-| Client state | TanStack Query + Zustand | แยก server state ออกจาก UI state ให้ชัด |
-| Backend | NestJS 11 (Node 22) | มี DI container จริง = เงื่อนไขจำเป็นของ Plugin Architecture |
-| ORM | Prisma 6 | type-safe, migration ดี |
-| Database | PostgreSQL 17 | JSONB + partial index + window function |
-| Cache/Queue | Redis 7 + BullMQ | scheduling, rate limit, session revocation |
-| Auth | JWT + refresh rotation + Argon2id | ควบคุมรายละเอียดด้านความปลอดภัยเอง |
-| Monorepo | pnpm workspaces + Turborepo | แชร์ type, cache build |
+| ชั้น         | เทคโนโลยี                         | เหตุผลสั้น ๆ                                                 |
+| ------------ | --------------------------------- | ------------------------------------------------------------ |
+| Frontend     | Next.js 15 + React 19             | App Router, RSC, ระบบนิเวศใหญ่                               |
+| Styling      | Tailwind CSS 4 + design token     | คุมดีไซน์เองได้ ไม่ใช่เทมเพลตสำเร็จรูป                       |
+| Client state | TanStack Query + Zustand          | แยก server state ออกจาก UI state ให้ชัด                      |
+| Backend      | NestJS 11 (Node 22)               | มี DI container จริง = เงื่อนไขจำเป็นของ Plugin Architecture |
+| ORM          | Prisma 6                          | type-safe, migration ดี                                      |
+| Database     | PostgreSQL 17                     | JSONB + partial index + window function                      |
+| Cache/Queue  | Redis 7 + BullMQ                  | scheduling, rate limit, session revocation                   |
+| Auth         | JWT + refresh rotation + Argon2id | ควบคุมรายละเอียดด้านความปลอดภัยเอง                           |
+| Monorepo     | pnpm workspaces + Turborepo       | แชร์ type, cache build                                       |
 
 เหตุผลเต็มของการตัดสินใจสำคัญอยู่ใน [docs/adr](./docs/adr)
+
+---
+
+## เอกสารเรียนรู้เบื้องหลังโปรเจกต์
+
+[`docs/learn/`](./docs/learn) อธิบายทุกอย่างที่อยู่เบื้องหลังโค้ดตั้งแต่ศูนย์ — ใช้เทคโนโลยีอะไร
+เพราะอะไร หลักการทำงานเป็นอย่างไร และข้อเสียที่ยอมรับแลกมาคืออะไร
+เปิด [`docs/learn/index.html`](./docs/learn/index.html) ในเบราว์เซอร์เพื่อดูสารบัญ
+
+| ไฟล์                                                       | เนื้อหา                                                                        |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| [01](./docs/learn/01-foundations-web-architecture.md)      | พื้นฐานสถาปัตยกรรมเว็บ: process, HTTP, REST, ทำไมต้องแยก 3 แอป                 |
+| [02](./docs/learn/02-phase0-monorepo-and-tooling.md)       | Phase 0 · monorepo, pnpm, Turborepo, TypeScript, ESLint boundaries, Docker, CI |
+| [03](./docs/learn/03-phase0-database-and-prisma.md)        | Phase 0 · ฐานข้อมูล, index, JSONB, transaction, migration, Prisma              |
+| [04](./docs/learn/04-phase1-auth-deep-dive.md)             | Phase 1 · รหัสผ่าน, JWT, cookie, refresh rotation, IDOR, rate limit            |
+| [05](./docs/learn/05-phase1-plugin-architecture-and-di.md) | Phase 1 · SOLID, DI container, decorator, metadata, registry pattern           |
+| [06](./docs/learn/06-phase1-api-design-and-validation.md)  | Phase 1 · REST, RFC 9457, cursor pagination, Zod, optimistic concurrency       |
+| [07](./docs/learn/07-phase1-frontend-data-layer.md)        | Phase 1 · React, RSC, TanStack Query, Zustand, Tailwind token, a11y            |
+| [08](./docs/learn/08-testing-and-quality.md)               | การทดสอบ: pyramid, test double, coverage, flaky test, CI gate                  |
+| [09](./docs/learn/09-glossary.md)                          | อภิธานศัพท์ทั้งหมดที่ใช้ในโปรเจกต์                                             |
 
 ---
 
@@ -163,11 +183,11 @@ pnpm db:reset       # ล้างฐานข้อมูลแล้ว migrat
 
 ## การทดสอบ
 
-| ระดับ | เครื่องมือ | ครอบคลุมอะไร |
-|---|---|---|
-| Unit | Vitest | ตรรกะบริสุทธิ์: การคำนวณเวลา/timezone/DST, ทะเบียนโมดูล, การ parse sort และ defer, schema ของ contract |
+| ระดับ       | เครื่องมือ                         | ครอบคลุมอะไร                                                                                                                      |
+| ----------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Unit        | Vitest                             | ตรรกะบริสุทธิ์: การคำนวณเวลา/timezone/DST, ทะเบียนโมดูล, การ parse sort และ defer, schema ของ contract                            |
 | Integration | Vitest + supertest + Postgres จริง | auth flow เต็ม, refresh rotation + reuse detection, entry CRUD, **IDOR ทุก resource**, version conflict, idempotency ของ clientId |
-| E2E | Playwright | จากหน้าแรก กด "ลองใช้ทันที" แล้วสร้างงานได้จริง |
+| E2E         | Playwright                         | จากหน้าแรก กด "ลองใช้ทันที" แล้วสร้างงานได้จริง                                                                                   |
 
 integration test ไม่ mock ฐานข้อมูล เพราะบั๊กที่เจ็บที่สุดในระบบแบบนี้คือ constraint,
 cascade และ transaction ซึ่ง mock จับไม่ได้
