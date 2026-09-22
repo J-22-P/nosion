@@ -1,0 +1,12 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# pnpm 10 บล็อก postinstall script โดยค่าเริ่มต้น — ระบุเฉพาะตัวที่จำเป็นจริง
+onlyBuiltDependencies:
+  - "@prisma/client"
+  - "@prisma/engines"
+  - "@swc/core"
+  - esbuild
+  - prisma
+  - unrs-resolver

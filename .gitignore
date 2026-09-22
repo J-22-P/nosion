@@ -1,0 +1,23 @@
+node_modules/
+dist/
+.next/
+out/
+coverage/
+.turbo/
+*.tsbuildinfo
+
+.env
+.env.*
+!.env.example
+
+playwright-report/
+test-results/
+blob-report/
+
+.DS_Store
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# pnpm ทิ้งไฟล์ชั่วคราวไว้เมื่อ FS ไม่รองรับการลบ
+_tmp_*
