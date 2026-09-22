@@ -18,12 +18,12 @@
     "test:e2e": "pnpm --filter @nosion/web test:e2e",
     "format": "prettier --write \"**/*.{ts,tsx,js,mjs,json,md,css,yml,yaml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,json,md,css,yml,yaml}\"",
-    "db:generate": "pnpm --filter @nosion/api db:generate",
-    "db:migrate": "pnpm --filter @nosion/api db:migrate",
-    "db:migrate:deploy": "pnpm --filter @nosion/api db:migrate:deploy",
-    "db:seed": "pnpm --filter @nosion/api db:seed",
-    "db:reset": "pnpm --filter @nosion/api db:reset",
-    "db:studio": "pnpm --filter @nosion/api db:studio",
+    "db:generate": "prisma generate --schema apps/api/prisma/schema.prisma",
+    "db:migrate": "prisma migrate dev --schema apps/api/prisma/schema.prisma",
+    "db:migrate:deploy": "prisma migrate deploy --schema apps/api/prisma/schema.prisma",
+    "db:seed": "tsx apps/api/prisma/seed.ts",
+    "db:reset": "prisma migrate reset --force --schema apps/api/prisma/schema.prisma",
+    "db:studio": "prisma studio --schema apps/api/prisma/schema.prisma",
     "setup:dev": "node scripts/setup-dev.mjs",
     "verify": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test:unit && pnpm build",
     "db:migrate:indexes": "node scripts/create-index-migration.mjs"
@@ -32,6 +32,8 @@
     "@nosion/eslint-config": "workspace:*",
     "eslint": "9.39.5",
     "prettier": "3.9.7",
+    "prisma": "6.19.3",
+    "tsx": "4.23.13",
     "turbo": "2.10.13",
     "typescript": "5.9.3"
   },
@@ -44,5 +46,8 @@
       "prisma",
       "unrs-resolver"
     ]
+  },
+  "prisma": {
+    "seed": "tsx apps/api/prisma/seed.ts"
   }
 }

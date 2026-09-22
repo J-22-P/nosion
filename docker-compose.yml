@@ -27,9 +27,15 @@ services:
     image: axllent/mailpit
     ports: ['1025:1025', '8025:8025']
 
-  # จำลอง R2/S3 — คอนโซลที่ http://localhost:9001
+  # จำลอง R2/S3 สำหรับไฟล์แนบ — ยังไม่ถูกใช้จนถึง Phase 2
+  #
+  # MinIO ถอด image ออกจาก Docker Hub แล้ว (`minio/minio` และ `minio/mc` ถูกลบ)
+  # จึงต้องดึงจาก quay.io แทน และเราใส่ profile ไว้ให้ไม่ขึ้นโดยอัตโนมัติ
+  # เพราะ Phase 0–1 ไม่ได้ใช้ object storage เลย
+  #   เปิดใช้เมื่อถึงเวลา: docker compose --profile storage up -d minio
   minio:
-    image: minio/minio
+    profiles: ['storage']
+    image: quay.io/minio/minio
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: minioadmin

@@ -12,15 +12,7 @@
     "test": "vitest run --project unit",
     "test:unit": "vitest run --project unit",
     "test:int": "vitest run --project integration",
-    "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
-    "db:migrate:deploy": "prisma migrate deploy",
-    "db:seed": "tsx prisma/seed.ts",
-    "db:reset": "prisma migrate reset --force",
-    "db:studio": "prisma studio"
-  },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
+    "db:generate": "prisma generate"
   },
   "dependencies": {
     "@nestjs/common": "11.2.5",

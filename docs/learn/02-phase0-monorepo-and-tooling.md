@@ -256,6 +256,27 @@ postgres:
 เราใส่ **mailpit** (ดักอีเมลใน dev ไม่ให้หลุดออกไปจริง — เปิดดูที่ localhost:8025)
 และ **minio** (จำลอง S3/R2 สำหรับไฟล์แนบ) ไว้ด้วย เพื่อให้ dev ทำงานได้โดยไม่ต้องมีบัญชีบริการจริง
 
+### Profile — บริการที่ยังไม่ต้องขึ้นตอนนี้
+
+```yaml
+minio:
+  profiles: ['storage']
+  image: quay.io/minio/minio
+```
+
+service ที่มี `profiles` จะ **ไม่ขึ้นเมื่อสั่ง `docker compose up` เฉย ๆ** ต้องเรียกด้วย
+`docker compose --profile storage up -d minio` — เราใช้กับ minio เพราะ object storage
+เริ่มใช้จริงใน Phase 2 การยกมันขึ้นตั้งแต่ Phase 0 มีแต่จะกิน RAM และเพิ่มจุดที่พังได้
+
+⚠️ **บทเรียนจากของจริง:** ระหว่างทำโปรเจกต์นี้ MinIO ถอด image ออกจาก Docker Hub
+(`minio/minio` ถูกลบ) ทำให้ `docker compose up` ของทุกคนที่อ้าง image นั้นพังพร้อมกันทั่วโลก
+ด้วย `pull access denied ... repository does not exist`
+
+บทเรียน: **การ deploy ของคุณขึ้นอยู่กับ registry ที่คุณไม่ได้เป็นเจ้าของ**
+วิธีรับมือในระบบจริงคือ pin ด้วย digest (`image: postgres@sha256:...`) ไม่ใช่แค่ tag
+และมิเรอร์ image ที่จำเป็นไว้ใน registry ของตัวเอง ส่วนในโปรเจกต์ขนาดนี้
+แค่ย้ายไป `quay.io/minio/minio` และทำให้มันไม่จำเป็นต่อการเริ่มงานก็พอ
+
 ### Multi-stage Dockerfile
 
 📁 `docker/api.Dockerfile` แบ่งเป็น 4 stage:

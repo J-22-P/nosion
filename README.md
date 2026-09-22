@@ -145,7 +145,7 @@ packages/
 
 ```bash
 pnpm install
-pnpm setup:dev     # คัดลอก .env, ยก postgres/redis/mailpit/minio, migrate + seed
+pnpm setup:dev     # คัดลอก .env, ยก postgres/redis/mailpit, สร้าง migration + seed
 pnpm dev           # web :3000 · api :3001 · worker
 ```
 
@@ -155,17 +155,22 @@ pnpm dev           # web :3000 · api :3001 · worker
 demo@nosion.dev / nosion-demo-2026
 ```
 
-ครั้งแรกสุด (ยังไม่มีโฟลเดอร์ `prisma/migrations`) ให้สร้าง migration แรกก่อน:
+`pnpm setup:dev` จัดการ migration ให้ครบตั้งแต่ครั้งแรก (สร้าง migration จาก schema →
+เพิ่ม GIN/partial index → seed) ถ้าอยากทำทีละขั้นเองก็ได้:
 
 ```bash
-pnpm db:migrate --name init    # สร้าง migration จาก schema
+pnpm db:migrate --name init    # สร้าง migration แรกจาก schema
 pnpm db:migrate:indexes        # เพิ่ม GIN/partial index ที่ Prisma ประกาศเองไม่ได้
 pnpm db:migrate:deploy
 pnpm db:seed
 ```
 
-บริการอื่นระหว่าง dev: Mailpit http://localhost:8025 · MinIO http://localhost:9001 ·
-Swagger http://localhost:3001/docs
+บริการอื่นระหว่าง dev: Mailpit http://localhost:8025 · Swagger http://localhost:3001/docs
+
+> **หมายเหตุเรื่อง MinIO:** เราใช้ MinIO จำลอง S3/R2 สำหรับไฟล์แนบ ซึ่งเริ่มใช้จริงใน Phase 2
+> MinIO ถอด image ออกจาก Docker Hub แล้ว compose จึงดึงจาก `quay.io/minio/minio` และ
+> ตั้ง profile ไว้ไม่ให้ขึ้นอัตโนมัติ — เปิดเมื่อต้องใช้ด้วย
+> `docker compose --profile storage up -d minio` (คอนโซลที่ http://localhost:9001)
 
 ### คำสั่งที่ใช้บ่อย
 

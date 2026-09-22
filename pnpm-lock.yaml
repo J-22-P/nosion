@@ -17,6 +17,12 @@ importers:
       prettier:
         specifier: 3.9.7
         version: 3.9.7
+      prisma:
+        specifier: 6.19.3
+        version: 6.19.3(magicast@0.3.5)(typescript@5.9.3)
+      tsx:
+        specifier: 4.23.13
+        version: 4.23.13
       turbo:
         specifier: 2.10.13
         version: 2.10.13

@@ -6,7 +6,7 @@
  *   3) prisma migrate deploy + seed
  */
 import { execSync } from 'node:child_process';
-import { copyFileSync, existsSync } from 'node:fs';
+import { copyFileSync, existsSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -24,7 +24,8 @@ if (!existsSync(join(root, '.env'))) {
 }
 
 try {
-  run('docker compose up -d postgres redis mailpit minio --wait');
+  // minio อยู่ใน profile 'storage' จึงไม่ถูกยกขึ้นที่นี่ — Phase 0–1 ยังไม่ใช้ object storage
+  run('docker compose up -d postgres redis mailpit --wait');
 } catch {
   console.error(
     '\n✗ docker compose ไม่สำเร็จ — ตรวจว่า Docker Desktop เปิดอยู่ แล้วรัน pnpm setup:dev ใหม่',
@@ -33,7 +34,19 @@ try {
 }
 
 run('pnpm db:generate');
-run('pnpm db:migrate:deploy');
+
+// ครั้งแรกสุดยังไม่มีโฟลเดอร์ migrations — ต้องสร้าง migration แรกจาก schema ก่อน
+// (migrate deploy รันได้เฉพาะ migration ที่มีอยู่แล้ว จึงใช้กับ repo ที่เพิ่ง clone ไม่ได้)
+const migrationsDir = join(root, 'apps/api/prisma/migrations');
+const hasMigrations =
+  existsSync(migrationsDir) && readdirSync(migrationsDir).some((name) => !name.startsWith('.'));
+
+if (!hasMigrations) {
+  console.log('\n• ยังไม่มี migration — กำลังสร้าง migration แรกจาก schema');
+  run('pnpm db:migrate --name init --skip-seed');
+}
+
+// GIN/partial index ที่ Prisma ประกาศใน schema เองไม่ได้ ถูกนำเข้าเป็น migration แยก
 run('pnpm db:migrate:indexes');
 run('pnpm db:migrate:deploy');
 run('pnpm db:seed');
