@@ -1,0 +1,57 @@
+/* packages/ui/src/tokens.css — design token กลางของทั้งระบบ */
+:root {
+  /* สีประจำโมดูล — ใช้ทั้งใน badge, ปฏิทิน และกราฟ */
+  --module-task: #6366f1; /* indigo */
+  --module-expense: #10b981; /* emerald */
+  --module-workout: #f59e0b; /* amber */
+  --module-habit: #8b5cf6; /* violet */
+
+  /* สถานะ */
+  --status-overdue: #ef4444;
+  --status-done: #64748b;
+
+  /* spacing scale 4px */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+
+  --radius: 0.625rem;
+
+  /* พื้นผิว — โหมดสว่าง */
+  --background: #ffffff;
+  --foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --card: #ffffff;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #6366f1;
+  --primary: #4f46e5;
+  --primary-foreground: #ffffff;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --accent: #eef2ff;
+  --accent-foreground: #312e81;
+}
+
+.dark {
+  --background: #0b1120;
+  --foreground: #e2e8f0;
+  --muted: #16203a;
+  --muted-foreground: #94a3b8;
+  --card: #111a2e;
+  --border: #22304d;
+  --input: #22304d;
+  --ring: #818cf8;
+  --primary: #6366f1;
+  --primary-foreground: #ffffff;
+  --destructive: #f87171;
+  --destructive-foreground: #0b1120;
+  --accent: #1e253f;
+  --accent-foreground: #c7d2fe;
+
+  --status-done: #94a3b8;
+}
