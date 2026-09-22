@@ -1,0 +1,541 @@
+// NOSION — Prisma schema
+// หลักการ (สเปกหัวข้อ 5.1):
+//   • soft delete ทุกตารางหลัก (deletedAt) — ถังขยะ 30 วัน
+//   • เก็บ UTC เสมอใน DB แปลง timezone ที่ application layer เท่านั้น
+//   • cuid2 เป็น primary key — เดาไม่ได้ เรียงตามเวลาได้ สั้นกว่า UUID
+//   • แยก occurredAt (เวลาที่เกิดเหตุการณ์) ออกจาก createdAt (เวลาที่บันทึก) เพื่อรองรับ offline sync
+//   • เก็บเงินเป็น integer หน่วยสตางค์ — ห้ามใช้ float กับเงิน
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pg_trgm]
+}
+
+// ═══════════════════════════════════════════════
+//  ENUMS
+// ═══════════════════════════════════════════════
+
+enum ModuleKey {
+  task
+  expense
+  workout
+  habit
+}
+
+enum EntryStatus {
+  pending
+  active
+  done
+  skipped
+  cancelled
+}
+
+enum Priority {
+  none
+  low
+  medium
+  high
+  urgent
+}
+
+enum ReminderChannel {
+  push
+  email
+  webhook
+}
+
+enum ReminderStatus {
+  scheduled
+  sent
+  failed
+  cancelled
+}
+
+enum RecurrenceEndType {
+  never
+  onDate
+  afterCount
+}
+
+enum TokenPurpose {
+  emailVerification
+  passwordReset
+}
+
+// ═══════════════════════════════════════════════
+//  USER & AUTH
+// ═══════════════════════════════════════════════
+
+model User {
+  id            String    @id @default(cuid(2))
+  email         String    @unique
+  emailVerified DateTime?
+  passwordHash  String?
+  displayName   String
+  avatarUrl     String?
+  isDemo        Boolean   @default(false)
+  /// demo account หมดอายุเมื่อไร — cron ลบทิ้ง
+  expiresAt     DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  settings          UserSettings?
+  entries           Entry[]
+  projects          Project[]
+  tags              Tag[]
+  budgets           Budget[]
+  sessions          Session[]
+  oauthAccounts     OAuthAccount[]
+  pushSubscriptions PushSubscription[]
+  apiKeys           ApiKey[]
+  recurrenceRules   RecurrenceRule[]
+  auditLogs         AuditLog[]
+  verificationTokens VerificationToken[]
+
+  @@index([email])
+  @@index([isDemo, expiresAt])
+  @@map("users")
+}
+
+model UserSettings {
+  id     String @id @default(cuid(2))
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  timezone     String @default("Asia/Bangkok")
+  locale       String @default("th")
+  currency     String @default("THB")
+  weekStartsOn Int    @default(1)
+  theme        String @default("system")
+
+  quietHoursEnabled Boolean @default(true)
+  quietHoursStart   String  @default("22:00")
+  quietHoursEnd     String  @default("07:00")
+
+  dailyDigestEnabled Boolean   @default(true)
+  dailyDigestTime    String    @default("07:00")
+  /// กันส่ง digest ซ้ำเมื่อ cron รันเหลื่อมกัน (สเปกหัวข้อ 10.2)
+  lastDigestSentAt   DateTime?
+
+  weeklyReviewEnabled Boolean   @default(true)
+  weeklyReviewDay     Int       @default(1)
+  lastWeeklySentAt    DateTime?
+
+  /// token คือ credential ของ iCal feed — หมุนใหม่ได้จากหน้าตั้งค่า
+  calendarFeedToken String @unique @default(cuid(2))
+
+  webhookUrl    String?
+  webhookSecret String?
+  webhookEvents String[] @default([])
+
+  enabledModules ModuleKey[] @default([task, expense])
+
+  updatedAt DateTime @updatedAt
+
+  @@map("user_settings")
+}
+
+model Session {
+  id     String @id @default(cuid(2))
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// เก็บ hash ไม่เก็บ token ดิบ
+  refreshTokenHash String @unique
+  /// สำหรับ reuse detection — token ทุกใบที่สืบทอดกันมาอยู่ family เดียวกัน
+  familyId         String
+  userAgent        String?
+  ipAddress        String?
+  deviceLabel      String?
+
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  /// ถูกเพิกถอนเพราะตรวจพบการใช้ token ซ้ำ
+  revokedReason String?
+  lastUsedAt DateTime  @default(now())
+  createdAt  DateTime  @default(now())
+
+  @@index([userId, revokedAt])
+  @@index([familyId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model VerificationToken {
+  id      String       @id @default(cuid(2))
+  userId  String
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose TokenPurpose
+  /// sha256 ของ token — ใช้ได้ครั้งเดียว
+  tokenHash String     @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime   @default(now())
+
+  @@index([userId, purpose])
+  @@map("verification_tokens")
+}
+
+model OAuthAccount {
+  id             String   @id @default(cuid(2))
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider       String
+  providerUserId String
+  createdAt      DateTime @default(now())
+
+  @@unique([provider, providerUserId])
+  @@map("oauth_accounts")
+}
+
+model ApiKey {
+  id         String    @id @default(cuid(2))
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  keyHash    String    @unique
+  keyPrefix  String
+  scopes     String[]  @default(["read"])
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@map("api_keys")
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid(2))
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("push_subscriptions")
+}
+
+// ═══════════════════════════════════════════════
+//  ORGANIZATION
+// ═══════════════════════════════════════════════
+
+model Project {
+  id     String @id @default(cuid(2))
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name       String
+  color      String  @default("#6366f1")
+  icon       String?
+  sortOrder  Int     @default(0)
+  isArchived Boolean @default(false)
+
+  entries Entry[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([userId, isArchived])
+  @@map("projects")
+}
+
+model Tag {
+  id     String @id @default(cuid(2))
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name   String
+  color  String @default("#94a3b8")
+
+  entries EntryTag[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, name])
+  @@map("tags")
+}
+
+model EntryTag {
+  entryId String
+  tagId   String
+  entry   Entry  @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  tag     Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([entryId, tagId])
+  @@index([tagId])
+  @@map("entry_tags")
+}
+
+// ═══════════════════════════════════════════════
+//  ENTRY — ตารางกลางของทุกโมดูล
+// ═══════════════════════════════════════════════
+
+model Entry {
+  id     String @id @default(cuid(2))
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  module      ModuleKey
+  title       String
+  description String?     @db.Text
+  status      EntryStatus @default(pending)
+  priority    Priority    @default(none)
+
+  /// เวลาที่เหตุการณ์นี้ "เป็นของ" — deadline ของ task, วันที่จ่ายเงิน, วันที่ออกกำลังกาย
+  occurredAt  DateTime?
+  /// true = สนใจแค่วันที่ ไม่สนใจเวลา
+  isAllDay    Boolean   @default(true)
+  completedAt DateTime?
+
+  /// field เฉพาะโมดูล — validate ด้วย Zod ที่ application layer
+  payload Json @default("{}")
+
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  parentId String?
+  parent   Entry?  @relation("Subtask", fields: [parentId], references: [id], onDelete: Cascade)
+  children Entry[] @relation("Subtask")
+
+  recurrenceRuleId String?
+  recurrenceRule   RecurrenceRule? @relation(fields: [recurrenceRuleId], references: [id], onDelete: SetNull)
+  /// entry นี้ถูกสร้างจาก recurrence สำหรับรอบวันที่ไหน — ใช้กัน duplicate
+  recurrenceSlot   DateTime?
+
+  tags        EntryTag[]
+  reminders   Reminder[]
+  comments    Comment[]
+  attachments Attachment[]
+  dependsOn   EntryDependency[] @relation("Dependent")
+  blocking    EntryDependency[] @relation("Blocker")
+
+  sortOrder Int @default(0)
+
+  /// client สร้าง id นี้ตอน offline เพื่อกันสร้างซ้ำตอน sync
+  clientId String?
+  /// เพิ่มขึ้นทุกครั้งที่แก้ไข — ใช้ตรวจ conflict
+  version  Int     @default(1)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@unique([userId, clientId])
+  @@unique([recurrenceRuleId, recurrenceSlot])
+  @@index([userId, module, occurredAt])
+  @@index([userId, status, occurredAt])
+  @@index([userId, deletedAt])
+  @@index([projectId])
+  @@index([parentId])
+  @@map("entries")
+}
+
+model EntryDependency {
+  id          String @id @default(cuid(2))
+  dependentId String
+  dependent   Entry  @relation("Dependent", fields: [dependentId], references: [id], onDelete: Cascade)
+  blockerId   String
+  blocker     Entry  @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([dependentId, blockerId])
+  @@index([blockerId])
+  @@map("entry_dependencies")
+}
+
+model Comment {
+  id       String @id @default(cuid(2))
+  entryId  String
+  entry    Entry  @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  authorId String
+  body     String @db.Text
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([entryId])
+  @@map("comments")
+}
+
+model Attachment {
+  id         String  @id @default(cuid(2))
+  entryId    String
+  entry      Entry   @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  fileName   String
+  mimeType   String
+  sizeBytes  Int
+  storageKey String
+  /// ผลลัพธ์ OCR ถ้าเป็นสลิป
+  ocrText    String? @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([entryId])
+  @@map("attachments")
+}
+
+// ═══════════════════════════════════════════════
+//  RECURRENCE
+// ═══════════════════════════════════════════════
+
+model RecurrenceRule {
+  id     String @id @default(cuid(2))
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// RFC 5545 RRULE เช่น "FREQ=MONTHLY;BYMONTHDAY=1"
+  rrule    String
+  startsAt DateTime
+  /// timezone ที่ใช้ตีความ rrule — สำคัญมากสำหรับ DST
+  timezone String
+
+  endType  RecurrenceEndType @default(never)
+  endsAt   DateTime?
+  maxCount Int?
+
+  /// วันที่ถูกลบออกจาก series (EXDATE)
+  exceptions DateTime[] @default([])
+
+  /// template ที่ใช้สร้าง entry ในแต่ละรอบ
+  template Json
+
+  /// สร้าง entry ล่วงหน้าถึงวันไหนแล้ว — กันสร้างซ้ำและกัน N+1
+  materializedUntil DateTime?
+
+  isPaused Boolean @default(false)
+
+  entries Entry[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([userId, isPaused])
+  @@index([materializedUntil])
+  @@map("recurrence_rules")
+}
+
+// ═══════════════════════════════════════════════
+//  REMINDER
+// ═══════════════════════════════════════════════
+
+model Reminder {
+  id      String @id @default(cuid(2))
+  entryId String
+  entry   Entry  @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  channel ReminderChannel
+  /// offset เป็นนาที เทียบ occurredAt (ลบ = ก่อน, บวก = หลัง)
+  offsetMinutes Int @default(0)
+  /// เวลาที่ต้องยิงจริง (UTC) — index หลักของ scheduler
+  fireAt        DateTime
+
+  status    ReminderStatus @default(scheduled)
+  attempts  Int            @default(0)
+  lastError String?
+  sentAt    DateTime?
+
+  /// กันยิงซ้ำ — unique ต่อ (entry, channel, fireAt)
+  idempotencyKey String @unique
+
+  /// job id ใน BullMQ — ใช้ยกเลิกเมื่อ entry ถูกแก้/ลบ
+  jobId String?
+
+  createdAt DateTime @default(now())
+
+  @@index([status, fireAt])
+  @@index([entryId])
+  @@map("reminders")
+}
+
+// ═══════════════════════════════════════════════
+//  BUDGET (Expense module)
+// ═══════════════════════════════════════════════
+
+model Budget {
+  id     String @id @default(cuid(2))
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// null = งบรวมทุกหมวด
+  category    String?
+  /// หน่วยสตางค์ (integer)
+  amountMinor Int
+  currency    String  @default("THB")
+  period      String  @default("monthly")
+
+  alertThreshold Int       @default(80)
+  alertSentAt    DateTime?
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, category, period])
+  @@map("budgets")
+}
+
+// ═══════════════════════════════════════════════
+//  AUDIT & SYSTEM
+// ═══════════════════════════════════════════════
+
+model AuditLog {
+  id     String @id @default(cuid(2))
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  action     String
+  entityType String
+  entityId   String?
+  /// สถานะก่อนเปลี่ยน — ใช้ทำ undo
+  before     Json?
+  after      Json?
+
+  ipAddress String?
+  traceId   String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([entityId])
+  @@map("audit_logs")
+}
+
+model FeatureFlag {
+  key         String   @id
+  isEnabled   Boolean  @default(false)
+  rolloutPct  Int      @default(0)
+  allowlist   String[] @default([])
+  description String?
+  updatedAt   DateTime @updatedAt
+
+  @@map("feature_flags")
+}
+
+model OutboxEvent {
+  id          String    @id @default(cuid(2))
+  aggregateId String
+  eventType   String
+  payload     Json
+  processedAt DateTime?
+  attempts    Int       @default(0)
+  createdAt   DateTime  @default(now())
+
+  @@index([processedAt, createdAt])
+  @@map("outbox_events")
+}
