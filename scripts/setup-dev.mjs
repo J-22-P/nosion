@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 /**
  * pnpm setup:dev — จาก git clone ถึงใช้งานได้ใน 1 คำสั่ง
- *   1) สร้าง .env จาก .env.example (ถ้ายังไม่มี)
- *   2) docker compose up -d --wait   (postgres, redis, mailpit, minio)
- *   3) prisma migrate deploy + seed
+ *   1) ติดตั้ง dependency ให้ตรงกับ lockfile
+ *   2) สร้าง .env จาก .env.example (ถ้ายังไม่มี)
+ *   3) docker compose up -d --wait   (postgres, redis, mailpit)
+ *   4) สร้าง/รัน migration แล้ว seed ข้อมูลตัวอย่าง
  */
 import { execSync } from 'node:child_process';
 import { copyFileSync, existsSync, readdirSync } from 'node:fs';
@@ -15,6 +16,10 @@ const run = (cmd) => {
   console.log(`\n[36m$ ${cmd}[0m`);
   execSync(cmd, { cwd: root, stdio: 'inherit' });
 };
+
+// ทำก่อนทุกอย่าง: ถ้า node_modules ไม่ตรงกับ lockfile คำสั่งถัดไปจะหา binary ไม่เจอ
+// (เช่น prisma ที่เป็น devDependency ของ root)
+run('pnpm install');
 
 if (!existsSync(join(root, '.env'))) {
   copyFileSync(join(root, '.env.example'), join(root, '.env'));
