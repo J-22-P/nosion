@@ -18,10 +18,12 @@ WebSocket เหมาะกับการสื่อสารสองทา�
 ## ผลที่ตามมา
 
 **ได้:**
+
 - ทำงานบน HTTP ธรรมดา ผ่าน proxy / load balancer / CDN ได้โดยไม่ต้องตั้งค่า upgrade
 - `EventSource` reconnect ให้อัตโนมัติ พร้อมส่ง `Last-Event-ID` กลับมาให้ resume ได้
 - ใช้ auth ชุดเดียวกับ REST (Bearer token) ไม่ต้องทำ handshake แยก
 
 **เสีย:**
+
 - ส่งจาก client ไป server ผ่านช่องนี้ไม่ได้ — ต้องยิง REST แยก (ซึ่งเราทำอยู่แล้ว)
 - HTTP/1.1 จำกัดจำนวน connection ต่อโดเมน (6) — บรรเทาด้วย HTTP/2 บน production

@@ -26,7 +26,11 @@ describe('createEntrySchema', () => {
       title: 'a',
       occurredAt: '2026-09-18T03:00:00.000Z',
     });
-    const dateOnly = createEntrySchema.parse({ module: 'task', title: 'a', occurredAt: '2026-09-18' });
+    const dateOnly = createEntrySchema.parse({
+      module: 'task',
+      title: 'a',
+      occurredAt: '2026-09-18',
+    });
     expect(full.occurredAt).toBeInstanceOf(Date);
     expect(dateOnly.occurredAt).toBeInstanceOf(Date);
   });
@@ -68,8 +72,8 @@ describe('payload ต่อโมดูล', () => {
   });
 
   it('expense: หมวดที่ไม่รู้จักถูกปฏิเสธ ไม่ใช่ปล่อยผ่านเพราะเป็น JSONB', () => {
-    expect(
-      expensePayloadSchema.safeParse({ amountMinor: 100, category: 'crypto' }).success,
-    ).toBe(false);
+    expect(expensePayloadSchema.safeParse({ amountMinor: 100, category: 'crypto' }).success).toBe(
+      false,
+    );
   });
 });

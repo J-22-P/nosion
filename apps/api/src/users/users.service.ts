@@ -1,9 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import {
-  type AuthUserDto,
-  type ModuleKey,
-  type UpdateSettingsInput,
-} from '@nosion/contracts';
+import { type AuthUserDto, type ModuleKey, type UpdateSettingsInput } from '@nosion/contracts';
 import { PrismaService } from '../infra/prisma/prisma.service';
 import { isValidTimeZone } from './timezone';
 
@@ -87,7 +83,10 @@ export class UsersService {
     };
   }
 
-  async updateSettings(userId: string, input: UpdateSettingsInput): Promise<MeResponse['settings']> {
+  async updateSettings(
+    userId: string,
+    input: UpdateSettingsInput,
+  ): Promise<MeResponse['settings']> {
     if (input.timezone && !isValidTimeZone(input.timezone)) {
       throw new NotFoundException(`ไม่รู้จักโซนเวลา ${input.timezone}`);
     }

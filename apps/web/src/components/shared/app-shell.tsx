@@ -1,6 +1,16 @@
 'use client';
 
-import { CalendarDays, CheckSquare, Dumbbell, LogOut, Moon, Repeat, Settings, Sun, Wallet } from 'lucide-react';
+import {
+  CalendarDays,
+  CheckSquare,
+  Dumbbell,
+  LogOut,
+  Moon,
+  Repeat,
+  Settings,
+  Sun,
+  Wallet,
+} from 'lucide-react';
 import { useTheme } from 'next-themes';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -133,7 +143,9 @@ function TopBar({ displayName, isDemo }: { displayName: string; isDemo: boolean 
             บัญชีทดลอง
           </span>
         ) : null}
-        <span className="hidden text-sm text-[var(--muted-foreground)] sm:inline">{displayName}</span>
+        <span className="hidden text-sm text-[var(--muted-foreground)] sm:inline">
+          {displayName}
+        </span>
         <ThemeToggle />
         <Button variant="ghost" size="icon" onClick={logout} aria-label="ออกจากระบบ">
           <LogOut size={16} />

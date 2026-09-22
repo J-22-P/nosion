@@ -86,12 +86,16 @@ export class TaskTrackableModule implements TrackableModule<TaskPayload> {
       (sum, e) => sum + ((e.payload as TaskPayload).estimateMinutes ?? 0),
       0,
     );
-    const actual = done.reduce((sum, e) => sum + ((e.payload as TaskPayload).actualMinutes ?? 0), 0);
+    const actual = done.reduce(
+      (sum, e) => sum + ((e.payload as TaskPayload).actualMinutes ?? 0),
+      0,
+    );
 
     const mostDeferred = [...entries]
       .sort(
         (a, b) =>
-          ((b.payload as TaskPayload).deferCount ?? 0) - ((a.payload as TaskPayload).deferCount ?? 0),
+          ((b.payload as TaskPayload).deferCount ?? 0) -
+          ((a.payload as TaskPayload).deferCount ?? 0),
       )
       .at(0);
 

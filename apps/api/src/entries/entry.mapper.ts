@@ -57,7 +57,14 @@ export function toDto(row: EntryWithRelations): EntryDto {
 }
 
 /** field ที่อนุญาตให้ sort ได้ — ป้องกันการยิงชื่อคอลัมน์มั่ว */
-const SORTABLE = new Set(['occurredAt', 'priority', 'createdAt', 'updatedAt', 'title', 'sortOrder']);
+const SORTABLE = new Set([
+  'occurredAt',
+  'priority',
+  'createdAt',
+  'updatedAt',
+  'title',
+  'sortOrder',
+]);
 
 /** "occurredAt:asc,priority:desc" → orderBy ของ Prisma (เติม id ท้ายเสมอเพื่อให้ cursor เสถียร) */
 export function parseSort(sort: string): Prisma.EntryOrderByWithRelationInput[] {

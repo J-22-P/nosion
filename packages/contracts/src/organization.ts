@@ -26,10 +26,19 @@ export const updateSettingsSchema = z.object({
   weekStartsOn: z.number().int().min(0).max(6).optional(),
   theme: z.enum(['light', 'dark', 'system']).optional(),
   quietHoursEnabled: z.boolean().optional(),
-  quietHoursStart: z.string().regex(/^\d{2}:\d{2}$/).optional(),
-  quietHoursEnd: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  quietHoursStart: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/)
+    .optional(),
+  quietHoursEnd: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/)
+    .optional(),
   dailyDigestEnabled: z.boolean().optional(),
-  dailyDigestTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  dailyDigestTime: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/)
+    .optional(),
   weeklyReviewEnabled: z.boolean().optional(),
   weeklyReviewDay: z.number().int().min(0).max(6).optional(),
   enabledModules: z.array(moduleKeySchema).min(1).optional(),

@@ -55,10 +55,7 @@ export class EntriesController {
   }
 
   @Get(':id')
-  async findOne(
-    @CurrentUser('userId') userId: string,
-    @Param('id') id: string,
-  ): Promise<EntryDto> {
+  async findOne(@CurrentUser('userId') userId: string, @Param('id') id: string): Promise<EntryDto> {
     return this.entries.findOne(userId, id);
   }
 
@@ -86,10 +83,7 @@ export class EntriesController {
   }
 
   @Post(':id/restore')
-  async restore(
-    @CurrentUser('userId') userId: string,
-    @Param('id') id: string,
-  ): Promise<EntryDto> {
+  async restore(@CurrentUser('userId') userId: string, @Param('id') id: string): Promise<EntryDto> {
     return this.entries.restore(userId, id);
   }
 

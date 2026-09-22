@@ -58,7 +58,8 @@ export function TaskList({ filters }: { filters: EntryFilters }) {
       </ul>
       {query.data?.pageInfo.hasMore ? (
         <p className="px-4 py-3 text-xs text-[var(--muted-foreground)]">
-          แสดง {entries.length} รายการแรก — เลื่อนดูเพิ่มเติมจะมาพร้อม infinite scroll ใน Phase ถัดไป
+          แสดง {entries.length} รายการแรก — เลื่อนดูเพิ่มเติมจะมาพร้อม infinite scroll ใน Phase
+          ถัดไป
         </p>
       ) : null}
     </div>
@@ -98,7 +99,9 @@ function TaskRow({
       </button>
 
       <div className="min-w-0 flex-1">
-        <p className={cn('truncate text-sm', done && 'text-[var(--muted-foreground)] line-through')}>
+        <p
+          className={cn('truncate text-sm', done && 'text-[var(--muted-foreground)] line-through')}
+        >
           {entry.title}
         </p>
         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--muted-foreground)]">
@@ -118,7 +121,12 @@ function TaskRow({
 
       <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
         {!done ? (
-          <Button variant="ghost" size="icon" onClick={onDefer} aria-label={`เลื่อน ${entry.title} ไปพรุ่งนี้`}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onDefer}
+            aria-label={`เลื่อน ${entry.title} ไปพรุ่งนี้`}
+          >
             <CalendarClock size={15} />
           </Button>
         ) : null}

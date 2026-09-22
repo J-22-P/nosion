@@ -28,7 +28,13 @@ export class ProjectsService {
   async update(
     userId: string,
     id: string,
-    input: Partial<{ name: string; color: string; icon: string | null; isArchived: boolean; sortOrder: number }>,
+    input: Partial<{
+      name: string;
+      color: string;
+      icon: string | null;
+      isArchived: boolean;
+      sortOrder: number;
+    }>,
   ): Promise<ProjectDto> {
     const result = await this.prisma.project.updateMany({
       where: { id, userId, deletedAt: null },

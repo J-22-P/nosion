@@ -24,7 +24,11 @@ export class TagsService {
     }
   }
 
-  async update(userId: string, id: string, input: Partial<{ name: string; color: string }>): Promise<TagDto> {
+  async update(
+    userId: string,
+    id: string,
+    input: Partial<{ name: string; color: string }>,
+  ): Promise<TagDto> {
     const result = await this.prisma.tag.updateMany({ where: { id, userId }, data: input });
     if (result.count === 0) throw new NotFoundException('ไม่พบแท็ก');
     const row = await this.prisma.tag.findFirstOrThrow({ where: { id, userId } });

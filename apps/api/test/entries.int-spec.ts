@@ -57,10 +57,7 @@ describe('Entries CRUD + IDOR', () => {
     expect(completed.body.status).toBe('done');
     expect(completed.body.completedAt).toBeTruthy();
 
-    await api()
-      .delete(`/api/v1/entries/${id}`)
-      .set('Authorization', `Bearer ${alice}`)
-      .expect(204);
+    await api().delete(`/api/v1/entries/${id}`).set('Authorization', `Bearer ${alice}`).expect(204);
 
     const trash = await api()
       .get('/api/v1/entries/trash')

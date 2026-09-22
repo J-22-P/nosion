@@ -3,7 +3,9 @@ import { entryStatusSchema, moduleKeySchema, prioritySchema, reminderChannelSche
 import { cursorPaginationSchema } from './pagination';
 
 /** รับได้ทั้ง ISO string และ Date — คืนเป็น Date เสมอ */
-const isoDate = z.union([z.string().datetime({ offset: true }), z.string().date(), z.date()]).transform((v) => new Date(v));
+const isoDate = z
+  .union([z.string().datetime({ offset: true }), z.string().date(), z.date()])
+  .transform((v) => new Date(v));
 
 export const reminderInputSchema = z.object({
   channel: reminderChannelSchema.default('push'),
@@ -77,7 +79,10 @@ export const deferSchema = z.object({
 });
 
 export const reorderSchema = z.object({
-  items: z.array(z.object({ id: z.string(), sortOrder: z.number().int() })).min(1).max(500),
+  items: z
+    .array(z.object({ id: z.string(), sortOrder: z.number().int() }))
+    .min(1)
+    .max(500),
 });
 
 /** รูปแบบ entry ที่ API คืนกลับ (serialize เป็น JSON แล้ว) */

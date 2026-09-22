@@ -27,8 +27,8 @@ export class RegistryModule implements OnApplicationBootstrap {
     const found = this.discovery
       .getProviders()
       .filter((wrapper) => wrapper.instance && wrapper.metatype)
-      .filter((wrapper) =>
-        Reflect.getMetadata(REGISTER_MODULE_KEY, wrapper.metatype as object) === true,
+      .filter(
+        (wrapper) => Reflect.getMetadata(REGISTER_MODULE_KEY, wrapper.metatype as object) === true,
       )
       .map((wrapper) => wrapper.instance as TrackableModule<unknown>);
 

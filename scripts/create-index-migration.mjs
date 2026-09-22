@@ -14,7 +14,9 @@ const migrationsDir = join(root, 'apps/api/prisma/migrations');
 const source = join(root, 'apps/api/prisma/sql/custom_indexes.sql');
 
 if (!existsSync(migrationsDir)) {
-  console.error('✗ ยังไม่มีโฟลเดอร์ migrations — รัน `pnpm db:migrate` เพื่อสร้าง migration แรกก่อน');
+  console.error(
+    '✗ ยังไม่มีโฟลเดอร์ migrations — รัน `pnpm db:migrate` เพื่อสร้าง migration แรกก่อน',
+  );
   process.exit(1);
 }
 

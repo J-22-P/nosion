@@ -1,9 +1,4 @@
-import type {
-  EntryStatus,
-  ModuleKey,
-  Priority,
-  ReminderChannel,
-} from '@nosion/contracts';
+import type { EntryStatus, ModuleKey, Priority, ReminderChannel } from '@nosion/contracts';
 
 /**
  * Entry แบบ domain — ไม่ผูกกับ Prisma

@@ -56,9 +56,7 @@ export class PasswordService {
       });
       if (!res.ok) return false;
       const body = await res.text();
-      return body
-        .split('\n')
-        .some((line) => line.split(':')[0]?.trim().toUpperCase() === suffix);
+      return body.split('\n').some((line) => line.split(':')[0]?.trim().toUpperCase() === suffix);
     } catch (err) {
       this.logger.warn(`ตรวจ HIBP ไม่สำเร็จ ปล่อยผ่าน: ${(err as Error).message}`);
       return false;

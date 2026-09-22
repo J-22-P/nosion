@@ -4,10 +4,7 @@ import { z } from 'zod';
  * นโยบายรหัสผ่าน: ยาว ≥ 12 (สเปกหัวข้อ 9.3)
  * ความแข็งแรงจริงตรวจด้วย zxcvbn + HIBP k-anonymity ที่ service layer
  */
-export const passwordSchema = z
-  .string()
-  .min(12, 'รหัสผ่านต้องยาวอย่างน้อย 12 ตัวอักษร')
-  .max(128);
+export const passwordSchema = z.string().min(12, 'รหัสผ่านต้องยาวอย่างน้อย 12 ตัวอักษร').max(128);
 
 export const emailSchema = z.string().trim().toLowerCase().email().max(254);
 

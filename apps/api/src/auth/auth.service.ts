@@ -39,7 +39,10 @@ export class AuthService {
 
   // ── สมัคร / เข้าสู่ระบบ ────────────────────────────────
 
-  async register(input: RegisterInput, meta: RequestMeta): Promise<IssuedTokens & { user: AuthUserDto }> {
+  async register(
+    input: RegisterInput,
+    meta: RequestMeta,
+  ): Promise<IssuedTokens & { user: AuthUserDto }> {
     const existing = await this.prisma.user.findUnique({ where: { email: input.email } });
     if (existing) {
       // ไม่บอกตรง ๆ ว่าอีเมลนี้มีอยู่แล้ว — กัน user enumeration
@@ -123,8 +126,7 @@ export class AuthService {
   private async seedDemoData(userId: string): Promise<void> {
     const startOfToday = new Date();
     startOfToday.setUTCHours(0, 0, 0, 0);
-    const day = (offset: number) =>
-      new Date(startOfToday.getTime() + offset * 24 * 60 * 60 * 1000);
+    const day = (offset: number) => new Date(startOfToday.getTime() + offset * 24 * 60 * 60 * 1000);
 
     const project = await this.prisma.project.create({
       data: { userId, name: 'งานส่วนตัว', color: '#6366f1', sortOrder: 0 },
@@ -137,16 +139,76 @@ export class AuthService {
       occurredAt: Date | null;
       estimateMinutes: number | null;
     }[] = [
-      { title: 'อ่านสเปก NOSION ให้จบ', status: EntryStatus.done, priority: Priority.medium, occurredAt: day(-2), estimateMinutes: 60 },
-      { title: 'ต่ออายุประกันรถ', status: EntryStatus.pending, priority: Priority.urgent, occurredAt: day(-1), estimateMinutes: 30 },
-      { title: 'เขียน ADR-001 เรื่องแยก NestJS ออกจาก Next.js', status: EntryStatus.active, priority: Priority.high, occurredAt: day(0), estimateMinutes: 45 },
-      { title: 'ตอบอีเมลลูกค้า', status: EntryStatus.pending, priority: Priority.medium, occurredAt: day(0), estimateMinutes: 20 },
-      { title: 'ซื้อของเข้าบ้าน', status: EntryStatus.pending, priority: Priority.low, occurredAt: day(0), estimateMinutes: null },
-      { title: 'รีวิว PR ของทีม', status: EntryStatus.pending, priority: Priority.high, occurredAt: day(1), estimateMinutes: 40 },
-      { title: 'เตรียมสไลด์ประชุมรายสัปดาห์', status: EntryStatus.pending, priority: Priority.medium, occurredAt: day(2), estimateMinutes: 90 },
-      { title: 'จองตั๋วกลับบ้าน', status: EntryStatus.pending, priority: Priority.none, occurredAt: day(5), estimateMinutes: null },
-      { title: 'ออกกำลังกาย 3 ครั้งสัปดาห์นี้', status: EntryStatus.pending, priority: Priority.low, occurredAt: day(3), estimateMinutes: null },
-      { title: 'สรุปค่าใช้จ่ายเดือนที่แล้ว', status: EntryStatus.done, priority: Priority.medium, occurredAt: day(-4), estimateMinutes: 30 },
+      {
+        title: 'อ่านสเปก NOSION ให้จบ',
+        status: EntryStatus.done,
+        priority: Priority.medium,
+        occurredAt: day(-2),
+        estimateMinutes: 60,
+      },
+      {
+        title: 'ต่ออายุประกันรถ',
+        status: EntryStatus.pending,
+        priority: Priority.urgent,
+        occurredAt: day(-1),
+        estimateMinutes: 30,
+      },
+      {
+        title: 'เขียน ADR-001 เรื่องแยก NestJS ออกจาก Next.js',
+        status: EntryStatus.active,
+        priority: Priority.high,
+        occurredAt: day(0),
+        estimateMinutes: 45,
+      },
+      {
+        title: 'ตอบอีเมลลูกค้า',
+        status: EntryStatus.pending,
+        priority: Priority.medium,
+        occurredAt: day(0),
+        estimateMinutes: 20,
+      },
+      {
+        title: 'ซื้อของเข้าบ้าน',
+        status: EntryStatus.pending,
+        priority: Priority.low,
+        occurredAt: day(0),
+        estimateMinutes: null,
+      },
+      {
+        title: 'รีวิว PR ของทีม',
+        status: EntryStatus.pending,
+        priority: Priority.high,
+        occurredAt: day(1),
+        estimateMinutes: 40,
+      },
+      {
+        title: 'เตรียมสไลด์ประชุมรายสัปดาห์',
+        status: EntryStatus.pending,
+        priority: Priority.medium,
+        occurredAt: day(2),
+        estimateMinutes: 90,
+      },
+      {
+        title: 'จองตั๋วกลับบ้าน',
+        status: EntryStatus.pending,
+        priority: Priority.none,
+        occurredAt: day(5),
+        estimateMinutes: null,
+      },
+      {
+        title: 'ออกกำลังกาย 3 ครั้งสัปดาห์นี้',
+        status: EntryStatus.pending,
+        priority: Priority.low,
+        occurredAt: day(3),
+        estimateMinutes: null,
+      },
+      {
+        title: 'สรุปค่าใช้จ่ายเดือนที่แล้ว',
+        status: EntryStatus.done,
+        priority: Priority.medium,
+        occurredAt: day(-4),
+        estimateMinutes: 30,
+      },
     ];
 
     await this.prisma.entry.createMany({
@@ -378,7 +440,9 @@ export class AuthService {
   }
 }
 
-export function toAuthUser(user: Pick<User, 'id' | 'email' | 'displayName' | 'avatarUrl' | 'emailVerified' | 'isDemo'>): AuthUserDto {
+export function toAuthUser(
+  user: Pick<User, 'id' | 'email' | 'displayName' | 'avatarUrl' | 'emailVerified' | 'isDemo'>,
+): AuthUserDto {
   return {
     id: user.id,
     email: user.email,

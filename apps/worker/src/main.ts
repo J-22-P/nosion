@@ -18,7 +18,10 @@ const prisma = new PrismaClient();
  * (เหตุผลเดียวกับที่แยก NestJS ออกจาก Next.js API Routes — ADR-001)
  */
 async function bootstrap(): Promise<void> {
-  const cleanupQueue = new Queue(QUEUE.cleanup, { connection, defaultJobOptions: DEFAULT_JOB_OPTIONS });
+  const cleanupQueue = new Queue(QUEUE.cleanup, {
+    connection,
+    defaultJobOptions: DEFAULT_JOB_OPTIONS,
+  });
 
   // งานประจำวันตี 3 ตามเวลาไทย (20:00 UTC ของวันก่อนหน้า)
   await cleanupQueue.upsertJobScheduler(

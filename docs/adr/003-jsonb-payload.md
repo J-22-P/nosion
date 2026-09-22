@@ -28,10 +28,12 @@
 ## ผลที่ตามมา
 
 **ได้:**
+
 - `GET /entries?module=task,expense` เป็น query เดียว ไม่มี UNION
 - เพิ่มโมดูลใหม่ไม่ต้อง migrate ฐานข้อมูล
 
 **เสีย:**
+
 - ไม่มี FK constraint ภายใน payload — แก้ด้วย validation ที่เข้มงวดและ integration test
 - index บน JSONB path ต้องเขียน SQL เอง (ดู `prisma/sql/custom_indexes.sql`)
 - payload ที่เขียนไว้ก่อนเปลี่ยน schema ยังเป็นรูปแบบเก่า → ต้องมี migration ระดับข้อมูลเมื่อ schema ของโมดูลเปลี่ยน

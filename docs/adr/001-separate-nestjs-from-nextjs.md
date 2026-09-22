@@ -31,10 +31,12 @@ NestJS มี DI container จริง ซึ่งเป็น**เงื่�
 ## ผลที่ตามมา
 
 **ได้:**
+
 - worker รันค้างได้จริง → BullMQ scheduler, repeatable job, graceful shutdown ทำงานตามที่ออกแบบ
 - ได้ออกแบบ API contract ระหว่าง service, CORS, และ deploy สอง service ที่ต่างกัน
 - business logic ทดสอบได้โดยไม่ต้องยก Next.js
 
 **เสีย:**
+
 - ต้องดูแล deployment สองชุด (Vercel + Fly.io) และตั้ง CORS/คุกกี้ให้ถูก
 - ต้อง share type ข้าม service เอง — แก้ด้วย `packages/contracts` ใน monorepo

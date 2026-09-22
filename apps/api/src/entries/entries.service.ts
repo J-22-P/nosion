@@ -127,9 +127,7 @@ export class EntriesService {
         projectId: dto.projectId ?? null,
         parentId: dto.parentId ?? null,
         clientId: dto.clientId ?? null,
-        ...(dto.tagIds.length
-          ? { tags: { create: dto.tagIds.map((tagId) => ({ tagId })) } }
-          : {}),
+        ...(dto.tagIds.length ? { tags: { create: dto.tagIds.map((tagId) => ({ tagId })) } } : {}),
         ...(reminders.length ? { reminders: { create: reminders } } : {}),
       },
       include: INCLUDE_RELATIONS,
@@ -177,7 +175,11 @@ export class EntriesService {
       await this.prisma.$transaction([
         this.prisma.entryTag.deleteMany({ where: { entryId: id } }),
         ...(dto.tagIds.length
-          ? [this.prisma.entryTag.createMany({ data: dto.tagIds.map((tagId) => ({ entryId: id, tagId })) })]
+          ? [
+              this.prisma.entryTag.createMany({
+                data: dto.tagIds.map((tagId) => ({ entryId: id, tagId })),
+              }),
+            ]
           : []),
       ]);
     }

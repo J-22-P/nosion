@@ -23,7 +23,14 @@ const entry = (over: Partial<Entry> = {}): Entry => ({
   occurredAt: new Date('2026-09-18T03:00:00Z'),
   isAllDay: true,
   completedAt: null,
-  payload: { estimateMinutes: 60, actualMinutes: 0, checklist: [], github: null, branchName: null, deferCount: 0 },
+  payload: {
+    estimateMinutes: 60,
+    actualMinutes: 0,
+    checklist: [],
+    github: null,
+    branchName: null,
+    deferCount: 0,
+  },
   projectId: null,
   parentId: null,
   recurrenceRuleId: null,
@@ -81,7 +88,18 @@ describe('TaskTrackableModule', () => {
     it('ชี้งานที่ถูกผัดบ่อยที่สุด', () => {
       const section = module.summarizeWeek(
         [
-          entry({ id: 'a', title: 'งานผัดบ่อย', payload: { deferCount: 4, estimateMinutes: 60, actualMinutes: 0, checklist: [], github: null, branchName: null } }),
+          entry({
+            id: 'a',
+            title: 'งานผัดบ่อย',
+            payload: {
+              deferCount: 4,
+              estimateMinutes: 60,
+              actualMinutes: 0,
+              checklist: [],
+              github: null,
+              branchName: null,
+            },
+          }),
           entry({ id: 'b', status: 'done' }),
         ],
         ctx,

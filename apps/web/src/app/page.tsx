@@ -48,7 +48,10 @@ export default function LandingPage() {
       </div>
 
       <section aria-labelledby="highlights" className="space-y-4">
-        <h2 id="highlights" className="text-sm font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+        <h2
+          id="highlights"
+          className="text-sm font-semibold uppercase tracking-wide text-[var(--muted-foreground)]"
+        >
           โจทย์ทางเทคนิคที่โปรเจกต์นี้แก้
         </h2>
         <ul className="grid gap-4 sm:grid-cols-2">

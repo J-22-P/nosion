@@ -48,10 +48,7 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       );
     }
 
-    res
-      .status(problem.status)
-      .type('application/problem+json')
-      .json(problem);
+    res.status(problem.status).type('application/problem+json').json(problem);
   }
 
   private toProblem(exception: unknown, instance: string): ProblemDetails {

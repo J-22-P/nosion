@@ -35,7 +35,12 @@ export function createLogger(level = 'info', pretty = false): Logger {
     timestamp: pino.stdTimeFunctions.isoTime,
     formatters: { level: (label) => ({ level: label }) },
     ...(pretty
-      ? { transport: { target: 'pino-pretty', options: { colorize: true, translateTime: 'HH:MM:ss' } } }
+      ? {
+          transport: {
+            target: 'pino-pretty',
+            options: { colorize: true, translateTime: 'HH:MM:ss' },
+          },
+        }
       : {}),
   });
 }

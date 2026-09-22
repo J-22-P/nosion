@@ -75,10 +75,7 @@ describe('Auth flow', () => {
     const firstCookie = extractRefreshCookie(registered);
 
     // หมุนครั้งที่ 1 — ได้ใบใหม่
-    const rotated = await api()
-      .post('/api/v1/auth/refresh')
-      .set('Cookie', firstCookie)
-      .expect(200);
+    const rotated = await api().post('/api/v1/auth/refresh').set('Cookie', firstCookie).expect(200);
     expect(rotated.body.accessToken).toBeTruthy();
 
     // ใช้ใบเก่าซ้ำ = สัญญาณว่า token ถูกขโมย
