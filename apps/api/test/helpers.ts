@@ -1,0 +1,35 @@
+import { type INestApplication } from '@nestjs/common';
+import { Test } from '@nestjs/testing';
+import cookieParser from 'cookie-parser';
+import { AppModule } from '../src/app.module';
+import { ProblemDetailsFilter } from '../src/common/problem.filter';
+import { PrismaService } from '../src/infra/prisma/prisma.service';
+
+export interface TestContext {
+  app: INestApplication;
+  prisma: PrismaService;
+}
+
+/**
+ * ยกแอปจริงทั้งตัวขึ้นมา (ไม่ mock Prisma) — integration test ที่ mock DB
+ * จะไม่จับบั๊กที่เกิดจริงอย่าง constraint, cascade หรือ transaction
+ */
+export async function createTestApp(): Promise<TestContext> {
+  const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+
+  const app = moduleRef.createNestApplication();
+  app.setGlobalPrefix('api/v1', { exclude: ['healthz', 'readyz', 'metrics'] });
+  app.use(cookieParser());
+  app.useGlobalFilters(new ProblemDetailsFilter());
+  await app.init();
+
+  const prisma = app.get(PrismaService);
+  await prisma.truncateAll();
+
+  return { app, prisma };
+}
+
+export const uniqueEmail = (prefix = 'user') =>
+  `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
+
+export const STRONG_PASSWORD = 'correct-horse-battery-staple-2026';
