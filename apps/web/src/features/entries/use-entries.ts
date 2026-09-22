@@ -1,0 +1,119 @@
+'use client';
+
+import type { CreateEntryInput, EntryDto, Paginated, UpdateEntryInput } from '@nosion/contracts';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { ApiError } from '@/lib/api-client';
+import { entriesApi, projectsApi, tagsApi, type EntryFilters } from './api';
+
+const entriesKey = (filters: EntryFilters) => ['entries', filters] as const;
+
+export function useEntries(filters: EntryFilters) {
+  return useQuery({
+    queryKey: entriesKey(filters),
+    queryFn: () => entriesApi.list(filters),
+    staleTime: 30_000,
+    placeholderData: (previous) => previous, // กันหน้ากระพริบตอนเปลี่ยน filter
+  });
+}
+
+export function useProjects() {
+  return useQuery({ queryKey: ['projects'], queryFn: projectsApi.list, staleTime: 5 * 60 * 1000 });
+}
+
+export function useTags() {
+  return useQuery({ queryKey: ['tags'], queryFn: tagsApi.list, staleTime: 5 * 60 * 1000 });
+}
+
+/**
+ * ทุก mutation ใช้รูปแบบเดียวกัน: อัปเดตแคชทันที (optimistic) → ถ้าพลาดย้อนกลับ + แจ้งเตือน
+ * ผู้ใช้จึงไม่ต้องรอ round-trip ในการติ๊กงานเสร็จ ซึ่งเป็นสิ่งที่ทำบ่อยที่สุดในแอป
+ */
+function useOptimisticEntryMutation<TVariables>(
+  filters: EntryFilters,
+  mutationFn: (vars: TVariables) => Promise<unknown>,
+  applyLocally: (entries: EntryDto[], vars: TVariables) => EntryDto[],
+  errorMessage: string,
+) {
+  const queryClient = useQueryClient();
+  const key = entriesKey(filters);
+
+  return useMutation({
+    mutationFn,
+    onMutate: async (vars: TVariables) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<Paginated<EntryDto>>(key);
+      if (previous) {
+        queryClient.setQueryData<Paginated<EntryDto>>(key, {
+          ...previous,
+          data: applyLocally(previous.data, vars),
+        });
+      }
+      return { previous };
+    },
+    onError: (error, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(key, context.previous);
+      const detail = error instanceof ApiError ? error.message : '';
+      toast.error(errorMessage, { description: detail || undefined });
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ['entries'] });
+    },
+  });
+}
+
+export function useCompleteEntry(filters: EntryFilters) {
+  return useOptimisticEntryMutation<string>(
+    filters,
+    (id) => entriesApi.complete(id),
+    (entries, id) =>
+      entries.map((e) =>
+        e.id === id ? { ...e, status: 'done', completedAt: new Date().toISOString() } : e,
+      ),
+    'ทำเครื่องหมายว่าเสร็จไม่สำเร็จ',
+  );
+}
+
+export function useDeferEntry(filters: EntryFilters) {
+  return useOptimisticEntryMutation<{ id: string; to: string }>(
+    filters,
+    ({ id, to }) => entriesApi.defer(id, to),
+    (entries, { id }) => entries.filter((e) => e.id !== id),
+    'เลื่อนงานไม่สำเร็จ',
+  );
+}
+
+export function useDeleteEntry(filters: EntryFilters) {
+  return useOptimisticEntryMutation<string>(
+    filters,
+    (id) => entriesApi.remove(id),
+    (entries, id) => entries.filter((e) => e.id !== id),
+    'ลบงานไม่สำเร็จ',
+  );
+}
+
+export function useUpdateEntry(filters: EntryFilters) {
+  return useOptimisticEntryMutation<{ id: string; input: UpdateEntryInput }>(
+    filters,
+    ({ id, input }) => entriesApi.update(id, input),
+    (entries, { id, input }) =>
+      entries.map((e) => (e.id === id ? { ...e, ...(input as Partial<EntryDto>) } : e)),
+    'บันทึกการแก้ไขไม่สำเร็จ',
+  );
+}
+
+export function useCreateEntry() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateEntryInput) => entriesApi.create(input),
+    onSuccess: (entry) => {
+      toast.success('เพิ่มงานแล้ว', { description: entry.title });
+      void queryClient.invalidateQueries({ queryKey: ['entries'] });
+    },
+    onError: (error) => {
+      toast.error('เพิ่มงานไม่สำเร็จ', {
+        description: error instanceof ApiError ? error.message : undefined,
+      });
+    },
+  });
+}
