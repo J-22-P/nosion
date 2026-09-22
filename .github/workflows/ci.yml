@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true # push ใหม่บน PR เดิม → ยกเลิก run เก่า ประหยัดเวลา
+
+env:
+  TURBO_TELEMETRY_DISABLED: 1
+  NEXT_TELEMETRY_DISABLED: 1
+  DATABASE_URL: postgresql://nosion:nosion@localhost:5432/nosion_test
+
+jobs:
+  # ── งานเบา รันขนานกันทั้งหมด ────────────────────────────
+  lint:
+    name: Lint · Format · Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm typecheck
+
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm test:unit
+
+  integration:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: nosion
+          POSTGRES_PASSWORD: nosion
+          POSTGRES_DB: nosion_test
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 3s --health-retries 20
+        ports: ['5432:5432']
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s
+          --health-timeout 3s --health-retries 20
+        ports: ['6379:6379']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm db:migrate:deploy
+      - run: pnpm test:int
+        env:
+          REDIS_URL: redis://localhost:6379
+
+  security:
+    name: Security scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      # secret ที่หลุดเข้า git history
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: ./.github/actions/setup
+      - run: pnpm audit --audit-level=high
+      - uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+          ignore-unfixed: true
+
+  build:
+    name: Build ${{ matrix.app }}
+    needs: [lint, unit]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [web, api, worker]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm turbo run build --filter=@nosion/${{ matrix.app }}

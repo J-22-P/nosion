@@ -1,0 +1,6 @@
+{
+  "extends": "@nosion/tsconfig/library.json",
+  "compilerOptions": { "outDir": "dist", "rootDir": "src", "types": ["node"] },
+  "include": ["src/**/*.ts"],
+  "exclude": ["dist", "node_modules", "**/*.spec.ts"]
+}

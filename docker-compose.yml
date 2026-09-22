@@ -1,0 +1,82 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: nosion
+      POSTGRES_PASSWORD: nosion
+      POSTGRES_DB: nosion_dev
+    ports: ['5432:5432']
+    volumes: ['pgdata:/var/lib/postgresql/data']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U nosion']
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    ports: ['6379:6379']
+    volumes: ['redisdata:/data']
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      retries: 10
+
+  # ดักอีเมลใน dev — เปิดดูที่ http://localhost:8025 ไม่มีอีเมลหลุดออกไปจริง
+  mailpit:
+    image: axllent/mailpit
+    ports: ['1025:1025', '8025:8025']
+
+  # จำลอง R2/S3 — คอนโซลที่ http://localhost:9001
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports: ['9000:9000', '9001:9001']
+    volumes: ['miniodata:/data']
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+      target: builder # dev ใช้ stage builder เพื่อให้มี devDependencies
+    command: pnpm --filter @nosion/api start:dev
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://nosion:nosion@postgres:5432/nosion_dev
+      REDIS_URL: redis://redis:6379
+      SMTP_URL: smtp://mailpit:1025
+      JWT_SECRET: dev-only-change-me-dev-only-change-me-dev-only-change
+      CORS_ORIGINS: http://localhost:3000
+    ports: ['3001:3001']
+    volumes:
+      - ./apps/api:/app/apps/api
+      - ./packages:/app/packages
+      - /app/node_modules # กัน host บัง node_modules ใน container
+      - /app/apps/api/node_modules
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+      target: builder
+    command: pnpm --filter @nosion/worker start:dev
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://nosion:nosion@postgres:5432/nosion_dev
+      REDIS_URL: redis://redis:6379
+    volumes:
+      - ./apps/worker:/app/apps/worker
+      - ./packages:/app/packages
+      - /app/node_modules
+      - /app/apps/worker/node_modules
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+volumes: { pgdata: {}, redisdata: {}, miniodata: {} }

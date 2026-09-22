@@ -1,0 +1,28 @@
+name: ตั้งค่า Node + pnpm + cache
+description: ติดตั้ง toolchain และคืนค่า cache ให้ job ที่เรียกใช้
+
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v4
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: pnpm
+
+    - name: ติดตั้ง dependency
+      shell: bash
+      run: pnpm install --frozen-lockfile
+
+    - name: สร้าง Prisma Client
+      shell: bash
+      run: pnpm db:generate
+
+    # Turborepo cache ทำให้ job ที่ไม่มีอะไรเปลี่ยนจบในไม่กี่วินาที
+    - name: คืนค่า Turborepo cache
+      uses: actions/cache@v4
+      with:
+        path: .turbo
+        key: turbo-${{ runner.os }}-${{ github.sha }}
+        restore-keys: turbo-${{ runner.os }}-
