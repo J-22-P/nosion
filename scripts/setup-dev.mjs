@@ -6,8 +6,9 @@
  *   3) docker compose up -d --wait   (postgres, redis, mailpit)
  *   4) สร้าง/รัน migration แล้ว seed ข้อมูลตัวอย่าง
  */
+import { randomBytes } from 'node:crypto';
 import { execSync } from 'node:child_process';
-import { copyFileSync, existsSync, readdirSync } from 'node:fs';
+import { copyFileSync, existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -23,7 +24,16 @@ run('pnpm install');
 
 if (!existsSync(join(root, '.env'))) {
   copyFileSync(join(root, '.env.example'), join(root, '.env'));
-  console.log('✓ สร้าง .env จาก .env.example แล้ว');
+
+  // ความลับของ dev ต้องไม่ถูก commit และไม่ควรเหมือนกันทุกเครื่อง
+  // (ค่าที่ใช้ร่วมกันทั้งทีมคือค่าที่หลุดแล้วโดยปริยาย)
+  const envPath = join(root, '.env');
+  const filled = readFileSync(envPath, 'utf8')
+    .replace(/^JWT_SECRET=.*$/m, `JWT_SECRET=${randomBytes(48).toString('base64')}`)
+    .replace(/^ENCRYPTION_KEY=.*$/m, `ENCRYPTION_KEY=${randomBytes(32).toString('hex')}`);
+  writeFileSync(envPath, filled);
+
+  console.log('✓ สร้าง .env จาก .env.example พร้อมสุ่ม JWT_SECRET และ ENCRYPTION_KEY ใหม่');
 } else {
   console.log('• มี .env อยู่แล้ว — ข้าม');
 }

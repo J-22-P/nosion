@@ -54,7 +54,8 @@ services:
       DATABASE_URL: postgresql://nosion:nosion@postgres:5432/nosion_dev
       REDIS_URL: redis://redis:6379
       SMTP_URL: smtp://mailpit:1025
-      JWT_SECRET: dev-only-change-me-dev-only-change-me-dev-only-change
+      # อ่านจาก .env ที่ setup:dev สุ่มไว้ — ไม่ฝังความลับลงไฟล์ที่ขึ้น git
+      JWT_SECRET: ${JWT_SECRET:?ยังไม่มี JWT_SECRET ใน .env — รัน pnpm setup:dev ก่อน}
       CORS_ORIGINS: http://localhost:3000
     ports: ['3001:3001']
     volumes:
