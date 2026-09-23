@@ -21,3 +21,6 @@ pnpm-debug.log*
 
 # pnpm ทิ้งไฟล์ชั่วคราวไว้เมื่อ FS ไม่รองรับการลบ
 _tmp_*
+
+# Next.js สร้างไฟล์นี้ใหม่ทุกครั้งที่ build
+next-env.d.ts
