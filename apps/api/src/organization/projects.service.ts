@@ -19,8 +19,14 @@ export class ProjectsService {
     input: { name: string; color: string; icon?: string | null },
   ): Promise<ProjectDto> {
     const count = await this.prisma.forUser(userId).project.count({ where: { deletedAt: null } });
-    const row = await this.prisma.forUser(userId).project.create({
-      data: { name: input.name, color: input.color, icon: input.icon ?? null, sortOrder: count },
+    const row = await this.prisma.project.create({
+      data: {
+        userId,
+        name: input.name,
+        color: input.color,
+        icon: input.icon ?? null,
+        sortOrder: count,
+      },
     });
     return toProjectDto(row);
   }

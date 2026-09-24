@@ -14,7 +14,7 @@ export class TagsService {
 
   async create(userId: string, input: { name: string; color: string }): Promise<TagDto> {
     try {
-      const row = await this.prisma.forUser(userId).tag.create({ data: input });
+      const row = await this.prisma.tag.create({ data: { ...input, userId } });
       return { id: row.id, name: row.name, color: row.color };
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {

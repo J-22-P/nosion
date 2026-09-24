@@ -1,17 +1,24 @@
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { PrismaService } from '../src/infra/prisma/prisma.service';
-import { createTestApp, STRONG_PASSWORD, uniqueEmail } from './helpers';
+import { RedisService } from '../src/infra/redis/redis.service';
+import { createTestApp, resetRateLimits, STRONG_PASSWORD, uniqueEmail } from './helpers';
 
 describe('Auth flow', () => {
   let app: INestApplication;
   let prisma: PrismaService;
+  let redis: RedisService;
 
   beforeAll(async () => {
     const ctx = await createTestApp();
     app = ctx.app;
     prisma = ctx.prisma;
+    redis = ctx.redis;
+  });
+
+  beforeEach(async () => {
+    await resetRateLimits(redis);
   });
 
   afterAll(async () => {

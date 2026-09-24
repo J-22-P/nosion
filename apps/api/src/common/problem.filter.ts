@@ -28,6 +28,20 @@ export function zodIssuesToFieldErrors(error: ZodError): FieldError[] {
 }
 
 /**
+ * `instanceof` พังได้เมื่อ zod ถูกติดตั้งสองชุด (เช่น ของ packages/contracts กับของ apps/api)
+ * เพราะเป็นคนละคลาสกันในหน่วยความจำ — ตรวจจากรูปร่างของ error แทนจึงทนกว่าที่ boundary
+ */
+export function isZodError(error: unknown): error is ZodError {
+  return (
+    error instanceof ZodError ||
+    (typeof error === 'object' &&
+      error !== null &&
+      (error as { name?: string }).name === 'ZodError' &&
+      Array.isArray((error as { issues?: unknown }).issues))
+  );
+}
+
+/**
  * ทุก error ที่ออกจาก API มีรูปแบบเดียว: RFC 9457 Problem Details
  * — ไม่มี error shape แปลก ๆ หลุดออกไปให้ frontend ต้องเดา
  */
@@ -54,7 +68,7 @@ export class ProblemDetailsFilter implements ExceptionFilter {
   private toProblem(exception: unknown, instance: string): ProblemDetails {
     const traceId = requestContext.traceId();
 
-    if (exception instanceof ZodError) {
+    if (isZodError(exception)) {
       return {
         type: ProblemType.validationFailed,
         title: 'Validation failed',

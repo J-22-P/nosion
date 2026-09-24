@@ -114,8 +114,9 @@ export class EntriesService {
           }))
         : [];
 
-    const row = await this.prisma.forUser(userId).entry.create({
+    const row = await this.prisma.entry.create({
       data: {
+        userId,
         module: dto.module,
         title: dto.title,
         description: dto.description ?? null,

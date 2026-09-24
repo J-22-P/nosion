@@ -1,22 +1,29 @@
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createTestApp, STRONG_PASSWORD, uniqueEmail } from './helpers';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { RedisService } from '../src/infra/redis/redis.service';
+import { createTestApp, resetRateLimits, STRONG_PASSWORD, uniqueEmail } from './helpers';
 
 describe('Entries CRUD + IDOR', () => {
   let app: INestApplication;
+  let redis: RedisService;
   let alice = '';
   let bob = '';
 
   beforeAll(async () => {
     const ctx = await createTestApp();
     app = ctx.app;
+    redis = ctx.redis;
     alice = await registerUser(app, 'alice');
     bob = await registerUser(app, 'bob');
   });
 
   afterAll(async () => {
     await app.close();
+  });
+
+  beforeEach(async () => {
+    await resetRateLimits(redis);
   });
 
   const api = () => request(app.getHttpServer());
