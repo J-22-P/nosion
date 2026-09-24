@@ -7,6 +7,14 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+    # การข้าม major ต้องอ่าน changelog และแก้โค้ดเอง — ไม่ใช่สิ่งที่ bot ควรเปิด PR ให้อัตโนมัติ
+    # (ดู Phase 8: มีรอบตรวจ dependency ก่อนปล่อย production)
+    ignore:
+      - dependency-name: '*'
+        update-types: [version-update:semver-major]
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: monthly }
+    ignore:
+      - dependency-name: '*'
+        update-types: [version-update:semver-major]
