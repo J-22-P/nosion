@@ -1,5 +1,5 @@
 import type { ModuleKey } from '@nosion/contracts';
-import type { ZodType } from 'zod';
+import type { ZodType, ZodTypeDef } from 'zod';
 import type {
   CalendarEvent,
   Entry,
@@ -25,8 +25,14 @@ export interface TrackableModule<TPayload = unknown> {
   /** ชื่อที่แสดงผล + ไอคอน + สีประจำโมดูล */
   readonly meta: ModuleMeta;
 
-  /** Zod schema สำหรับ validate payload — บังคับทุกโมดูล */
-  readonly payloadSchema: ZodType<TPayload>;
+  /**
+   * Zod schema สำหรับ validate payload — บังคับทุกโมดูล
+   *
+   * พารามิเตอร์ที่สามคือชนิดของ "ข้อมูลก่อน parse" ซึ่งต้องเป็น unknown
+   * เพราะ schema ที่มี .default() จะมี input ไม่เท่ากับ output
+   * (ZodType<T> ตัวเปล่าบังคับให้เท่ากัน ทำให้โมดูลที่มี default ใส่เข้ามาไม่ได้)
+   */
+  readonly payloadSchema: ZodType<TPayload, ZodTypeDef, unknown>;
 
   /** โมดูลนี้ต้องการให้ Recurrence Engine สร้าง entry ซ้ำหรือไม่ */
   readonly supportsRecurrence: boolean;

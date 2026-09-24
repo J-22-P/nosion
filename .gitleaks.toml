@@ -1,29 +1,28 @@
-# กฎของ gitleaks สำหรับ NOSION
-# ใช้กฎมาตรฐานทั้งหมด แล้วยกเว้นเฉพาะค่าที่เป็น placeholder ซึ่งตั้งใจให้อยู่ใน repo
+# กฎของ gitleaks สำหรับ NOSION — ใช้กฎมาตรฐานทั้งหมด แล้วยกเว้นเฉพาะค่า placeholder
 #
-# หมายเหตุสำคัญ: allowlist นี้ยกเว้น "ค่าที่รู้ว่าไม่ใช่ความลับจริง" เท่านั้น
-# ห้ามเพิ่มค่าจริงลงมาเพื่อให้ CI เขียว — ถ้าความลับจริงหลุดขึ้น git
-# วิธีแก้คือเพิกถอนความลับนั้นทิ้ง ไม่ใช่ปิดเครื่องตรวจ
+# ⚠ allowlist นี้มีไว้ยกเว้น "ค่าที่รู้แน่ว่าไม่ใช่ความลับจริง" เท่านั้น
+#   ถ้าความลับจริงหลุดขึ้น git วิธีแก้คือ **เพิกถอนความลับนั้นทิ้ง** ไม่ใช่เพิ่มลงมาที่นี่
+#   (ความลับที่เคย commit แล้วลบทีหลัง ยังอยู่ใน history และต้องถือว่ารั่วแล้ว)
+#
+# regexTarget = "match" เทียบกับข้อความทั้งบรรทัดที่ตรวจเจอ ไม่ใช่เฉพาะส่วนที่ถูกตัดเป็น secret
+# — จำเป็น เพราะ rule generic-api-key ตัด secret ออกมาไม่ตรงกับค่าที่เราเขียนไว้เป๊ะ ๆ
 
 [extend]
 useDefault = true
 
-[[allowlists]]
-description = "ค่าตัวอย่างใน .env.example และ CI — เป็น placeholder ที่ตั้งใจให้เห็น"
+[allowlist]
+description = "ค่า placeholder ที่ตั้งใจให้อยู่ใน repo (.env.example, docker-compose, ค่าในเทสต์)"
+regexTarget = "match"
 regexes = [
   '''dev-only-change-me[a-z-]*''',
   '''ci-only-not-a-real-secret[a-z-]*''',
-  '''0{64}''',
-  '''minioadmin''',
-  '''postgresql://nosion:nosion@''',
-  '''nosion-demo-2026''',
   '''correct-horse-battery-staple-2026''',
+  '''nosion-demo-2026''',
+  '''postgresql://nosion:nosion@''',
+  '''minioadmin''',
+  '''0{64}''',
 ]
-
-[[allowlists]]
-description = "ไฟล์ที่เป็นตัวอย่าง/เอกสาร ไม่เก็บความลับจริง"
 paths = [
   '''\.env\.example$''',
-  '''docker-compose\.ya?ml$''',
   '''docs/learn/.*\.md$''',
 ]

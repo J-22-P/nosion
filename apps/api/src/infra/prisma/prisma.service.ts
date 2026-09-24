@@ -70,23 +70,24 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
           $allOperations({ model, operation, args, query }) {
             if (!model || !USER_SCOPED_MODELS.has(model)) return query(args);
 
+            // แก้ args ในที่เดิมแล้วส่งตัวเดิมกลับ เพื่อคง type ที่ query() คาดหวังไว้
             if (READ_WRITE_OPS.has(operation)) {
               const a = args as { where?: Record<string, unknown> };
               a.where = { ...(a.where ?? {}), userId };
-              return query(a);
+              return query(args);
             }
 
             if (operation === 'create') {
               const a = args as { data?: Record<string, unknown> };
               a.data = { ...(a.data ?? {}), userId };
-              return query(a);
+              return query(args);
             }
 
             if (operation === 'createMany') {
               const a = args as { data?: Record<string, unknown> | Record<string, unknown>[] };
               const rows = Array.isArray(a.data) ? a.data : [a.data ?? {}];
               a.data = rows.map((row) => ({ ...row, userId }));
-              return query(a);
+              return query(args);
             }
 
             return query(args);
