@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { createEntrySchema, listEntriesQuerySchema, updateEntrySchema } from './entry';
-import { expensePayloadSchema, taskPayloadSchema } from './payloads';
+import {
+  expensePayloadSchema,
+  habitPayloadSchema,
+  isHabitComplete,
+  taskPayloadSchema,
+  workoutPayloadSchema,
+} from './payloads';
 
 describe('createEntrySchema', () => {
   it('เติมค่าเริ่มต้นให้ครบ เพื่อให้ service ไม่ต้องเช็ค undefined ทุกจุด', () => {
@@ -75,5 +81,65 @@ describe('payload ต่อโมดูล', () => {
     expect(expensePayloadSchema.safeParse({ amountMinor: 100, category: 'crypto' }).success).toBe(
       false,
     );
+  });
+});
+
+describe('habit payload v1.1', () => {
+  it('ค่าเริ่มต้นเป็นแบบ check และ payload เก่า (ไม่มี kind) ยัง parse ผ่าน', () => {
+    const parsed = habitPayloadSchema.parse({ targetValue: 8, unit: 'แก้ว' });
+    expect(parsed).toMatchObject({
+      kind: 'check',
+      targetValue: 8,
+      currentValue: 0,
+      unitConversion: null,
+      deadlineLocalTime: null,
+      subtitle: null,
+    });
+  });
+
+  it('count: เก็บหน่วยแปลงสำหรับแสดงผลรอง', () => {
+    const parsed = habitPayloadSchema.parse({
+      kind: 'count',
+      targetValue: 8,
+      currentValue: 5,
+      unit: 'แก้ว',
+      unitConversion: { unit: 'ml', factor: 250 },
+    });
+    expect(parsed.unitConversion).toEqual({ unit: 'ml', factor: 250 });
+  });
+
+  it('before_time: ต้องมี deadlineLocalTime และต้องเป็นเวลาที่มีจริง', () => {
+    const missing = habitPayloadSchema.safeParse({ kind: 'before_time' });
+    expect(missing.success).toBe(false);
+    expect(missing.error?.issues[0]?.path).toEqual(['deadlineLocalTime']);
+
+    expect(
+      habitPayloadSchema.safeParse({ kind: 'before_time', deadlineLocalTime: '23:45' }).success,
+    ).toBe(true);
+    expect(
+      habitPayloadSchema.safeParse({ kind: 'before_time', deadlineLocalTime: '25:99' }).success,
+    ).toBe(false);
+  });
+
+  it('weekly: ต้องบอกว่ากี่ครั้งต่อสัปดาห์', () => {
+    expect(habitPayloadSchema.safeParse({ cadence: 'weekly' }).success).toBe(false);
+    expect(habitPayloadSchema.safeParse({ cadence: 'weekly', weeklyTarget: 3 }).success).toBe(true);
+  });
+
+  it('isHabitComplete: ครบเป้าเมื่อ current ≥ target', () => {
+    expect(isHabitComplete({ currentValue: 5, targetValue: 8 })).toBe(false);
+    expect(isHabitComplete({ currentValue: 8, targetValue: 8 })).toBe(true);
+  });
+});
+
+describe('workout payload v1.1', () => {
+  it('splitLabel / templateId เป็น optional และมีค่าเริ่มต้นเป็น null', () => {
+    const parsed = workoutPayloadSchema.parse({ workoutType: 'strength' });
+    expect(parsed.splitLabel).toBeNull();
+    expect(parsed.templateId).toBeNull();
+    expect(
+      workoutPayloadSchema.safeParse({ workoutType: 'strength', splitLabel: 'x'.repeat(21) })
+        .success,
+    ).toBe(false);
   });
 });

@@ -69,6 +69,10 @@ export type ExpensePayload = z.infer<typeof expensePayloadSchema>;
 // ── WORKOUT ────────────────────────────────────
 export const workoutPayloadSchema = z.object({
   workoutType: z.enum(['strength', 'cardio', 'flexibility', 'sport', 'other']),
+  /** ป้ายโปรแกรมแบบ split ที่แสดงบนการ์ด Today เช่น "Day A" (v1.1) */
+  splitLabel: z.string().max(20).nullable().default(null),
+  /** เทมเพลตที่ใช้สร้าง session นี้ — ใช้แนะนำ "โปรแกรมแนะนำวันนี้" (v1.1) */
+  templateId: z.string().nullable().default(null),
   durationMinutes: z.number().int().positive().nullable().default(null),
   exercises: z
     .array(
@@ -97,15 +101,57 @@ export const workoutPayloadSchema = z.object({
 export type WorkoutPayload = z.infer<typeof workoutPayloadSchema>;
 
 // ── HABIT ──────────────────────────────────────
-export const habitPayloadSchema = z.object({
-  /** เป้าหมายต่อรอบ เช่น ดื่มน้ำ 8 แก้ว */
-  targetValue: z.number().positive().default(1),
-  currentValue: z.number().nonnegative().default(0),
-  unit: z.string().max(20).default('ครั้ง'),
-  cadence: z.enum(['daily', 'weekly']).default('daily'),
-  weeklyTarget: z.number().int().positive().nullable().default(null),
-});
+/**
+ * รูปแบบการบันทึก habit (v1.1 — มาจาก mockup หน้า Today ที่มี habit 3 แบบ)
+ *  - count       → นับจำนวน มีปุ่ม −1 / +1        เช่น ดื่มน้ำ 5/8 แก้ว
+ *  - check       → ทำ/ไม่ทำ ติ๊กครั้งเดียว           เช่น อ่านหนังสือ 30 นาที
+ *  - before_time → ต้องทำก่อนเวลาที่กำหนด (local)   เช่น นอนก่อน 23:45
+ */
+export const habitKindSchema = z.enum(['count', 'check', 'before_time']);
+export type HabitKind = z.infer<typeof habitKindSchema>;
+
+/** "HH:mm" แบบ 24 ชั่วโมง — เข้มกว่า \d{2}:\d{2} เพื่อไม่ให้ "25:99" หลุดเข้า JSONB */
+export const localTimeSchema = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'ต้องเป็นเวลาแบบ HH:mm (00:00–23:59)');
+
+export const habitPayloadSchema = z
+  .object({
+    kind: habitKindSchema.default('check'),
+    /** เป้าหมายต่อรอบ เช่น ดื่มน้ำ 8 แก้ว (kind=check/before_time ใช้ 1) */
+    targetValue: z.number().positive().default(1),
+    currentValue: z.number().nonnegative().default(0),
+    unit: z.string().max(20).default('ครั้ง'),
+    /** หน่วยแปลงสำหรับแสดงผลรอง เช่น 1 แก้ว = 250 ml → "8 แก้ว (2,000 ml)" */
+    unitConversion: z
+      .object({
+        unit: z.string().max(10),
+        factor: z.number().positive(),
+      })
+      .nullable()
+      .default(null),
+    /** ใช้เมื่อ kind=before_time — "HH:mm" ตาม timezone ของผู้ใช้ */
+    deadlineLocalTime: localTimeSchema.nullable().default(null),
+    /** คำอธิบายสั้นใต้ชื่อ เช่น "Staff Engineer Path" */
+    subtitle: z.string().max(80).nullable().default(null),
+    /** daily | weekly — weekly คือ "3 ครั้งต่อสัปดาห์" */
+    cadence: z.enum(['daily', 'weekly']).default('daily'),
+    weeklyTarget: z.number().int().positive().nullable().default(null),
+  })
+  .refine((p) => p.kind !== 'before_time' || p.deadlineLocalTime !== null, {
+    message: 'before_time ต้องระบุ deadlineLocalTime',
+    path: ['deadlineLocalTime'],
+  })
+  .refine((p) => p.cadence !== 'weekly' || p.weeklyTarget !== null, {
+    message: 'cadence=weekly ต้องระบุ weeklyTarget',
+    path: ['weeklyTarget'],
+  });
 export type HabitPayload = z.infer<typeof habitPayloadSchema>;
+
+/** สำเร็จแล้วหรือยังในรอบนี้ — ใช้ร่วมกันระหว่าง widget Today กับ streak ฝั่ง API */
+export function isHabitComplete(p: Pick<HabitPayload, 'currentValue' | 'targetValue'>): boolean {
+  return p.currentValue >= p.targetValue;
+}
 
 export const payloadSchemaByModule = {
   task: taskPayloadSchema,
