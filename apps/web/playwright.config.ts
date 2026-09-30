@@ -1,15 +1,58 @@
 import { defineConfig, devices } from '@playwright/test';
 
+/**
+ * สอง project แยกกันตามสิ่งที่ต้องมี
+ *
+ *  smoke — ใช้ API + DB จริง (ยก docker-compose ก่อน) · ทดสอบ flow ปลายทางถึงปลายทาง
+ *  ui    — API ปลอมด้วย page.route · visual regression + axe · ต้องการแค่ web ที่ build แล้ว
+ *
+ * ถ้าไม่ได้ตั้ง E2E_BASE_URL จะรัน `pnpm start` ให้เอง (ต้อง `pnpm build` ก่อน)
+ */
+const baseURL = process.env.E2E_BASE_URL ?? 'http://localhost:3000';
+
 export default defineConfig({
   testDir: './e2e',
   timeout: 30_000,
   fullyParallel: true,
   retries: process.env.CI ? 2 : 0,
-  reporter: process.env.CI ? [['html'], ['github']] : 'list',
+  reporter: process.env.CI ? [['html', { open: 'never' }], ['github']] : 'list',
+  // baseline แยกตาม platform — ภาพจาก macOS กับ Linux เทียบกันไม่ได้
+  snapshotPathTemplate: '{testDir}/__screenshots__/{testFileName}/{arg}-{platform}{ext}',
+  expect: {
+    toHaveScreenshot: {
+      animations: 'disabled',
+      caret: 'hide',
+      // anti-alias ของฟอนต์ต่างกันเล็กน้อยได้ — เกิน 1% ของพิกเซลถือว่าหน้าตาเปลี่ยนจริง
+      maxDiffPixelRatio: 0.01,
+    },
+  },
   use: {
-    baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:3000',
+    baseURL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    {
+      name: 'smoke',
+      testMatch: /smoke\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'ui',
+      testMatch: /(visual|a11y)\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        locale: 'th-TH',
+        timezoneId: 'Asia/Bangkok',
+      },
+    },
+  ],
+  webServer: process.env.E2E_BASE_URL
+    ? undefined
+    : {
+        command: 'pnpm start',
+        url: baseURL,
+        reuseExistingServer: !process.env.CI,
+        timeout: 120_000,
+      },
 });
