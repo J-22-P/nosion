@@ -18,6 +18,7 @@ export interface EntryFilters {
   to?: string;
   q?: string;
   overdue?: boolean;
+  inbox?: boolean;
   sort?: string;
   limit?: number;
   cursor?: string;

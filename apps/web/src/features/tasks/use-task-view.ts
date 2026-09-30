@@ -7,12 +7,12 @@ import type { EntryFilters } from '@/features/entries/api';
 export const TASK_VIEWS = ['list', 'project', 'overdue', 'priority'] as const;
 export type TaskView = (typeof TASK_VIEWS)[number];
 
-/** smart list ใน sidebar: all | today | week | project:<id> | tag:<id> */
-export type SmartList = 'all' | 'today' | 'week' | `project:${string}` | `tag:${string}`;
+/** smart list ใน sidebar: all | inbox | today | week | project:<id> | tag:<id> */
+export type SmartList = 'all' | 'inbox' | 'today' | 'week' | `project:${string}` | `tag:${string}`;
 
 const BASE: EntryFilters = { module: 'task', status: 'pending,active', limit: 50 };
 
-/** งานที่ยังค้างทั้งหมด — ใช้นับ "N ค้างอยู่" (key เดียวกับมุมมองเริ่มต้นจึงไม่ยิงซ้ำ) */
+/** filter ตั้งต้นของทุกมุมมอง: งานที่ยังไม่เสร็จ เรียงตามกำหนดส่ง */
 export const ACTIVE_TASKS_FILTERS: EntryFilters = { ...BASE, sort: 'occurredAt:asc' };
 
 /** กลุ่ม "เสร็จสิ้นแล้ว" ท้ายรายการ */
@@ -48,7 +48,10 @@ export function buildTaskFilters(
   if (view === 'overdue') filters.overdue = true;
   if (view === 'priority') filters.sort = 'priority:desc,occurredAt:asc';
 
-  if (list === 'today') {
+  if (list === 'inbox') {
+    // ไม่มีโปรเจกต์และไม่มีวันกำหนด — งานที่ยังไม่ได้จัดที่
+    filters.inbox = true;
+  } else if (list === 'today') {
     // "วันนี้" รวมงานที่เลยกำหนดด้วย — ยังต้องทำอยู่ดี
     filters.to = endOfDay(now).toISOString();
   } else if (list === 'week') {
@@ -70,14 +73,14 @@ function parseView(value: string | null): TaskView {
 }
 
 function parseList(value: string | null): SmartList {
-  if (value === 'today' || value === 'week') return value;
+  if (value === 'inbox' || value === 'today' || value === 'week') return value;
   if (value && /^(project|tag):[\w-]+$/.test(value)) return value as SmartList;
   return 'all';
 }
 
 /**
  * สถานะของหน้า Tasks อยู่ใน URL (สเปก 8.5 — share ลิงก์ได้ / refresh แล้วคงอยู่)
- * ?view=list|project|overdue|priority &list=today|week|project:<id>|tag:<id> &q=...
+ * ?view=list|project|overdue|priority &list=inbox|today|week|project:<id>|tag:<id> &q=...
  */
 export function useTaskView() {
   const params = useSearchParams();

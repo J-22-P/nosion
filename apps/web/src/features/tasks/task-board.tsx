@@ -20,6 +20,7 @@ import {
 import { ApiError } from '@/lib/api-client';
 import { PRIORITY_LABEL } from '@/lib/format';
 import { TaskCard } from './task-card';
+import { useFocusToday, useStartTimer, useStopTimer } from './use-task-queries';
 import { DONE_TASKS_FILTERS, type TaskView } from './use-task-view';
 
 const VIEW_TITLE: Record<TaskView, { th: string; en: string }> = {
@@ -75,6 +76,10 @@ export function TaskBoard({ filters, view }: { filters: EntryFilters; view: Task
   const defer = useDeferEntry(filters);
   const remove = useDeleteEntry(filters);
   const reopen = useReopenEntry();
+  const focus = useFocusToday();
+  const startTimer = useStartTimer();
+  const stopTimer = useStopTimer();
+  const runningEntryId = focus.data?.running?.entryId ?? null;
 
   const projectNames = useMemo(
     () => new Map((projects.data ?? []).map((p) => [p.id, p.name])),
@@ -110,6 +115,9 @@ export function TaskBoard({ filters, view }: { filters: EntryFilters; view: Task
       onToggle: () => toggle(entry),
       onDefer: (to: 'tomorrow' | 'next-week') => defer.mutate({ id: entry.id, to }),
       onDelete: () => remove.mutate(entry.id),
+      timerRunning: runningEntryId === entry.id,
+      onToggleTimer: () =>
+        runningEntryId === entry.id ? stopTimer.stop(entry.id) : startTimer.mutate(entry.id),
     };
   }
 

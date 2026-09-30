@@ -9,6 +9,8 @@ import {
   GitPullRequest,
   History,
   MoreHorizontal,
+  Play,
+  Square,
   Trash2,
   Undo2,
   Zap,
@@ -47,6 +49,9 @@ export interface TaskCardProps {
   onToggle: () => void;
   onDefer: (to: 'tomorrow' | 'next-week') => void;
   onDelete: () => void;
+  /** งานนี้กำลังจับเวลาอยู่หรือไม่ */
+  timerRunning?: boolean;
+  onToggleTimer?: () => void;
 }
 
 /**
@@ -59,6 +64,8 @@ export const TaskCard = memo(function TaskCard({
   onToggle,
   onDefer,
   onDelete,
+  timerRunning = false,
+  onToggleTimer,
 }: TaskCardProps) {
   const done = entry.status === 'done';
   const overdue = isOverdueDate(entry.occurredAt, entry.status);
@@ -184,15 +191,35 @@ export const TaskCard = memo(function TaskCard({
             <Undo2 size={14} aria-hidden="true" /> ย้อนกลับ
           </Button>
         ) : (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => onDefer('tomorrow')}
-            aria-label={`เลื่อน ${entry.title} ไปพรุ่งนี้`}
-          >
-            <CalendarPlus size={14} aria-hidden="true" />
-            +1 วัน
-          </Button>
+          <>
+            {onToggleTimer ? (
+              <Button
+                variant={timerRunning ? 'primary' : 'secondary'}
+                size="sm"
+                onClick={onToggleTimer}
+                aria-pressed={timerRunning}
+                aria-label={
+                  timerRunning ? `หยุดจับเวลา ${entry.title}` : `เริ่มจับเวลา ${entry.title}`
+                }
+              >
+                {timerRunning ? (
+                  <Square size={12} fill="currentColor" aria-hidden="true" />
+                ) : (
+                  <Play size={12} fill="currentColor" aria-hidden="true" />
+                )}
+                {timerRunning ? 'กำลังจับเวลา' : 'เริ่มจับเวลา'}
+              </Button>
+            ) : null}
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => onDefer('tomorrow')}
+              aria-label={`เลื่อน ${entry.title} ไปพรุ่งนี้`}
+            >
+              <CalendarPlus size={14} aria-hidden="true" />
+              +1 วัน
+            </Button>
+          </>
         )}
         <Menu
           label={`ตัวเลือกของ ${entry.title}`}

@@ -28,6 +28,10 @@ describe('buildTaskFilters', () => {
     expect(new Date(week.to!).getDate()).toBe(6); // 6 ต.ค.
   });
 
+  it('inbox ใส่ inbox=true', () => {
+    expect(buildTaskFilters('list', 'inbox', '', NOW).inbox).toBe(true);
+  });
+
   it('project / tag / คำค้น', () => {
     expect(buildTaskFilters('list', 'project:p1', '', NOW).projectId).toBe('p1');
     expect(buildTaskFilters('list', 'tag:t1', '', NOW).tagIds).toBe('t1');

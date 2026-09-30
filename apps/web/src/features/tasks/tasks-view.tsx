@@ -4,11 +4,12 @@ import { Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { SegmentedControl } from '@/components/ui/segmented-control';
-import { useEntries } from '@/features/entries/use-entries';
 import { QuickCapture } from './quick-capture';
 import { TaskBoard } from './task-board';
+import { FocusCard } from './focus-card';
 import { TaskSidebar, TaskSmartListBar } from './task-sidebar';
-import { ACTIVE_TASKS_FILTERS, useTaskView, type TaskView } from './use-task-view';
+import { useTaskSidebar } from './use-task-queries';
+import { useTaskView, type TaskView } from './use-task-view';
 
 const VIEW_OPTIONS = [
   { value: 'list', label: 'รายการ' },
@@ -20,10 +21,8 @@ const VIEW_OPTIONS = [
 /** หน้า Tasks (สเปก 8.11.2) */
 export function TasksView() {
   const { view, list, q, filters, setView, setList, setQuery } = useTaskView();
-  const active = useEntries(ACTIVE_TASKS_FILTERS);
-  const pendingCount = active.data
-    ? `${active.data.data.length}${active.data.pageInfo.hasMore ? '+' : ''}`
-    : null;
+  const sidebar = useTaskSidebar();
+  const pendingCount = sidebar.data?.smartLists.all ?? null;
 
   return (
     <div className="space-y-6">
@@ -39,7 +38,7 @@ export function TasksView() {
                 (Tasks)
               </span>
             </h1>
-            {pendingCount ? (
+            {pendingCount !== null ? (
               <Badge tone="neutral" className="nums">
                 {pendingCount} ค้างอยู่
               </Badge>
@@ -56,6 +55,9 @@ export function TasksView() {
         </div>
       </header>
 
+      {/* มือถือ: การ์ด Focus อยู่บนสุด (8.11.2) */}
+      <FocusCard className="lg:hidden" />
+
       <QuickCapture />
 
       <TaskSmartListBar value={list} onChange={setList} />
@@ -64,6 +66,7 @@ export function TasksView() {
         <aside className="hidden space-y-4 lg:col-span-3 lg:block">
           <SearchBox value={q} onChange={setQuery} />
           <TaskSidebar value={list} onChange={setList} />
+          <FocusCard />
         </aside>
         <div className="min-w-0 space-y-4 lg:col-span-9">
           <div className="lg:hidden">
