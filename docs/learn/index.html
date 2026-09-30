@@ -30,66 +30,170 @@
           --pending: #64748b;
         }
       }
-      * { box-sizing: border-box; }
+      * {
+        box-sizing: border-box;
+      }
       body {
         margin: 0;
         background: var(--bg);
         color: var(--fg);
-        font-family: "Noto Sans Thai", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-family:
+          'Noto Sans Thai',
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          sans-serif;
         line-height: 1.75;
         -webkit-font-smoothing: antialiased;
       }
-      .wrap { max-width: 880px; margin: 0 auto; padding: 56px 20px 96px; }
-      header { margin-bottom: 44px; }
+      .wrap {
+        max-width: 880px;
+        margin: 0 auto;
+        padding: 56px 20px 96px;
+      }
+      header {
+        margin-bottom: 44px;
+      }
       .eyebrow {
-        font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase;
-        color: var(--muted); margin: 0 0 10px;
+        font-size: 12px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin: 0 0 10px;
       }
-      h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.3; margin: 0 0 14px; }
-      .lede { color: var(--muted); max-width: 60ch; margin: 0; }
+      h1 {
+        font-size: clamp(28px, 5vw, 40px);
+        line-height: 1.3;
+        margin: 0 0 14px;
+      }
+      .lede {
+        color: var(--muted);
+        max-width: 60ch;
+        margin: 0;
+      }
       h2 {
-        font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase;
-        color: var(--muted); margin: 48px 0 16px; font-weight: 600;
+        font-size: 13px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin: 48px 0 16px;
+        font-weight: 600;
       }
-      .phases { display: flex; flex-wrap: wrap; gap: 8px; margin: 26px 0 0; padding: 0; list-style: none; }
+      .phases {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 26px 0 0;
+        padding: 0;
+        list-style: none;
+      }
       .phase {
-        display: inline-flex; align-items: center; gap: 7px; font-size: 13px;
-        border: 1px solid var(--border); border-radius: 999px; padding: 5px 13px;
-        background: var(--surface); color: var(--muted);
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 13px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 5px 13px;
+        background: var(--surface);
+        color: var(--muted);
       }
-      .phase .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--pending); }
-      .phase.done { color: var(--fg); }
-      .phase.done .dot { background: var(--done); }
-      .cards { display: grid; gap: 12px; }
+      .phase .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--pending);
+      }
+      .phase.done {
+        color: var(--fg);
+      }
+      .phase.done .dot {
+        background: var(--done);
+      }
+      .cards {
+        display: grid;
+        gap: 12px;
+      }
       a.card {
-        display: block; text-decoration: none; color: inherit;
-        background: var(--surface); border: 1px solid var(--border);
-        border-radius: var(--radius); padding: 18px 20px;
-        transition: border-color 0.15s ease, transform 0.15s ease;
+        display: block;
+        text-decoration: none;
+        color: inherit;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 18px 20px;
+        transition:
+          border-color 0.15s ease,
+          transform 0.15s ease;
       }
-      a.card:hover { border-color: var(--accent); transform: translateY(-1px); }
-      a.card:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-      .card-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+      a.card:hover {
+        border-color: var(--accent);
+        transform: translateY(-1px);
+      }
+      a.card:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 3px;
+      }
+      .card-head {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
       .num {
-        font-family: var(--mono); font-size: 12px; color: var(--accent);
-        background: var(--accent-soft); border-radius: 6px; padding: 2px 7px;
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--accent);
+        background: var(--accent-soft);
+        border-radius: 6px;
+        padding: 2px 7px;
       }
-      .card-title { font-weight: 600; font-size: 17px; }
+      .card-title {
+        font-weight: 600;
+        font-size: 17px;
+      }
       .tag {
-        margin-left: auto; font-size: 11px; letter-spacing: 0.08em;
-        text-transform: uppercase; color: var(--muted);
+        margin-left: auto;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
       }
-      .card p { margin: 8px 0 0; color: var(--muted); font-size: 14.5px; }
-      .topics { margin: 10px 0 0; font-size: 12.5px; color: var(--muted); font-family: var(--mono); }
+      .card p {
+        margin: 8px 0 0;
+        color: var(--muted);
+        font-size: 14.5px;
+      }
+      .topics {
+        margin: 10px 0 0;
+        font-size: 12.5px;
+        color: var(--muted);
+        font-family: var(--mono);
+      }
       .note {
-        border-left: 3px solid var(--accent); background: var(--accent-soft);
-        padding: 14px 18px; border-radius: 0 var(--radius) var(--radius) 0;
-        font-size: 14.5px; margin: 0 0 8px;
+        border-left: 3px solid var(--accent);
+        background: var(--accent-soft);
+        padding: 14px 18px;
+        border-radius: 0 var(--radius) var(--radius) 0;
+        font-size: 14.5px;
+        margin: 0 0 8px;
       }
-      code { font-family: var(--mono); font-size: 0.9em; }
-      footer { margin-top: 56px; padding-top: 22px; border-top: 1px solid var(--border);
-        color: var(--muted); font-size: 13px; }
-      @media (prefers-reduced-motion: reduce) { a.card { transition: none; } }
+      code {
+        font-family: var(--mono);
+        font-size: 0.9em;
+      }
+      footer {
+        margin-top: 56px;
+        padding-top: 22px;
+        border-top: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 13px;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        a.card {
+          transition: none;
+        }
+      }
     </style>
   </head>
   <body>
@@ -98,8 +202,8 @@
         <p class="eyebrow">NOSION</p>
         <h1>คู่มือเรียนรู้เบื้องหลังโปรเจกต์</h1>
         <p class="lede">
-          เอกสารชุดนี้อธิบายทุกอย่างที่อยู่เบื้องหลังโค้ด ตั้งแต่ศูนย์ — ใช้เทคโนโลยีอะไร
-          เพราะอะไร หลักการทำงานเป็นอย่างไร และข้อเสียที่เรายอมรับแลกมาคืออะไร
+          เอกสารชุดนี้อธิบายทุกอย่างที่อยู่เบื้องหลังโค้ด ตั้งแต่ศูนย์ — ใช้เทคโนโลยีอะไร เพราะอะไร
+          หลักการทำงานเป็นอย่างไร และข้อเสียที่เรายอมรับแลกมาคืออะไร
           เป้าหมายคือทำให้คุณอธิบายโปรเจกต์ตัวเองได้ทุกบรรทัด
         </p>
         <ul class="phases">
@@ -124,7 +228,9 @@
             <span class="num">00</span><span class="card-title">แผนที่การเรียนรู้</span>
             <span class="tag">เริ่มที่นี่</span>
           </div>
-          <p>ลำดับที่ควรอ่าน ความรู้ที่ควรมีก่อน และภาพรวม 30 วินาทีว่า NOSION คืออะไรในเชิงเทคนิค</p>
+          <p>
+            ลำดับที่ควรอ่าน ความรู้ที่ควรมีก่อน และภาพรวม 30 วินาทีว่า NOSION คืออะไรในเชิงเทคนิค
+          </p>
         </a>
 
         <a class="card" href="./01-foundations-web-architecture.md">
@@ -151,7 +257,9 @@
             pnpm ใช้ symlink แทนการคัดลอกอย่างไร · Turborepo แคชผลลัพธ์ได้อย่างไร ·
             และวิธีแปลงกฎสถาปัตยกรรมให้กลายเป็นกฎ lint ที่ CI บังคับได้จริง
           </p>
-          <p class="topics">pnpm workspace · Turborepo · tsconfig · ESLint boundaries · Docker · CI/CD · env</p>
+          <p class="topics">
+            pnpm workspace · Turborepo · tsconfig · ESLint boundaries · Docker · CI/CD · env
+          </p>
         </a>
 
         <a class="card" href="./03-phase0-database-and-prisma.md">
@@ -163,7 +271,9 @@
             index ทำงานอย่างไรถึงเร็วขึ้นพันเท่า · ทำไม partial index ถึงเป็นของเด็ด ·
             และเหตุผลที่เลือกตารางกลาง + JSONB แทนการแยกตารางต่อโมดูล
           </p>
-          <p class="topics">PK/FK · B-tree · partial &amp; GIN index · JSONB · transaction · migration · N+1</p>
+          <p class="topics">
+            PK/FK · B-tree · partial &amp; GIN index · JSONB · transaction · migration · N+1
+          </p>
         </a>
       </div>
 
@@ -175,10 +285,12 @@
             <span class="tag">Phase 1</span>
           </div>
           <p>
-            ทำไม SHA-256 ไม่พอกับรหัสผ่าน · JWT ไม่ได้เข้ารหัส (และแปลว่าอะไร) ·
-            refresh rotation จับการขโมย token ได้อย่างไร · และ IDOR ที่ป้องกันสามชั้น
+            ทำไม SHA-256 ไม่พอกับรหัสผ่าน · JWT ไม่ได้เข้ารหัส (และแปลว่าอะไร) · refresh rotation
+            จับการขโมย token ได้อย่างไร · และ IDOR ที่ป้องกันสามชั้น
           </p>
-          <p class="topics">Argon2id · salt · timing attack · JWT · cookie flags · CSRF/XSS · CORS · rate limit</p>
+          <p class="topics">
+            Argon2id · salt · timing attack · JWT · cookie flags · CSRF/XSS · CORS · rate limit
+          </p>
         </a>
 
         <a class="card" href="./05-phase1-plugin-architecture-and-di.md">
@@ -187,10 +299,12 @@
             <span class="tag">Phase 1 · จุดขาย</span>
           </div>
           <p>
-            หัวใจของโปรเจกต์: เพิ่มโมดูลใหม่โดยแก้โค้ดเดิม 0 บรรทัด ทำได้อย่างไร
-            และ decorator กับ metadata ทำงานเบื้องหลังอย่างไร
+            หัวใจของโปรเจกต์: เพิ่มโมดูลใหม่โดยแก้โค้ดเดิม 0 บรรทัด ทำได้อย่างไร และ decorator กับ
+            metadata ทำงานเบื้องหลังอย่างไร
           </p>
-          <p class="topics">SOLID · coupling · DI container · decorator · reflect-metadata · registry · event bus</p>
+          <p class="topics">
+            SOLID · coupling · DI container · decorator · reflect-metadata · registry · event bus
+          </p>
         </a>
 
         <a class="card" href="./06-phase1-api-design-and-validation.md">
@@ -202,7 +316,10 @@
             401 กับ 403 ต่างกันตรงไหน · ทำไม offset pagination พังเมื่อข้อมูลเปลี่ยน ·
             และการกันเขียนทับงานคนอื่นด้วย version เดียว
           </p>
-          <p class="topics">REST · status code · RFC 9457 · cursor pagination · Zod · optimistic concurrency · tracing</p>
+          <p class="topics">
+            REST · status code · RFC 9457 · cursor pagination · Zod · optimistic concurrency ·
+            tracing
+          </p>
         </a>
 
         <a class="card" href="./07-phase1-frontend-data-layer.md">
@@ -214,7 +331,24 @@
             แยก server state ออกจาก client state · optimistic update ครบ 6 ขั้นที่ต้องมี ·
             และห้าสถานะที่ทุกลิสต์ต้องมี (สามตัวท้ายคือที่คนมักลืม)
           </p>
-          <p class="topics">React · RSC · App Router · TanStack Query · Zustand · Tailwind token · a11y</p>
+          <p class="topics">
+            React · RSC · App Router · TanStack Query · Zustand · Tailwind token · a11y
+          </p>
+        </a>
+        <a class="card" href="./10-phase2a-design-system-and-ui.md">
+          <div class="card-head">
+            <span class="num">10</span
+            ><span class="card-title">Design System, Theming และ UI ที่เข้าถึงได้</span>
+            <span class="tag">Phase 2a</span>
+          </div>
+          <p>
+            แยกความหมายของสีออกจากค่าของสี · dark mode ที่ไม่กระพริบ · กับดัก cascade layer ·
+            contrast คำนวณอย่างไร · ARIA ที่ต้องชดเชยเมื่อไม่ใช้ element จริง
+          </p>
+          <p class="topics">
+            design token · next-themes · @layer · WCAG · next/font · roving tabindex · URL state ·
+            Unicode regex
+          </p>
         </a>
       </div>
 
@@ -225,10 +359,10 @@
             <span class="num">08</span><span class="card-title">การทดสอบและคุณภาพ</span>
             <span class="tag">อ้างอิง</span>
           </div>
-          <p>
-            ทดสอบอะไร ไม่ทดสอบอะไร และทำไม coverage สูงไม่ได้แปลว่าเทสต์ดี
+          <p>ทดสอบอะไร ไม่ทดสอบอะไร และทำไม coverage สูงไม่ได้แปลว่าเทสต์ดี</p>
+          <p class="topics">
+            testing pyramid · test double · AAA · coverage · flaky test · CI gate
           </p>
-          <p class="topics">testing pyramid · test double · AAA · coverage · flaky test · CI gate</p>
         </a>
 
         <a class="card" href="./09-glossary.md">
@@ -242,7 +376,8 @@
 
       <footer>
         เอกสารชุดนี้เติบโตไปพร้อมโปรเจกต์ — ทุก Phase ที่ทำเสร็จจะมีบทของตัวเองเพิ่มเข้ามา ·
-        สเปกฉบับเต็มอยู่ที่ <code>NOSION-SPEC.md</code> · เหตุผลของการตัดสินใจอยู่ที่ <code>docs/adr/</code>
+        สเปกฉบับเต็มอยู่ที่ <code>NOSION-SPEC.md</code> · เหตุผลของการตัดสินใจอยู่ที่
+        <code>docs/adr/</code>
       </footer>
     </div>
   </body>

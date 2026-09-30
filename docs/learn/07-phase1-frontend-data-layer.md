@@ -43,7 +43,7 @@ const [text, setText] = useState('');
 state จะสลับกันมั่ว (`eslint-plugin-react-hooks` คอยจับให้)
 
 `useEffect` = "ทำสิ่งนี้หลังวาดเสร็จ" ใช้กับ side effect เช่น redirect
-📁 `apps/web/src/components/shared/app-shell.tsx`
+📁 `apps/web/src/components/shell/app-shell.tsx` _(Phase 2a ย้ายมาจาก `components/shared/`)_
 
 ---
 
@@ -285,6 +285,9 @@ for (const [path, message] of Object.entries(error.fieldErrors())) {
 
 โหมดมืดทำงานด้วยการประกาศค่าใหม่ใต้ `.dark` — component ไม่ต้องรู้เรื่องธีมเลย
 
+> **อัปเดต Phase 2a:** token ชุดนี้ถูกแทนด้วยชุด v1.1 (Monochrome + Apple Blue) และตัดสีประจำโมดูลออก
+> หลักการยังเหมือนเดิม — อ่านต่อที่ [บท 10](./10-phase2a-design-system-and-ui.md)
+
 ### Tailwind v4 ต่างจาก v3 ตรงไหน
 
 v4 ตั้งค่าใน CSS แทน `tailwind.config.js`:
@@ -324,7 +327,7 @@ export function cn(...inputs: ClassValue[]) {
 | 4. **Error** | บอกว่าพลาดอะไร + ปุ่มลองใหม่                                 | `ErrorState`       |
 | 5. **Stale** | มีของเก่าในแคชแต่ refetch พลาด → แสดงของเก่า + แถบเตือน      | `StaleBanner`      |
 
-📁 `apps/web/src/components/shared/states.tsx` และการใช้งานที่ `task-list.tsx`
+📁 `apps/web/src/components/shared/states.tsx` และการใช้งานที่ `features/tasks/task-board.tsx` _(Phase 2a)_
 
 ```ts
 const hasStaleData = query.isError && query.data !== undefined;

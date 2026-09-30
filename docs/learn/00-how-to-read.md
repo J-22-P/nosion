@@ -21,17 +21,18 @@
 
 ## ลำดับที่ควรอ่าน
 
-| ไฟล์                                            | หัวข้อ                                                                     | อ่านเมื่อ    |
-| ----------------------------------------------- | -------------------------------------------------------------------------- | ------------ |
-| [01](./01-foundations-web-architecture.md)      | พื้นฐานสถาปัตยกรรมเว็บ: client/server, HTTP, process, ทำไมต้องแยก 3 แอป    | อ่านก่อนเสมอ |
-| [02](./02-phase0-monorepo-and-tooling.md)       | **Phase 0** · monorepo, pnpm, Turborepo, TypeScript, ESLint, Docker, CI    | หลังอ่าน 01  |
-| [03](./03-phase0-database-and-prisma.md)        | **Phase 0** · ฐานข้อมูลเชิงสัมพันธ์, index, JSONB, migration, Prisma       | หลังอ่าน 02  |
-| [04](./04-phase1-auth-deep-dive.md)             | **Phase 1** · รหัสผ่าน, JWT, cookie, refresh rotation, IDOR, rate limit    | หลังอ่าน 03  |
-| [05](./05-phase1-plugin-architecture-and-di.md) | **Phase 1** · SOLID, DI container, decorator, metadata, registry pattern   | หลังอ่าน 04  |
-| [06](./06-phase1-api-design-and-validation.md)  | **Phase 1** · REST, RFC 9457, pagination, Zod, optimistic concurrency      | หลังอ่าน 05  |
-| [07](./07-phase1-frontend-data-layer.md)        | **Phase 1** · React, Next.js App Router, TanStack Query, Zustand, Tailwind | หลังอ่าน 06  |
-| [08](./08-testing-and-quality.md)               | การทดสอบและคุณภาพ: pyramid, unit/integration/e2e, coverage, CI gate        | ท้ายสุด      |
-| [09](./09-glossary.md)                          | อภิธานศัพท์ — เปิดหาเวลาเจอคำที่ไม่รู้จัก                                  | ใช้อ้างอิง   |
+| ไฟล์                                            | หัวข้อ                                                                           | อ่านเมื่อ    |
+| ----------------------------------------------- | -------------------------------------------------------------------------------- | ------------ |
+| [01](./01-foundations-web-architecture.md)      | พื้นฐานสถาปัตยกรรมเว็บ: client/server, HTTP, process, ทำไมต้องแยก 3 แอป          | อ่านก่อนเสมอ |
+| [02](./02-phase0-monorepo-and-tooling.md)       | **Phase 0** · monorepo, pnpm, Turborepo, TypeScript, ESLint, Docker, CI          | หลังอ่าน 01  |
+| [03](./03-phase0-database-and-prisma.md)        | **Phase 0** · ฐานข้อมูลเชิงสัมพันธ์, index, JSONB, migration, Prisma             | หลังอ่าน 02  |
+| [04](./04-phase1-auth-deep-dive.md)             | **Phase 1** · รหัสผ่าน, JWT, cookie, refresh rotation, IDOR, rate limit          | หลังอ่าน 03  |
+| [05](./05-phase1-plugin-architecture-and-di.md) | **Phase 1** · SOLID, DI container, decorator, metadata, registry pattern         | หลังอ่าน 04  |
+| [06](./06-phase1-api-design-and-validation.md)  | **Phase 1** · REST, RFC 9457, pagination, Zod, optimistic concurrency            | หลังอ่าน 05  |
+| [07](./07-phase1-frontend-data-layer.md)        | **Phase 1** · React, Next.js App Router, TanStack Query, Zustand, Tailwind       | หลังอ่าน 06  |
+| [10](./10-phase2a-design-system-and-ui.md)      | **Phase 2a** · design token, dark mode, cascade layer, contrast, ARIA, URL state | หลังอ่าน 07  |
+| [08](./08-testing-and-quality.md)               | การทดสอบและคุณภาพ: pyramid, unit/integration/e2e, coverage, CI gate              | ท้ายสุด      |
+| [09](./09-glossary.md)                          | อภิธานศัพท์ — เปิดหาเวลาเจอคำที่ไม่รู้จัก                                        | ใช้อ้างอิง   |
 
 ---
 
