@@ -86,7 +86,7 @@ export function TaskBoard({ filters, view }: { filters: EntryFilters; view: Task
     [projects.data],
   );
 
-  const entries = query.data?.data ?? [];
+  const entries = useMemo(() => query.data?.data ?? [], [query.data]);
   const groups = useMemo(
     () => groupEntries(entries, view, projectNames),
     [entries, view, projectNames],
