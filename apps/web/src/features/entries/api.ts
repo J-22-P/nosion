@@ -13,6 +13,9 @@ export interface EntryFilters {
   status?: string;
   priority?: string;
   projectId?: string;
+  tagIds?: string;
+  from?: string;
+  to?: string;
   q?: string;
   overdue?: boolean;
   sort?: string;
@@ -46,4 +49,6 @@ export const projectsApi = {
 
 export const tagsApi = {
   list: () => apiFetch<TagDto[]>('/tags'),
+  create: (input: { name: string; color?: string }) =>
+    apiFetch<TagDto>('/tags', { method: 'POST', body: input }),
 };

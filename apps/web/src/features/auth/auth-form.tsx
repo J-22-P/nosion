@@ -42,10 +42,16 @@ export function LoginForm() {
   });
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4" noValidate>
+    <form onSubmit={onSubmit} className="space-y-5" noValidate>
       <div>
         <Label htmlFor="email">อีเมล</Label>
-        <Input id="email" type="email" autoComplete="email" {...form.register('email')} />
+        <Input
+          id="email"
+          type="email"
+          autoComplete="email"
+          aria-invalid={Boolean(form.formState.errors.email)}
+          {...form.register('email')}
+        />
         <FieldError>{form.formState.errors.email?.message}</FieldError>
       </div>
       <div>
@@ -54,16 +60,17 @@ export function LoginForm() {
           id="password"
           type="password"
           autoComplete="current-password"
+          aria-invalid={Boolean(form.formState.errors.password)}
           {...form.register('password')}
         />
         <FieldError>{form.formState.errors.password?.message}</FieldError>
       </div>
-      <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+      <Button type="submit" size="lg" className="w-full" disabled={form.formState.isSubmitting}>
         {form.formState.isSubmitting ? 'กำลังเข้าสู่ระบบ…' : 'เข้าสู่ระบบ'}
       </Button>
-      <p className="text-center text-sm text-[var(--text-secondary)]">
+      <p className="text-center text-sm text-fg-secondary">
         ยังไม่มีบัญชี?{' '}
-        <Link href="/register" className="underline">
+        <Link href="/register" className="font-medium text-accent hover:underline">
           สมัครใหม่
         </Link>
       </p>
@@ -96,15 +103,26 @@ export function RegisterForm() {
   });
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4" noValidate>
+    <form onSubmit={onSubmit} className="space-y-5" noValidate>
       <div>
         <Label htmlFor="displayName">ชื่อที่ใช้แสดง</Label>
-        <Input id="displayName" autoComplete="name" {...form.register('displayName')} />
+        <Input
+          id="displayName"
+          autoComplete="name"
+          aria-invalid={Boolean(form.formState.errors.displayName)}
+          {...form.register('displayName')}
+        />
         <FieldError>{form.formState.errors.displayName?.message}</FieldError>
       </div>
       <div>
         <Label htmlFor="email">อีเมล</Label>
-        <Input id="email" type="email" autoComplete="email" {...form.register('email')} />
+        <Input
+          id="email"
+          type="email"
+          autoComplete="email"
+          aria-invalid={Boolean(form.formState.errors.email)}
+          {...form.register('email')}
+        />
         <FieldError>{form.formState.errors.email?.message}</FieldError>
       </div>
       <div>
@@ -113,19 +131,20 @@ export function RegisterForm() {
           id="password"
           type="password"
           autoComplete="new-password"
+          aria-invalid={Boolean(form.formState.errors.password)}
           {...form.register('password')}
         />
         <FieldError>{form.formState.errors.password?.message}</FieldError>
-        <p className="mt-1 text-xs text-[var(--text-secondary)]">
+        <p className="mt-1.5 text-xs text-fg-secondary">
           อย่างน้อย 12 ตัวอักษร และต้องไม่เคยปรากฏในข้อมูลที่รั่วไหล
         </p>
       </div>
-      <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+      <Button type="submit" size="lg" className="w-full" disabled={form.formState.isSubmitting}>
         {form.formState.isSubmitting ? 'กำลังสมัคร…' : 'สมัครสมาชิก'}
       </Button>
-      <p className="text-center text-sm text-[var(--text-secondary)]">
+      <p className="text-center text-sm text-fg-secondary">
         มีบัญชีแล้ว?{' '}
-        <Link href="/login" className="underline">
+        <Link href="/login" className="font-medium text-accent hover:underline">
           เข้าสู่ระบบ
         </Link>
       </p>

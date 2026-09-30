@@ -23,13 +23,13 @@ const HIGHLIGHTS = [
 
 export default function LandingPage() {
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center gap-10 px-6 py-16">
+    <main className="mx-auto flex min-h-dvh max-w-3xl flex-col justify-center gap-10 px-6 py-16">
       <header className="space-y-4">
-        <p className="text-sm font-medium tracking-widest text-[var(--text-secondary)]">NOSION</p>
+        <p className="text-sm font-medium tracking-widest text-fg-secondary">NOSION</p>
         <h1 className="text-4xl font-bold leading-tight sm:text-5xl">
           ระบบจัดการชีวิตที่ต่อโมดูลเพิ่มได้
         </h1>
-        <p className="max-w-xl text-[var(--text-secondary)]">
+        <p className="max-w-xl text-fg-secondary">
           งาน การเงิน ออกกำลังกาย และนิสัย อยู่บนโครงสร้างข้อมูลเดียวกัน
           จึงดูรวมกันได้ในหน้าเดียวโดยไม่ต้องสลับแอป
         </p>
@@ -42,7 +42,7 @@ export default function LandingPage() {
             เข้าสู่ระบบ
           </Button>
         </Link>
-        <Link href="/register" className="text-sm text-[var(--text-secondary)] underline">
+        <Link href="/register" className="text-sm text-fg-secondary underline">
           สมัครบัญชีใหม่
         </Link>
       </div>
@@ -50,7 +50,7 @@ export default function LandingPage() {
       <section aria-labelledby="highlights" className="space-y-4">
         <h2
           id="highlights"
-          className="text-sm font-semibold uppercase tracking-wide text-[var(--text-secondary)]"
+          className="text-sm font-semibold uppercase tracking-wide text-fg-secondary"
         >
           โจทย์ทางเทคนิคที่โปรเจกต์นี้แก้
         </h2>
@@ -58,10 +58,10 @@ export default function LandingPage() {
           {HIGHLIGHTS.map((item) => (
             <li
               key={item.title}
-              className="rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] p-4"
+              className="rounded-card border border-hairline bg-surface p-5 shadow-card"
             >
               <p className="font-medium">{item.title}</p>
-              <p className="mt-1 text-sm text-[var(--text-secondary)]">{item.detail}</p>
+              <p className="mt-1 text-sm text-fg-secondary">{item.detail}</p>
             </li>
           ))}
         </ul>

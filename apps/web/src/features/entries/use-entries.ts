@@ -117,3 +117,23 @@ export function useCreateEntry() {
     },
   });
 }
+
+/**
+ * เปิดงานที่เสร็จแล้วกลับมาทำต่อ (ปุ่ม ↶ ในกลุ่ม "เสร็จสิ้นแล้ว" และ undo ใน toast)
+ * ใช้ version ล่าสุดของ entry เสมอ — ถ้ามีคนแก้ไปก่อน API จะตอบ 409 แทนที่จะทับกัน
+ */
+export function useReopenEntry() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (entry: Pick<EntryDto, 'id' | 'version'>) =>
+      entriesApi.update(entry.id, { status: 'pending', version: entry.version }),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ['entries'] });
+    },
+    onError: (error) => {
+      toast.error('ย้อนกลับไม่สำเร็จ', {
+        description: error instanceof ApiError ? error.message : undefined,
+      });
+    },
+  });
+}

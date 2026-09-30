@@ -13,7 +13,7 @@ test('ผู้เข้าชมกด "ลองใช้ทันที" แ�
 
   const title = `งานทดสอบ ${Date.now()}`;
   await page.getByLabel('ชื่องานใหม่').fill(title);
-  await page.getByRole('button', { name: 'เพิ่ม', exact: true }).click();
+  await page.getByRole('button', { name: /สร้างงาน/ }).click();
 
   await expect(page.getByText(title)).toBeVisible();
 });

@@ -1,34 +1,15 @@
-'use client';
+import type { Metadata } from 'next';
+import { Suspense } from 'react';
+import { TaskListSkeleton } from '@/components/ui/skeleton';
+import { TasksView } from '@/features/tasks/tasks-view';
 
-import { useState } from 'react';
-import { Card } from '@/components/ui/card';
-import { QuickAdd } from '@/features/entries/quick-add';
-import { TaskFilters } from '@/features/entries/task-filters';
-import { TaskList } from '@/features/entries/task-list';
-import type { EntryFilters } from '@/features/entries/api';
+export const metadata: Metadata = { title: 'งาน' };
 
-const DEFAULT_FILTERS: EntryFilters = {
-  module: 'task',
-  status: 'pending,active',
-  sort: 'occurredAt:asc',
-  limit: 50,
-};
-
+/** useSearchParams ต้องอยู่ใต้ Suspense เพื่อให้ Next prerender ส่วนที่เหลือได้ */
 export default function TasksPage() {
-  const [filters, setFilters] = useState<EntryFilters>(DEFAULT_FILTERS);
-
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">งาน</h1>
-      </div>
-
-      <QuickAdd />
-      <TaskFilters filters={filters} onChange={setFilters} />
-
-      <Card className="overflow-hidden p-0">
-        <TaskList filters={filters} />
-      </Card>
-    </div>
+    <Suspense fallback={<TaskListSkeleton />}>
+      <TasksView />
+    </Suspense>
   );
 }
