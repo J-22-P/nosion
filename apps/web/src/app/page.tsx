@@ -38,7 +38,7 @@ export default function LandingPage() {
       <div className="flex flex-wrap items-center gap-3">
         <DemoButton />
         <Link href="/login">
-          <Button variant="outline" size="lg">
+          <Button variant="secondary" size="lg">
             เข้าสู่ระบบ
           </Button>
         </Link>

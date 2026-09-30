@@ -23,7 +23,7 @@ export default function TodayPage() {
             บนทะเบียนโมดูล — ไม่มีเงื่อนไขเฉพาะโมดูลอยู่ในหน้านี้เลย
           </p>
           <Link href="/tasks">
-            <Button variant="outline" size="sm">
+            <Button variant="secondary" size="sm">
               ไปที่หน้างาน
             </Button>
           </Link>

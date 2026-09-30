@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { TaskListSkeleton } from '@/components/ui/skeleton';
 import { EmptyState, ErrorState, StaleBanner } from '@/components/shared/states';
 import { ApiError } from '@/lib/api-client';
-import { PRIORITY_CLASS, PRIORITY_LABEL, formatDueDate, isOverdueDate } from '@/lib/format';
+import { PRIORITY_LABEL, PRIORITY_TONE, formatDueDate, isOverdueDate } from '@/lib/format';
 import type { EntryFilters } from './api';
 import { useCompleteEntry, useDeferEntry, useDeleteEntry, useEntries } from './use-entries';
 
@@ -106,13 +106,13 @@ function TaskRow({
           {due ? (
             <span className={cn(overdue && 'font-medium text-[var(--danger)]')}>{due}</span>
           ) : null}
-          {entry.priority !== 'none' ? (
-            <span className={PRIORITY_CLASS[entry.priority]}>{PRIORITY_LABEL[entry.priority]}</span>
+          {PRIORITY_TONE[entry.priority] ? (
+            <Badge tone={PRIORITY_TONE[entry.priority]}>{PRIORITY_LABEL[entry.priority]}</Badge>
           ) : null}
           {entry.tags.map((tag) => (
-            <Badge key={tag.id} color={tag.color}>
-              {tag.name}
-            </Badge>
+            <span key={tag.id} className="font-mono text-[11px]">
+              #{tag.name}
+            </span>
           ))}
         </div>
       </div>

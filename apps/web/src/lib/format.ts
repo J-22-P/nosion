@@ -38,10 +38,14 @@ export const PRIORITY_LABEL: Record<Priority, string> = {
   urgent: 'ด่วน',
 };
 
-export const PRIORITY_CLASS: Record<Priority, string> = {
-  none: 'text-muted-foreground',
-  low: 'text-sky-600 dark:text-sky-400',
-  medium: 'text-amber-600 dark:text-amber-400',
-  high: 'text-orange-600 dark:text-orange-400',
-  urgent: 'text-red-600 dark:text-red-400',
+/**
+ * v1.1 monochrome: สีใช้เฉพาะเมื่อมีความหมาย (8.7.1) — urgent เท่านั้นที่เป็นสีแดง
+ * ที่เหลือแยกด้วยรูปทรงของ badge (ทึบ / outline) ไม่ใช่สีรุ้ง
+ */
+export const PRIORITY_TONE: Record<Priority, 'danger' | 'neutral' | 'outline' | null> = {
+  none: null,
+  low: 'outline',
+  medium: 'outline',
+  high: 'neutral',
+  urgent: 'danger',
 };

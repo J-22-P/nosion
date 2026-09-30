@@ -1,3 +1,4 @@
+import { AlertTriangle, Inbox } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type * as React from 'react';
 
@@ -18,15 +19,13 @@ export function EmptyState({
     <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
       <div
         aria-hidden="true"
-        className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--surface-sunken)] text-xl"
+        className="flex size-12 items-center justify-center rounded-card bg-sunken text-fg-secondary"
       >
-        ✳
+        <Inbox size={22} strokeWidth={1.75} />
       </div>
       <div>
         <p className="font-medium">{title}</p>
-        {description ? (
-          <p className="mt-1 text-sm text-[var(--text-secondary)]">{description}</p>
-        ) : null}
+        {description ? <p className="mt-1 text-sm text-fg-secondary">{description}</p> : null}
       </div>
       {action}
     </div>
@@ -36,10 +35,16 @@ export function EmptyState({
 export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
     <div role="alert" className="flex flex-col items-center gap-3 px-6 py-16 text-center">
-      <p className="font-medium text-[var(--danger)]">โหลดข้อมูลไม่สำเร็จ</p>
-      <p className="max-w-md text-sm text-[var(--text-secondary)]">{message}</p>
+      <div
+        aria-hidden="true"
+        className="flex size-12 items-center justify-center rounded-card bg-danger-soft text-danger"
+      >
+        <AlertTriangle size={22} strokeWidth={1.75} />
+      </div>
+      <p className="font-medium">โหลดข้อมูลไม่สำเร็จ</p>
+      <p className="max-w-md text-sm text-fg-secondary">{message}</p>
       {onRetry ? (
-        <Button variant="outline" size="sm" onClick={onRetry}>
+        <Button variant="secondary" size="sm" onClick={onRetry}>
           ลองใหม่
         </Button>
       ) : null}
@@ -53,11 +58,11 @@ export function StaleBanner({ onRetry }: { onRetry?: () => void }) {
     <div
       role="status"
       aria-live="polite"
-      className="flex items-center justify-between gap-3 border-b border-amber-300/60 bg-amber-50 px-4 py-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200"
+      className="mb-3 flex items-center justify-between gap-3 rounded-[14px] bg-warning-soft px-4 py-2.5 text-xs text-fg"
     >
       <span>กำลังแสดงข้อมูลที่แคชไว้ — เชื่อมต่อเซิร์ฟเวอร์ไม่ได้</span>
       {onRetry ? (
-        <button type="button" onClick={onRetry} className="font-medium underline">
+        <button type="button" onClick={onRetry} className="font-medium text-accent hover:underline">
           ลองใหม่
         </button>
       ) : null}
