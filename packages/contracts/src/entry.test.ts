@@ -60,6 +60,14 @@ describe('listEntriesQuerySchema', () => {
     expect(parsed.status).toEqual(['pending', 'done']);
   });
 
+  it('boolean ใน query: "false" ต้องเป็น false ไม่ใช่ true', () => {
+    expect(listEntriesQuerySchema.parse({ overdue: 'false' }).overdue).toBe(false);
+    expect(listEntriesQuerySchema.parse({ overdue: 'true' }).overdue).toBe(true);
+    expect(listEntriesQuerySchema.parse({ inbox: '1' }).inbox).toBe(true);
+    expect(listEntriesQuerySchema.parse({}).inbox).toBeUndefined();
+    expect(listEntriesQuerySchema.safeParse({ inbox: 'yes' }).success).toBe(false);
+  });
+
   it('จำกัด limit ไม่ให้ดึงทีเดียวทั้งฐานข้อมูล', () => {
     expect(listEntriesQuerySchema.parse({}).limit).toBe(50);
     expect(listEntriesQuerySchema.safeParse({ limit: '5000' }).success).toBe(false);

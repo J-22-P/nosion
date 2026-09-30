@@ -19,6 +19,7 @@ import {
 } from '@nosion/core';
 import { EntryStatus, Prisma } from '@prisma/client';
 import { ModuleRegistryService } from '../core/registry/module-registry.service';
+import { completedAtFor } from './completed-at';
 import { resolveDeferTarget } from './defer';
 import { PrismaService } from '../infra/prisma/prisma.service';
 import { UserContextService } from '../users/user-context.service';
@@ -151,6 +152,8 @@ export class EntriesService {
       ...(dto.title !== undefined ? { title: dto.title } : {}),
       ...(dto.description !== undefined ? { description: dto.description ?? null } : {}),
       ...(dto.status !== undefined ? { status: dto.status } : {}),
+      // completedAt ต้องตามสถานะเสมอ — เปิดงานกลับมาทำ (undo) แล้วยังค้างวันที่เสร็จไว้ สถิติจะเพี้ยน
+      ...(dto.status !== undefined ? { completedAt: completedAtFor(dto.status, before) } : {}),
       ...(dto.priority !== undefined ? { priority: dto.priority } : {}),
       ...(dto.occurredAt !== undefined ? { occurredAt: dto.occurredAt ?? null } : {}),
       ...(dto.isAllDay !== undefined ? { isAllDay: dto.isAllDay } : {}),
@@ -325,6 +328,11 @@ export class EntriesService {
         ...(query.from ? { gte: query.from } : {}),
         ...(query.to ? { lte: query.to } : {}),
       };
+    }
+
+    if (query.inbox) {
+      where.projectId = null;
+      where.occurredAt = null;
     }
 
     if (query.overdue) {

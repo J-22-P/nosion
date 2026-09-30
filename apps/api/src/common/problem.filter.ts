@@ -10,6 +10,7 @@ import { ProblemType, type FieldError, type ProblemDetails } from '@nosion/contr
 import {
   DomainError,
   EntryNotFoundError,
+  InvalidStateError,
   PayloadValidationError,
   UnknownModuleError,
   VersionConflictError,
@@ -142,6 +143,17 @@ export class ProblemDetailsFilter implements ExceptionFilter {
         instance,
         traceId,
         ...(partial.errors ? { errors: partial.errors } : {}),
+      };
+    }
+
+    if (exception instanceof InvalidStateError) {
+      return {
+        type: `https://nosion.dev/errors/${exception.code.replace(/_/g, '-')}`,
+        title: 'Invalid state',
+        status: HttpStatus.CONFLICT,
+        detail: exception.message,
+        instance,
+        traceId,
       };
     }
 

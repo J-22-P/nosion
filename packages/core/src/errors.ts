@@ -43,3 +43,13 @@ export class UnknownModuleError extends DomainError {
     super(`ไม่รู้จักโมดูล ${key}`, 'unknown_module', { key });
   }
 }
+
+/**
+ * การกระทำที่ทำไม่ได้ในสถานะปัจจุบันของทรัพยากร เช่น หยุดจับเวลาที่ไม่ได้เริ่ม
+ * หรือเริ่มจับเวลางานที่เสร็จแล้ว → HTTP 409
+ */
+export class InvalidStateError extends DomainError {
+  constructor(message: string, code: string, details?: Record<string, unknown>) {
+    super(message, code, details);
+  }
+}

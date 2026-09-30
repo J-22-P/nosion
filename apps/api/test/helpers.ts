@@ -1,5 +1,6 @@
 import { type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import request from 'supertest';
 import cookieParser from 'cookie-parser';
 import { AppModule } from '../src/app.module';
 import { ProblemDetailsFilter } from '../src/common/problem.filter';
@@ -53,3 +54,12 @@ export const uniqueEmail = (prefix = 'user') =>
   `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
 
 export const STRONG_PASSWORD = 'correct-horse-battery-staple-2026';
+
+/** สมัครผู้ใช้ใหม่แล้วคืน access token (โซนเวลา Asia/Bangkok ตามค่าเริ่มต้น) */
+export async function registerAndLogin(app: INestApplication, prefix: string): Promise<string> {
+  const res = await request(app.getHttpServer())
+    .post('/api/v1/auth/register')
+    .send({ email: uniqueEmail(prefix), password: STRONG_PASSWORD, displayName: prefix })
+    .expect(201);
+  return res.body.accessToken as string;
+}

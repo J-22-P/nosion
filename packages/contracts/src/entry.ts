@@ -49,6 +49,17 @@ const csv = <T extends z.ZodTypeAny>(schema: T) =>
     z.array(schema).optional(),
   );
 
+/**
+ * boolean จาก query string — "true"/"1" = true, "false"/"0" = false
+ * (z.coerce.boolean() แปลง "false" เป็น true เพราะเป็น string ไม่ว่าง — กับดักคลาสสิก)
+ */
+const queryBool = z.preprocess((v) => {
+  if (typeof v !== 'string') return v;
+  if (v === 'true' || v === '1') return true;
+  if (v === 'false' || v === '0' || v === '') return false;
+  return v;
+}, z.boolean().optional());
+
 export const listEntriesQuerySchema = cursorPaginationSchema.extend({
   module: csv(moduleKeySchema),
   status: csv(entryStatusSchema),
@@ -58,8 +69,10 @@ export const listEntriesQuerySchema = cursorPaginationSchema.extend({
   from: isoDate.optional(),
   to: isoDate.optional(),
   q: z.string().trim().min(1).max(100).optional(),
-  overdue: z.coerce.boolean().optional(),
-  hasReminder: z.coerce.boolean().optional(),
+  overdue: queryBool,
+  /** ไม่มีโปรเจกต์และไม่มีวันกำหนด (smart list "Inbox" ของหน้า Tasks) */
+  inbox: queryBool,
+  hasReminder: queryBool,
   parentId: z.string().optional(),
   /** "occurredAt:asc,priority:desc" */
   sort: z.string().default('occurredAt:asc'),
