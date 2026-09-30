@@ -17,9 +17,15 @@ export class TokenService {
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
-  /** access token อายุสั้น เก็บใน memory ฝั่ง client เท่านั้น (ไม่แตะ localStorage) */
+  /**
+   * access token อายุสั้น เก็บใน memory ฝั่ง client เท่านั้น (ไม่แตะ localStorage)
+   *
+   * ส่ง expiresIn เป็น "จำนวนวินาที" ไม่ใช่สตริง "15m" เพราะ type ของ jsonwebtoken
+   * รับสตริงเฉพาะรูปแบบที่มันรู้จัก (template literal type) ซึ่ง string ธรรมดาไม่ผ่าน
+   * — เราแปลงเองด้วย parseDuration อยู่แล้ว จึงได้ทั้ง type safety และรูปแบบ env ที่คนอ่านง่าย
+   */
   async signAccessToken(claims: AccessTokenClaims): Promise<string> {
-    return this.jwt.signAsync(claims, { expiresIn: this.config.JWT_ACCESS_TTL });
+    return this.jwt.signAsync(claims, { expiresIn: this.accessTtlSeconds() });
   }
 
   async verifyAccessToken(token: string): Promise<AccessTokenClaims> {
