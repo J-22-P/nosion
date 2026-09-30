@@ -42,6 +42,8 @@ export const updateSettingsSchema = z.object({
   weeklyReviewEnabled: z.boolean().optional(),
   weeklyReviewDay: z.number().int().min(0).max(6).optional(),
   enabledModules: z.array(moduleKeySchema).min(1).optional(),
+  /** 15 นาที – 16 ชั่วโมง */
+  focusGoalMinutes: z.number().int().min(15).max(960).optional(),
 });
 export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;
 

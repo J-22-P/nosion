@@ -129,4 +129,82 @@ describe('Task module endpoints', () => {
       expect(reopened.body.completedAt).toBeNull();
     });
   });
+
+  describe('Focus timer', () => {
+    it('start → ซ้ำได้รอบเดิม → stop บวก actualMinutes → focus/today นับรอบ', async () => {
+      const task = await createTask(alice, { title: 'โฟกัส' });
+
+      const started = await api()
+        .post(`/api/v1/tasks/${task.id}/timer/start`)
+        .set(as(alice))
+        .expect(200);
+      expect(started.body.endedAt).toBeNull();
+
+      // กดซ้ำ (สองแท็บ) → รอบเดิม ไม่ใช่รอบใหม่
+      const again = await api()
+        .post(`/api/v1/tasks/${task.id}/timer/start`)
+        .set(as(alice))
+        .expect(200);
+      expect(again.body.id).toBe(started.body.id);
+
+      // pending → active เมื่อเริ่มลงมือ
+      const during = await api().get(`/api/v1/entries/${task.id}`).set(as(alice)).expect(200);
+      expect(during.body.status).toBe('active');
+
+      const today = await api().get('/api/v1/tasks/focus/today').set(as(alice)).expect(200);
+      expect(today.body.running).toMatchObject({ entryId: task.id, entryTitle: 'โฟกัส' });
+      expect(today.body.goalMinutes).toBe(240);
+
+      const stopped = await api()
+        .post(`/api/v1/tasks/${task.id}/timer/stop`)
+        .set(as(alice))
+        .expect(200);
+      expect(stopped.body.session.endedAt).not.toBeNull();
+      expect(stopped.body.addedMinutes).toBeGreaterThanOrEqual(0);
+
+      const after = await api().get('/api/v1/tasks/focus/today').set(as(alice)).expect(200);
+      expect(after.body.running).toBeNull();
+      expect(after.body.completedSessions).toBe(1);
+
+      // หยุดซ้ำ = 409 ไม่ใช่ 500 และไม่บวกเวลาซ้ำ
+      const twice = await api()
+        .post(`/api/v1/tasks/${task.id}/timer/stop`)
+        .set(as(alice))
+        .expect(409);
+      expect(twice.body.type).toContain('timer-not-running');
+    });
+
+    it('เริ่มงานใหม่ขณะอีกงานจับอยู่ → งานเดิมถูกหยุดให้อัตโนมัติ', async () => {
+      const a = await createTask(alice, { title: 'A' });
+      const b = await createTask(alice, { title: 'B' });
+      await api().post(`/api/v1/tasks/${a.id}/timer/start`).set(as(alice)).expect(200);
+      await api().post(`/api/v1/tasks/${b.id}/timer/start`).set(as(alice)).expect(200);
+
+      const today = await api().get('/api/v1/tasks/focus/today').set(as(alice)).expect(200);
+      expect(today.body.running.entryId).toBe(b.id);
+      await api().post(`/api/v1/tasks/${a.id}/timer/stop`).set(as(alice)).expect(409);
+      await api().post(`/api/v1/tasks/${b.id}/timer/stop`).set(as(alice)).expect(200);
+    });
+
+    it('start พร้อมกัน 5 คำขอ → ได้รอบเดียว (partial unique index)', async () => {
+      const task = await createTask(alice, { title: 'แข่งกัน' });
+      const results = await Promise.all(
+        Array.from({ length: 5 }, () =>
+          api().post(`/api/v1/tasks/${task.id}/timer/start`).set(as(alice)),
+        ),
+      );
+      const ids = new Set(results.filter((r) => r.status === 200).map((r) => r.body.id));
+      expect(ids.size).toBe(1);
+      await api().post(`/api/v1/tasks/${task.id}/timer/stop`).set(as(alice)).expect(200);
+    });
+
+    it('งานที่เสร็จแล้วเริ่มไม่ได้ · งานของคนอื่น = 404', async () => {
+      const done = await createTask(alice, { title: 'ปิดแล้ว' });
+      await api().post(`/api/v1/entries/${done.id}/complete`).set(as(alice)).expect(201);
+      await api().post(`/api/v1/tasks/${done.id}/timer/start`).set(as(alice)).expect(409);
+
+      const mine = await createTask(alice, { title: 'ของ alice' });
+      await api().post(`/api/v1/tasks/${mine.id}/timer/start`).set(as(bob)).expect(404);
+    });
+  });
 });

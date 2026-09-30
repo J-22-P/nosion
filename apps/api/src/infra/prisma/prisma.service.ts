@@ -19,6 +19,7 @@ const USER_SCOPED_MODELS = new Set<string>([
   'ApiKey',
   'PushSubscription',
   'AuditLog',
+  'FocusSession',
 ]);
 
 const READ_WRITE_OPS = new Set<string>([

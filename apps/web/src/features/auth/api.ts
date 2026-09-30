@@ -16,6 +16,7 @@ export interface MeResponse {
     weekStartsOn: number;
     theme: string;
     enabledModules: ModuleKey[];
+    focusGoalMinutes: number;
     [key: string]: unknown;
   };
 }

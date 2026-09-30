@@ -19,6 +19,7 @@ export interface MeResponse {
     weeklyReviewEnabled: boolean;
     weeklyReviewDay: number;
     enabledModules: ModuleKey[];
+    focusGoalMinutes: number;
   };
 }
 
@@ -58,6 +59,7 @@ export class UsersService {
         weeklyReviewEnabled: s.weeklyReviewEnabled,
         weeklyReviewDay: s.weeklyReviewDay,
         enabledModules: s.enabledModules as ModuleKey[],
+        focusGoalMinutes: s.focusGoalMinutes,
       },
     };
   }

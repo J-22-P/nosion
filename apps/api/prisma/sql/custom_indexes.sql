@@ -25,3 +25,8 @@ CREATE INDEX IF NOT EXISTS idx_entries_title_trgm
 CREATE INDEX IF NOT EXISTS idx_reminders_pending
   ON reminders ("fireAt")
   WHERE status = 'scheduled';
+
+-- (v1.1 · migration 20260930090000_focus_sessions) timer ที่ยังไม่จบได้ครั้งละ 1 รอบต่อผู้ใช้
+CREATE UNIQUE INDEX IF NOT EXISTS "focus_sessions_one_running_per_user"
+  ON "focus_sessions" ("userId")
+  WHERE "endedAt" IS NULL;

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { UsersModule } from '../../users/users.module';
+import { FocusTimerService } from './focus-timer.service';
 import { TaskStatsService } from './task-stats.service';
 import { TaskTrackableModule } from './task.trackable';
 import { TasksController } from './tasks.controller';
@@ -12,7 +13,7 @@ import { TasksController } from './tasks.controller';
 @Module({
   imports: [UsersModule],
   controllers: [TasksController],
-  providers: [TaskTrackableModule, TaskStatsService],
+  providers: [TaskTrackableModule, TaskStatsService, FocusTimerService],
   exports: [TaskTrackableModule],
 })
 export class TaskModule {}

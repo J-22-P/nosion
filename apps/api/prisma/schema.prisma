@@ -99,6 +99,7 @@ model User {
   recurrenceRules   RecurrenceRule[]
   auditLogs         AuditLog[]
   verificationTokens VerificationToken[]
+  focusSessions     FocusSession[]
 
   @@index([email])
   @@index([isDemo, expiresAt])
@@ -137,6 +138,9 @@ model UserSettings {
   webhookEvents String[] @default([])
 
   enabledModules ModuleKey[] @default([task, expense])
+
+  /// เป้าหมายเวลาโฟกัสต่อวัน (นาที) — การ์ด "Focus Session วันนี้ 2h 45m / 4 ชม." (v1.1)
+  focusGoalMinutes Int @default(240)
 
   updatedAt DateTime @updatedAt
 
@@ -320,6 +324,7 @@ model Entry {
   attachments Attachment[]
   dependsOn   EntryDependency[] @relation("Dependent")
   blocking    EntryDependency[] @relation("Blocker")
+  focusSessions FocusSession[]
 
   sortOrder Int @default(0)
 
@@ -354,6 +359,29 @@ model EntryDependency {
   @@unique([dependentId, blockerId])
   @@index([blockerId])
   @@map("entry_dependencies")
+}
+
+/// รอบจับเวลาโฟกัสของงาน (POST /tasks/:id/timer/start|stop · v1.1)
+/// ผู้ใช้หนึ่งคนมีรอบที่ยังไม่จบได้ครั้งละ 1 รอบ — บังคับด้วย partial unique index ใน migration
+/// (Prisma ประกาศ partial index ใน schema ไม่ได้ ดู prisma/sql/custom_indexes.sql)
+model FocusSession {
+  id      String @id @default(cuid(2))
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entryId String
+  entry   Entry  @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  startedAt       DateTime  @default(now())
+  /// null = กำลังจับเวลาอยู่
+  endedAt         DateTime?
+  /// คำนวณตอนหยุด (ถูกจำกัดเพดานกันลืมกดหยุด) — null ขณะยังไม่จบ
+  durationSeconds Int?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, startedAt])
+  @@index([entryId])
+  @@map("focus_sessions")
 }
 
 model Comment {
