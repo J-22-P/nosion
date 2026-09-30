@@ -38,7 +38,7 @@ export function MobileTabBar({ pathname }: { pathname: string }) {
               ) : (
                 <span
                   aria-disabled="true"
-                  className={cn(className, 'text-fg-tertiary')}
+                  className={cn(className, 'text-fg-secondary [&_svg]:opacity-50')}
                   title={`${item.label} — เร็ว ๆ นี้`}
                 >
                   <Icon size={22} strokeWidth={1.75} aria-hidden="true" />

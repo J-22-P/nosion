@@ -101,7 +101,8 @@ export const TaskCard = memo(function TaskCard({
           <p
             className={cn(
               'min-w-0 text-[15px] font-medium leading-snug transition-colors duration-200',
-              done && 'text-fg-tertiary line-through',
+              // สเปกให้ใช้ text-tertiary แต่ contrast ไม่ถึง 4.5:1 → ใช้ secondary + ขีดฆ่า (ADR-009)
+              done && 'text-fg-secondary line-through',
             )}
           >
             {entry.title}

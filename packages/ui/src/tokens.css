@@ -6,7 +6,8 @@
  *   - Dark  = Monochrome Studio OS (พื้นดำสนิท การ์ด graphite)
  * next-themes ใส่ class="dark" ที่ <html> · ค่าเริ่มต้นตาม prefers-color-scheme
  *
- * ค่าที่ต่างจาก mockup เพราะ contrast ไม่ผ่าน AA มี ⚠ กำกับไว้ (ดู 8.12 / ADR-009)
+ * ค่าที่ต่างจาก mockup/สเปกเพราะ contrast ไม่ผ่าน AA มี ⚠ กำกับไว้ (ดู ADR-009)
+ * ทุกคู่สีข้อความ/พื้นถูกตรวจอัตโนมัติใน src/tokens.test.ts — แก้ค่าแล้วเทสต์จะบอกทันทีถ้าตก AA
  */
 :root {
   color-scheme: light;
@@ -29,15 +30,15 @@
 
   --primary: #1d1d1f; /* ปุ่มหลัก = obsidian */
   --primary-foreground: #ffffff;
-  --accent: #0071e3; /* Apple blue — focus, ลิงก์, selection */
+  --accent: #0062c5; /* ⚠ Apple blue #0071e3 เข้มขึ้น 13% — เดิมได้ 4.3:1 บนพื้น #f5f5f7 และ 3.7:1 บน accent-soft */
   --accent-soft: rgba(0, 113, 227, 0.12);
   --focus-ring: 0 0 0 3px rgba(0, 113, 227, 0.15);
 
-  --danger: #d70015;
+  --danger: #cf0014; /* ⚠ spec #d70015 — 4.35:1 บน danger-soft */
   --danger-soft: rgba(255, 59, 48, 0.1);
-  --warning: #b25000;
+  --warning: #ac4d00; /* ⚠ spec #b25000 — 4.37:1 บน warning-soft */
   --warning-soft: rgba(255, 149, 0, 0.12);
-  --success: #248a3d;
+  --success: #1f7835; /* ⚠ spec #248a3d — 4.0:1 บนพื้น #f5f5f7 */
   --success-soft: rgba(52, 199, 89, 0.12);
 
   --track: #e5e5ea;
@@ -99,11 +100,11 @@
 
   --primary: #ffffff; /* ปุ่มหลัก = ขาวทึบ ตัวอักษรดำ */
   --primary-foreground: #000000;
-  --accent: #2997ff; /* ⚠ #0071e3 บนพื้นเข้มได้แค่ 3.6:1 */
+  --accent: #2e9aff; /* ⚠ #0071e3 บนพื้นเข้มได้แค่ 3.6:1 · สเปก #2997ff ได้ 4.49:1 บน accent-soft/แถว */
   --accent-soft: rgba(41, 151, 255, 0.16);
   --focus-ring: 0 0 0 3px rgba(41, 151, 255, 0.35);
 
-  --danger: #ff453a;
+  --danger: #ff5950; /* ⚠ spec #ff453a — 4.17:1 บน danger-soft/แถว */
   --danger-soft: rgba(255, 69, 58, 0.16);
   --warning: #ff9f0a;
   --warning-soft: rgba(255, 159, 10, 0.16);

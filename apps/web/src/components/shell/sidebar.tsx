@@ -100,7 +100,7 @@ function SidebarLink({
   const text = (
     <span className={cn('sr-only', expanded && 'lg:not-sr-only lg:truncate')}>
       {item.label}{' '}
-      <span className="text-fg-tertiary" lang="en">
+      <span className="text-fg-secondary" lang="en">
         ({item.en})
       </span>
     </span>
@@ -111,7 +111,8 @@ function SidebarLink({
       <span
         aria-disabled="true"
         title={`${item.label} — เร็ว ๆ นี้`}
-        className={cn(base, 'cursor-not-allowed text-fg-tertiary')}
+        // ไม่ใช้ text-tertiary: contrast ต่ำกว่า AA · บอกสถานะด้วยป้าย "เร็ว ๆ นี้" + ไอคอนจาง
+        className={cn(base, 'cursor-not-allowed text-fg-secondary [&_svg]:opacity-50')}
       >
         <Icon size={20} strokeWidth={1.75} aria-hidden="true" />
         {text}

@@ -1,6 +1,6 @@
 {
   "extends": "@nosion/tsconfig/library.json",
-  "compilerOptions": { "noEmit": true, "lib": ["ES2023", "DOM"] },
+  "compilerOptions": { "noEmit": true, "lib": ["ES2023", "DOM"], "types": ["node"] },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules"]
 }

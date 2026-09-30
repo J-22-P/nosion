@@ -15,7 +15,7 @@ export default function LoginPage() {
         </div>
         <LoginForm />
       </Card>
-      <div className="flex items-center gap-3 text-xs text-fg-tertiary">
+      <div className="flex items-center gap-3 text-xs text-fg-secondary">
         <span className="h-px flex-1 bg-hairline-strong" />
         หรือ
         <span className="h-px flex-1 bg-hairline-strong" />

@@ -9,7 +9,9 @@
   },
   "scripts": {
     "lint": "eslint src",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:unit": "vitest run"
   },
   "dependencies": {
     "@nosion/contracts": "workspace:*",
@@ -19,6 +21,8 @@
   "devDependencies": {
     "@nosion/eslint-config": "workspace:*",
     "@nosion/tsconfig": "workspace:*",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "3.2.7",
+    "@types/node": "22.20.3"
   }
 }
