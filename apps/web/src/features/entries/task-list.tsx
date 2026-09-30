@@ -57,7 +57,7 @@ export function TaskList({ filters }: { filters: EntryFilters }) {
         ))}
       </ul>
       {query.data?.pageInfo.hasMore ? (
-        <p className="px-4 py-3 text-xs text-[var(--muted-foreground)]">
+        <p className="px-4 py-3 text-xs text-[var(--text-secondary)]">
           แสดง {entries.length} รายการแรก — เลื่อนดูเพิ่มเติมจะมาพร้อม infinite scroll ใน Phase
           ถัดไป
         </p>
@@ -91,7 +91,7 @@ function TaskRow({
         className={cn(
           'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors',
           done
-            ? 'border-[var(--status-done)] bg-[var(--status-done)] text-white'
+            ? 'border-[var(--text-tertiary)] bg-[var(--text-tertiary)] text-white'
             : 'border-[var(--border)] hover:border-[var(--primary)]',
         )}
       >
@@ -99,14 +99,12 @@ function TaskRow({
       </button>
 
       <div className="min-w-0 flex-1">
-        <p
-          className={cn('truncate text-sm', done && 'text-[var(--muted-foreground)] line-through')}
-        >
+        <p className={cn('truncate text-sm', done && 'text-[var(--text-secondary)] line-through')}>
           {entry.title}
         </p>
-        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--muted-foreground)]">
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
           {due ? (
-            <span className={cn(overdue && 'font-medium text-[var(--status-overdue)]')}>{due}</span>
+            <span className={cn(overdue && 'font-medium text-[var(--danger)]')}>{due}</span>
           ) : null}
           {entry.priority !== 'none' ? (
             <span className={PRIORITY_CLASS[entry.priority]}>{PRIORITY_LABEL[entry.priority]}</span>

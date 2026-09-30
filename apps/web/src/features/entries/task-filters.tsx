@@ -73,7 +73,7 @@ export function TaskFilters({
         ))}
       </Select>
 
-      <label className="flex items-center gap-2 text-sm text-[var(--muted-foreground)]">
+      <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
         <input
           type="checkbox"
           checked={filters.overdue ?? false}

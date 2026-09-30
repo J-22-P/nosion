@@ -16,19 +16,19 @@ export default function SettingsPage() {
         <CardContent>
           <dl className="grid gap-3 text-sm sm:grid-cols-2">
             <div>
-              <dt className="text-[var(--muted-foreground)]">ชื่อที่ใช้แสดง</dt>
+              <dt className="text-[var(--text-secondary)]">ชื่อที่ใช้แสดง</dt>
               <dd>{user?.displayName ?? '—'}</dd>
             </div>
             <div>
-              <dt className="text-[var(--muted-foreground)]">อีเมล</dt>
+              <dt className="text-[var(--text-secondary)]">อีเมล</dt>
               <dd className="break-all">{user?.email ?? '—'}</dd>
             </div>
             <div>
-              <dt className="text-[var(--muted-foreground)]">โซนเวลา</dt>
+              <dt className="text-[var(--text-secondary)]">โซนเวลา</dt>
               <dd>{settings?.timezone ?? '—'}</dd>
             </div>
             <div>
-              <dt className="text-[var(--muted-foreground)]">โมดูลที่เปิดใช้</dt>
+              <dt className="text-[var(--text-secondary)]">โมดูลที่เปิดใช้</dt>
               <dd>{settings?.enabledModules?.join(', ') ?? '—'}</dd>
             </div>
           </dl>

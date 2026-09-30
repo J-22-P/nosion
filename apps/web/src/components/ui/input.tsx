@@ -8,7 +8,7 @@ export const Input = React.forwardRef<
   <input
     ref={ref}
     className={cn(
-      'h-10 w-full rounded-[var(--radius)] border border-[var(--input)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] disabled:opacity-50',
+      'h-10 w-full rounded-[var(--radius-control)] border border-[var(--border-strong)] bg-[var(--canvas)] px-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:opacity-50',
       className,
     )}
     {...props}
@@ -23,7 +23,7 @@ export const Select = React.forwardRef<
   <select
     ref={ref}
     className={cn(
-      'h-9 rounded-[var(--radius)] border border-[var(--input)] bg-[var(--background)] px-2 text-sm text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]',
+      'h-9 rounded-[var(--radius-control)] border border-[var(--border-strong)] bg-[var(--canvas)] px-2 text-sm text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]',
       className,
     )}
     {...props}
@@ -34,7 +34,7 @@ Select.displayName = 'Select';
 export function Label({ className, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) {
   return (
     <label
-      className={cn('mb-1.5 block text-sm font-medium text-[var(--foreground)]', className)}
+      className={cn('mb-1.5 block text-sm font-medium text-[var(--text-primary)]', className)}
       {...props}
     />
   );
@@ -43,7 +43,7 @@ export function Label({ className, ...props }: React.LabelHTMLAttributes<HTMLLab
 export function FieldError({ children }: { children?: React.ReactNode }) {
   if (!children) return null;
   return (
-    <p role="alert" className="mt-1 text-xs text-[var(--destructive)]">
+    <p role="alert" className="mt-1 text-xs text-[var(--danger)]">
       {children}
     </p>
   );

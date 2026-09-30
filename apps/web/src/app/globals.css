@@ -3,31 +3,124 @@
 /* next-themes ใส่ class="dark" ที่ <html> — ผูก variant ของ Tailwind เข้ากับ class นั้น */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/*
+ * map token จาก packages/ui/src/tokens.css เข้า Tailwind (สเปก 8.7.2)
+ * ใช้ `inline` เพื่อให้ utility อ่าน var() ของ token ตรง ๆ — สลับธีมได้โดยไม่ต้อง rebuild
+ * ตั้งชื่อ utility ตามบทบาท: bg-surface, text-fg-secondary, border-hairline, rounded-card ...
+ */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-muted: var(--muted);
-  --color-border: var(--border);
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-sunken: var(--surface-sunken);
+  --color-elevated: var(--surface-elevated);
+  --color-glass: var(--glass);
+  --color-hairline: var(--border);
+  --color-hairline-strong: var(--border-strong);
+  --color-wash: var(--hover-wash);
+  --color-wash-active: var(--active-wash);
+
+  --color-fg: var(--text-primary);
+  --color-fg-secondary: var(--text-secondary);
+  --color-fg-tertiary: var(--text-tertiary);
+
   --color-primary: var(--primary);
-  --radius-token: var(--radius);
-  --font-sans: var(--font-noto-sans-thai), ui-sans-serif, system-ui, sans-serif;
+  --color-primary-fg: var(--primary-foreground);
+  --color-accent: var(--accent-soft);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-track: var(--track);
+  --color-track-fill: var(--track-fill);
+
+  /*
+   * radius/shadow ใช้ชื่อเดียวกับ token เพื่อให้ได้ rounded-card, shadow-float ฯลฯ
+   * Tailwind จะปล่อย `--radius-card: var(--radius-card)` ไว้ใน @layer theme แต่ tokens.css
+   * เป็น unlayered จึงชนะเสมอ → ไม่เกิด var วนซ้ำ (อย่าย้าย tokens.css เข้า @layer)
+   */
+  --radius-chip: var(--radius-chip);
+  --radius-control: var(--radius-control);
+  --radius-row: var(--radius-row);
+  --radius-card: var(--radius-card);
+  --radius-panel: var(--radius-panel);
+
+  --shadow-card: var(--shadow-card);
+  --shadow-float: var(--shadow-float);
+
+  --ease-standard: var(--ease-standard);
+
+  /* Inter ไม่มีอักษรไทย → ตกไปที่ IBM Plex Sans Thai (8.7.3) */
+  --font-sans: var(--font-inter), var(--font-plex-thai), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 * {
   border-color: var(--border);
 }
 
+html {
+  background-color: var(--canvas);
+}
+
 body {
-  background-color: var(--background);
-  color: var(--foreground);
+  background-color: var(--canvas);
+  color: var(--text-primary);
   font-family: var(--font-sans);
+  font-size: 15px;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@media (max-width: 767px) {
+  body {
+    font-size: 14px;
+  }
+}
+
+::selection {
+  background-color: var(--accent-soft);
 }
 
 /* focus ring ต้องมองเห็นชัดเสมอ — เงื่อนไขของ WCAG 2.1 AA */
 :focus-visible {
-  outline: 2px solid var(--ring);
+  outline: 2px solid var(--accent-soft);
   outline-offset: 2px;
+}
+
+/* ── utility เฉพาะของ design system ───────────────── */
+
+/* level 2 — top bar, bottom tab bar (8.7.4) · backdrop-filter มีต้นทุน GPU ใช้เฉพาะ bar/modal */
+@utility glass {
+  background-color: var(--glass);
+  -webkit-backdrop-filter: var(--blur-glass);
+  backdrop-filter: var(--blur-glass);
+
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    background-color: var(--glass-solid);
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    background-color: var(--glass-solid);
+    backdrop-filter: none;
+  }
+}
+
+/* ตัวเลขที่ต้องกว้างเท่ากัน — KPI, เวลา, จำนวนเงิน */
+@utility nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * tracking ติดลบใช้กับข้อความละตินเท่านั้น — ภาษาไทยติดลบแล้วสระบน/ล่างชนกัน (8.7.3)
+ * ใส่ class นี้ที่หัวข้อ/ตัวเลข แล้วกำกับ lang="en" ที่ส่วนที่เป็นอังกฤษ
+ */
+@utility tracking-display {
+  letter-spacing: 0;
+  &:lang(en) {
+    letter-spacing: -0.03em;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -35,6 +128,7 @@ body {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
 }

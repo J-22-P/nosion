@@ -18,14 +18,14 @@ export function EmptyState({
     <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
       <div
         aria-hidden="true"
-        className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--muted)] text-xl"
+        className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--surface-sunken)] text-xl"
       >
         ✳
       </div>
       <div>
         <p className="font-medium">{title}</p>
         {description ? (
-          <p className="mt-1 text-sm text-[var(--muted-foreground)]">{description}</p>
+          <p className="mt-1 text-sm text-[var(--text-secondary)]">{description}</p>
         ) : null}
       </div>
       {action}
@@ -36,8 +36,8 @@ export function EmptyState({
 export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
     <div role="alert" className="flex flex-col items-center gap-3 px-6 py-16 text-center">
-      <p className="font-medium text-[var(--destructive)]">โหลดข้อมูลไม่สำเร็จ</p>
-      <p className="max-w-md text-sm text-[var(--muted-foreground)]">{message}</p>
+      <p className="font-medium text-[var(--danger)]">โหลดข้อมูลไม่สำเร็จ</p>
+      <p className="max-w-md text-sm text-[var(--text-secondary)]">{message}</p>
       {onRetry ? (
         <Button variant="outline" size="sm" onClick={onRetry}>
           ลองใหม่

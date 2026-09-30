@@ -75,7 +75,7 @@ function Sidebar({ pathname }: { pathname: string }) {
   return (
     <nav
       aria-label="เมนูหลัก"
-      className="hidden w-56 shrink-0 border-r border-[var(--border)] bg-[var(--card)] p-3 md:block"
+      className="hidden w-56 shrink-0 border-r border-[var(--border)] bg-[var(--surface)] p-3 md:block"
     >
       <p className="px-3 py-4 text-sm font-semibold tracking-widest">NOSION</p>
       <ul className="space-y-1">
@@ -100,10 +100,10 @@ type NavItem = { href: string; label: string; icon: typeof CheckSquare; ready: b
 function NavLink({ item, active }: { item: NavItem; active: boolean }) {
   const Icon = item.icon;
   const className = cn(
-    'flex items-center gap-3 rounded-[var(--radius)] px-3 py-2 text-sm transition-colors',
+    'flex items-center gap-3 rounded-[var(--radius-control)] px-3 py-2 text-sm transition-colors',
     active
-      ? 'bg-[var(--accent)] font-medium text-[var(--accent-foreground)]'
-      : 'text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]',
+      ? 'bg-[var(--accent-soft)] font-medium text-[var(--accent)]'
+      : 'text-[var(--text-secondary)] hover:bg-[var(--surface-sunken)] hover:text-[var(--text-primary)]',
   );
 
   if (!item.ready) {
@@ -135,17 +135,15 @@ function TopBar({ displayName, isDemo }: { displayName: string; isDemo: boolean 
   }
 
   return (
-    <header className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b border-[var(--border)] bg-[var(--background)]/90 px-4 backdrop-blur md:px-8">
+    <header className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b border-[var(--border)] bg-[var(--canvas)]/90 px-4 backdrop-blur md:px-8">
       <span className="text-sm font-semibold tracking-widest md:hidden">NOSION</span>
       <div className="ml-auto flex items-center gap-2">
         {isDemo ? (
-          <span className="rounded-full bg-[var(--accent)] px-2 py-1 text-xs text-[var(--accent-foreground)]">
+          <span className="rounded-full bg-[var(--accent-soft)] px-2 py-1 text-xs text-[var(--accent)]">
             บัญชีทดลอง
           </span>
         ) : null}
-        <span className="hidden text-sm text-[var(--muted-foreground)] sm:inline">
-          {displayName}
-        </span>
+        <span className="hidden text-sm text-[var(--text-secondary)] sm:inline">{displayName}</span>
         <ThemeToggle />
         <Button variant="ghost" size="icon" onClick={logout} aria-label="ออกจากระบบ">
           <LogOut size={16} />
@@ -177,7 +175,7 @@ function MobileNav({ pathname }: { pathname: string }) {
   return (
     <nav
       aria-label="เมนูหลัก (มือถือ)"
-      className="fixed inset-x-0 bottom-0 z-10 flex border-t border-[var(--border)] bg-[var(--card)] md:hidden"
+      className="fixed inset-x-0 bottom-0 z-10 flex border-t border-[var(--border)] bg-[var(--surface)] md:hidden"
     >
       {NAV.filter((item) => item.ready)
         .concat([{ href: '/settings', label: 'ตั้งค่า', icon: Settings, ready: true }] as never)
@@ -191,7 +189,7 @@ function MobileNav({ pathname }: { pathname: string }) {
               aria-current={active ? 'page' : undefined}
               className={cn(
                 'flex flex-1 flex-col items-center gap-1 py-2 text-[11px]',
-                active ? 'text-[var(--primary)]' : 'text-[var(--muted-foreground)]',
+                active ? 'text-[var(--primary)]' : 'text-[var(--text-secondary)]',
               )}
             >
               <Icon size={18} aria-hidden="true" />

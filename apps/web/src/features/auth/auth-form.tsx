@@ -61,7 +61,7 @@ export function LoginForm() {
       <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
         {form.formState.isSubmitting ? 'กำลังเข้าสู่ระบบ…' : 'เข้าสู่ระบบ'}
       </Button>
-      <p className="text-center text-sm text-[var(--muted-foreground)]">
+      <p className="text-center text-sm text-[var(--text-secondary)]">
         ยังไม่มีบัญชี?{' '}
         <Link href="/register" className="underline">
           สมัครใหม่
@@ -116,14 +116,14 @@ export function RegisterForm() {
           {...form.register('password')}
         />
         <FieldError>{form.formState.errors.password?.message}</FieldError>
-        <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+        <p className="mt-1 text-xs text-[var(--text-secondary)]">
           อย่างน้อย 12 ตัวอักษร และต้องไม่เคยปรากฏในข้อมูลที่รั่วไหล
         </p>
       </div>
       <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
         {form.formState.isSubmitting ? 'กำลังสมัคร…' : 'สมัครสมาชิก'}
       </Button>
-      <p className="text-center text-sm text-[var(--muted-foreground)]">
+      <p className="text-center text-sm text-[var(--text-secondary)]">
         มีบัญชีแล้ว?{' '}
         <Link href="/login" className="underline">
           เข้าสู่ระบบ

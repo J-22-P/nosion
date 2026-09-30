@@ -17,7 +17,7 @@ export default function TodayPage() {
         <CardHeader>
           <CardTitle>หน้านี้กำลังมาใน Phase 2</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4 text-sm text-[var(--muted-foreground)]">
+        <CardContent className="space-y-4 text-sm text-[var(--text-secondary)]">
           <p>
             หน้า Today ประกอบร่างจากทุกโมดูลที่เปิดใช้งาน โดยเรียก <code>summarizeToday()</code>{' '}
             บนทะเบียนโมดูล — ไม่มีเงื่อนไขเฉพาะโมดูลอยู่ในหน้านี้เลย

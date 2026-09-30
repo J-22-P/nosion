@@ -3,7 +3,12 @@ import type * as React from 'react';
 
 /** skeleton ต้องมีรูปร่างเหมือนของจริง ไม่ใช่ spinner กลางจอ (สเปกหัวข้อ 8.7) */
 export function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('animate-pulse rounded-md bg-[var(--muted)]', className)} {...props} />;
+  return (
+    <div
+      className={cn('animate-pulse rounded-md bg-[var(--surface-sunken)]', className)}
+      {...props}
+    />
+  );
 }
 
 export function TaskListSkeleton({ rows = 5 }: { rows?: number }) {
