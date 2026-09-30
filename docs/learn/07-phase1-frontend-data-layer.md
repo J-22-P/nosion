@@ -286,7 +286,7 @@ for (const [path, message] of Object.entries(error.fieldErrors())) {
 โหมดมืดทำงานด้วยการประกาศค่าใหม่ใต้ `.dark` — component ไม่ต้องรู้เรื่องธีมเลย
 
 > **อัปเดต Phase 2a:** token ชุดนี้ถูกแทนด้วยชุด v1.1 (Monochrome + Apple Blue) และตัดสีประจำโมดูลออก
-> หลักการยังเหมือนเดิม — อ่านต่อที่ [บท 10](./10-phase2a-design-system-and-ui.md)
+> หลักการยังเหมือนเดิม — อ่านต่อที่ [บท 10](./10-phase2a-design-system-and-theming.md)
 
 ### Tailwind v4 ต่างจาก v3 ตรงไหน
 

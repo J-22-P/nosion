@@ -187,3 +187,47 @@
 | **Flaky test**               | เทสต์ที่ผ่านบ้างไม่ผ่านบ้างโดยโค้ดไม่เปลี่ยน                  |
 | **Testing pyramid**          | สัดส่วนที่ควรเป็น: unit เยอะสุด E2E น้อยสุด                   |
 | **DLQ**                      | Dead Letter Queue — ที่พักของงานที่ retry จนครบแล้วยังล้มเหลว |
+
+---
+
+## Design system และ UI (Phase 2a)
+
+| คำ                           | ความหมาย                                                                                   |
+| ---------------------------- | ------------------------------------------------------------------------------------------ |
+| **Cascade**                  | กติกาที่เบราว์เซอร์ใช้เลือกค่า CSS เมื่อหลายกฎชนกัน (origin → layer → specificity → ลำดับ) |
+| **Specificity**              | น้ำหนักของ selector นับเป็น (id, class, element)                                           |
+| **Cascade layer (`@layer`)** | กลุ่มกฎ CSS ที่จัดลำดับชนะกันเอง · กฎที่ไม่อยู่ใน layer ชนะทุก layer                       |
+| **Custom property**          | ตัวแปร CSS (`--x`) ที่มีชีวิตตอน runtime และสืบทอดลงลูก                                    |
+| **Design token**             | ชื่อตามบทบาทที่ใช้แทนค่าการออกแบบ เช่น `--surface` แทน `#141416`                           |
+| **Utility-first**            | เขียน style ด้วย class หน้าที่เดียวหลายตัว (`p-4 rounded-card`) แทนตั้งชื่อ class เอง      |
+| **FOUC**                     | หน้ากระพริบตอนโหลดเพราะ style/ธีมมาไม่ทัน                                                  |
+| **FOIT / FOUT**              | ข้อความหายระหว่างรอฟอนต์ / แสดงฟอนต์สำรองก่อนแล้วสลับ                                      |
+| **Relative luminance**       | ความสว่างที่ตาคนรับรู้ของสีหนึ่ง ใช้คำนวณ contrast                                         |
+| **Contrast ratio**           | อัตราส่วนความสว่างข้อความ/พื้น · AA ข้อความปกติ ≥ 4.5 : 1                                  |
+| **Accessibility tree**       | ต้นไม้ที่ screen reader อ่าน ประกอบด้วย role, name, state                                  |
+| **ARIA**                     | attribute ที่เพิ่มความหมายให้ accessibility tree (`role`, `aria-checked` …)                |
+| **Roving tabindex**          | กลุ่มปุ่มที่ Tab เข้าได้จุดเดียว แล้วใช้ลูกศรเลื่อนภายใน                                   |
+| **Live region**              | พื้นที่ที่ screen reader อ่านเองเมื่อเนื้อหาเปลี่ยน (`aria-live`)                          |
+| **Focus management**         | การควบคุมว่าโฟกัสไปอยู่ไหนหลังเปิด/ปิด popover, dialog                                     |
+| **Mobile-first**             | เขียน style สำหรับจอเล็กเป็นค่าพื้นฐาน แล้วเพิ่มสำหรับจอใหญ่                               |
+| **Safe area**                | ส่วนของจอที่ไม่ถูกรอยบาก/home indicator บัง (`env(safe-area-inset-*)`)                     |
+| **Debounce / Throttle**      | รอให้หยุดก่อนค่อยทำครั้งเดียว / ทำได้ไม่เกิน 1 ครั้งต่อช่วงเวลา                            |
+| **Unicode property escape**  | `\p{L}` `\p{M}` ใน regex — จับตัวอักษรตามหมวด Unicode (ต้องมี flag `u`)                    |
+
+---
+
+## เวลาและความถูกต้องของข้อมูล (Phase 2a)
+
+| คำ                     | ความหมาย                                                                      |
+| ---------------------- | ----------------------------------------------------------------------------- |
+| **Instant**            | จุดเวลาเดียวกันทั้งโลก เก็บเป็น UTC                                           |
+| **IANA time zone**     | ชื่อกฎโซนเวลา เช่น `Asia/Bangkok` (รวมประวัติ DST)                            |
+| **DST**                | Daylight Saving Time — เลื่อนนาฬิกาตามฤดู ทำให้บางวันยาว 23 หรือ 25 ชม.       |
+| **Half-open interval** | ช่วง `[start, end)` รวมต้นไม่รวมปลาย ต่อกันได้ไม่มีช่องว่าง                   |
+| **Aggregate**          | ฟังก์ชันสรุปหลายแถวเป็นค่าเดียว (`COUNT`, `SUM`)                              |
+| **Isolation level**    | ระดับที่ transaction เห็นการเปลี่ยนแปลงของ transaction อื่น                   |
+| **TOCTOU**             | Time-Of-Check to Time-Of-Use — เช็คแล้วค่อยทำ แต่โลกเปลี่ยนระหว่างนั้น        |
+| **Partial index**      | index ที่ครอบเฉพาะแถวที่ตรง `WHERE`                                           |
+| **Conditional update** | `UPDATE … WHERE <สถานะที่คาดหวัง>` แล้วดูจำนวนแถวที่เปลี่ยน                   |
+| **State machine**      | แบบจำลองสถานะ × การกระทำ → สถานะใหม่ ครบทุกคู่                                |
+| **Additive migration** | migration ที่เพิ่มอย่างเดียว ไม่ลบ/เปลี่ยนของเดิม → deploy ได้ไม่ต้องหยุดระบบ |

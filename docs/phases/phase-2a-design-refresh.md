@@ -2,26 +2,33 @@
 
 > เป้าหมาย: เปลี่ยนหน้าตาทั้งแอปจากธีม indigo ของ Phase 1 เป็น **Monochrome + Apple Blue**
 > สองธีมเท่ากัน (dark / light) ตาม mockup v1.1 — สเปก 8.2, 8.7, 8.11.2
-> ความรู้เบื้องหลัง: [`learn/10`](../learn/10-phase2a-design-system-and-ui.md) · เหตุผล: [ADR-009](../adr/009-monochrome-design-system-dual-theme.md)
+> ความรู้เบื้องหลัง (อ่านเรียงกัน): [10 Design system & CSS](../learn/10-phase2a-design-system-and-theming.md) ·
+> [11 Component & App shell](../learn/11-phase2a-accessible-components-and-app-shell.md) ·
+> [12 หน้า Tasks](../learn/12-phase2a-tasks-page-frontend.md) ·
+> [13 Task API & race condition](../learn/13-phase2a-task-api-sidebar-and-focus-timer.md)
+> เหตุผลของการตัดสินใจ: [ADR-009](../adr/009-monochrome-design-system-dual-theme.md)
 
 ## ภาพรวมความคืบหน้า
 
-| #   | ขั้น                                                    | Commit         | สถานะ |
-| --- | ------------------------------------------------------- | -------------- | ----- |
-| 1   | Contracts: habit payload v1.1                           | `3e8b928`      | ✅    |
-| 2   | Design token + ฟอนต์                                    | `e3b8067`      | ✅    |
-| 3   | UI primitives + theme switcher                          | `6e4c09e`      | ✅    |
-| 4   | App shell                                               | `1cff933`      | ✅    |
-| 5   | Restyle Tasks + Login/Register                          | `2a133e7`      | ✅    |
-| 6   | เอกสาร Phase 2a + ADR-009                               | _(commit นี้)_ | ✅    |
-| 7   | API: `GET /tasks/sidebar`                               | —              | ⏳    |
-| 8   | API: Focus timer + `GET /tasks/focus/today`             | —              | ⏳    |
-| 9   | Web: ตัวเลข smart list, Inbox, การ์ด Focus, ปุ่มจับเวลา | —              | ⏳    |
-| 10  | PWA icon, Playwright screenshot baseline                | —              | ⏳    |
+| #   | ขั้น                                                          | Commit         | สถานะ |
+| --- | ------------------------------------------------------------- | -------------- | ----- |
+| 1   | Contracts: habit payload v1.1                                 | `3e8b928`      | ✅    |
+| 2   | Design token + ฟอนต์                                          | `e3b8067`      | ✅    |
+| 3   | UI primitives + theme switcher                                | `6e4c09e`      | ✅    |
+| 4   | App shell                                                     | `1cff933`      | ✅    |
+| 5   | Restyle Tasks + Login/Register                                | `2a133e7`      | ✅    |
+| 6   | เอกสาร Phase 2a + ADR-009 (รอบแรก)                            | `436cc59`      | ✅    |
+| 7   | API: `GET /tasks/sidebar` + ตัวกรอง inbox                     | `cca6648`      | ✅    |
+| 8   | API: Focus timer + `GET /tasks/focus/today`                   | `3224f90`      | ✅    |
+| 9   | Web: ตัวเลข smart list, Inbox, การ์ด Focus, ปุ่มจับเวลา       | `d3d7996`      | ✅    |
+| 10  | เอกสารเรียนรู้ละเอียดระดับ Phase 0–1 (บท 10–13) + อภิธานศัพท์ | _(commit นี้)_ | ✅    |
+| 11  | PWA icon, Playwright screenshot baseline, axe                 | —              | ⏳    |
 
 ---
 
 ## ขั้น 1 · Contracts: habit payload v1.1 — `3e8b928`
+
+📚 **ความรู้พื้นฐาน:** Zod refine, JSONB ที่ไม่ต้อง migrate → บท [06](../learn/06-phase1-api-design-and-validation.md), [03](../learn/03-phase0-database-and-prisma.md)
 
 **เป้าหมาย:** ให้ widget นิสัยในหน้า Today (Phase 2b) render ได้ 3 แบบตาม mockup
 โดยยังไม่ทำ HabitModule เต็ม
@@ -46,6 +53,8 @@
 ---
 
 ## ขั้น 2 · Design token + ฟอนต์ — `e3b8067`
+
+📚 **ความรู้พื้นฐาน:** cascade, specificity, `@layer`, custom property, token 3 ชั้น, Tailwind v4, dark mode, contrast, ฟอนต์ → บท [10](../learn/10-phase2a-design-system-and-theming.md)
 
 **เป้าหมาย:** แหล่งความจริงเดียวของสี/มุม/เงา ทั้งสองธีม
 
@@ -72,6 +81,8 @@
 
 ## ขั้น 3 · UI primitives — `6e4c09e`
 
+📚 **ความรู้พื้นฐาน:** accessibility tree, ARIA, focus, roving tabindex, menu pattern, `cva` → บท [11](../learn/11-phase2a-accessible-components-and-app-shell.md) หัวข้อ 1–5
+
 **สิ่งที่เปลี่ยน** — 📁 `apps/web/src/components/ui/`
 
 | Component                       | จุดสำคัญ                                                                                   |
@@ -97,6 +108,8 @@
 
 ## ขั้น 4 · App shell — `1cff933`
 
+📚 **ความรู้พื้นฐาน:** responsive, flex/grid, sticky/fixed, safe area, `dvh`, hydration, Zustand persist, `useSyncExternalStore` → บท [11](../learn/11-phase2a-accessible-components-and-app-shell.md) หัวข้อ 6–7
+
 **สิ่งที่เปลี่ยน** — 📁 `apps/web/src/components/shell/` (ย้ายจาก `components/shared/app-shell.tsx`)
 
 - `sidebar.tsx` — 260px (≥1024) / rail 72px (768–1023 หรือเมื่อยุบ) · ยุบด้วยปุ่มหรือ `[`
@@ -118,6 +131,8 @@
 ---
 
 ## ขั้น 5 · Restyle Tasks + Login/Register — `2a133e7`
+
+📚 **ความรู้พื้นฐาน:** URL state, `replace` vs `push`, pure function, Suspense, debounce, regex + Unicode, undo ด้วย version → บท [12](../learn/12-phase2a-tasks-page-frontend.md)
 
 **สิ่งที่เปลี่ยน** — 📁 `apps/web/src/features/tasks/`
 
@@ -144,16 +159,18 @@
 
 ---
 
-## ขั้น 6 · เอกสาร Phase 2a
+## ขั้น 6 · เอกสาร Phase 2a (รอบแรก) — `436cc59`
 
 - 📁 `docs/phases/` (ไฟล์นี้ + README + สรุป Phase 0–1)
-- 📁 `docs/learn/10-phase2a-design-system-and-ui.md`
+- 📁 `docs/learn/10-…` (ภายหลังขยายเป็นบท 10–13 ในขั้น 10)
 - 📁 `docs/adr/009-monochrome-design-system-dual-theme.md`
 - อัปเดตสารบัญ `learn/00`, `learn/index.html`, `adr/README.md` และ path ที่ย้ายใน `learn/07`
 
 ---
 
 ## ขั้น 7 · API: `GET /tasks/sidebar` — `cca6648`
+
+📚 **ความรู้พื้นฐาน:** instant/หน้าปัด/โซนเวลา, DST, `[start, end)`, COUNT/GROUP BY, isolation level, IDOR ของ `groupBy` → บท [13](../learn/13-phase2a-task-api-sidebar-and-focus-timer.md) หัวข้อ 1–4
 
 **เป้าหมาย:** ตัวเลขทุกอย่างใน sidebar หน้า Tasks ในคำขอเดียว (สเปก 7.3, 8.11.2)
 
@@ -200,6 +217,95 @@
 
 ---
 
+## ขั้น 8 · API: Focus timer — `3224f90`
+
+📚 **ความรู้พื้นฐาน:** state machine, TOCTOU, partial unique index, conditional update, transaction/ACID, idempotency, additive migration → บท [13](../learn/13-phase2a-task-api-sidebar-and-focus-timer.md) หัวข้อ 5–8
+
+**เป้าหมาย:** ปุ่ม "เริ่มจับเวลา" บนการ์ดงาน และการ์ด "Focus Session วันนี้ 2h 45m / 4 ชม." (สเปก 7.3, 8.11.2)
+
+**สิ่งที่เปลี่ยน**
+
+- 📁 `apps/api/prisma/schema.prisma` — `FocusSession` (1 แถว/รอบ) + `UserSettings.focusGoalMinutes` (240)
+- 📁 `apps/api/prisma/migrations/20260930090000_focus_sessions/` — additive ทั้งหมด + partial unique index
+- 📁 `apps/api/src/modules/task/focus-timer.service.ts` — start / stop / today
+- 📁 `apps/api/src/modules/task/focus.ts` — `sessionSeconds`, `secondsToMinutes`, `summarizeFocusDay` (pure)
+- 📁 `tasks.controller.ts` — `POST /tasks/:id/timer/start|stop` (200), `GET /tasks/focus/today`
+- settings: `focusGoalMinutes` อ่านได้จาก `/me` แก้ได้ผ่าน PATCH settings (15–960)
+
+**Endpoint**
+
+| Method | Path                     | ผล                                                                         |
+| ------ | ------------------------ | -------------------------------------------------------------------------- |
+| `POST` | `/tasks/:id/timer/start` | `FocusSessionDto` · งานอื่นจับอยู่ → หยุดให้ก่อน · ซ้ำกับงานเดิม → รอบเดิม |
+| `POST` | `/tasks/:id/timer/stop`  | `{ session, addedMinutes }` · ไม่ได้จับอยู่ → 409 `timer-not-running`      |
+| `GET`  | `/tasks/focus/today`     | `{ date, totalSeconds, goalMinutes, completedSessions, running }`          |
+
+**การตัดสินใจ**
+
+- ตารางแยก ไม่เก็บใน payload — ต้องการประวัติรายรอบและ constraint "1 รอบที่ยังไม่จบต่อผู้ใช้"
+- constraint อยู่ที่ **ฐานข้อมูล** (partial unique index) ไม่ใช่แค่ในโค้ด — กันสองแท็บกดพร้อมกันได้จริง
+- แพ้การแข่ง (`P2002`) → คืนรอบของผู้ชนะ ผู้ใช้ไม่เห็น error
+- stop ใช้ `WHERE endedAt IS NULL` → stop ซ้ำไม่บวกเวลาซ้ำ
+- **เพดาน 4 ชม./รอบ** (สเปกไม่ได้ระบุ — ตัดสินเอง) กันลืมกดหยุดข้ามคืน
+- รอบที่จบแล้วนับตามวันที่เริ่ม · รอบที่กำลังจับนับเฉพาะส่วนที่อยู่ในวันนี้
+- start เปลี่ยน `pending → active` (ใช้ status ที่มีอยู่ ไม่เพิ่มใหม่)
+- ยังไม่ยิง `entry.updated` event — ยังไม่มีผู้ฟัง (Phase 4 SSE ต้องกลับมาเพิ่ม)
+
+**วิธีตรวจ**
+
+- unit `focus.spec.ts` 7 เคส (เพดาน, นาฬิกาย้อน, ปัดนาที, คร่อมเที่ยงคืน)
+- typecheck + lint ทั้ง monorepo · `prisma validate` ผ่าน
+- integration (ยังไม่ได้รัน — CI): idempotent start, auto-switch, **start พร้อมกัน 5 คำขอได้รอบเดียว**, stop ซ้ำ 409, งานเสร็จแล้ว 409, IDOR 404
+- ⚠️ migration SQL เขียนด้วยมือตามรูปแบบของ migration แรก (sandbox รัน `prisma migrate` ไม่ได้)
+  → **ควรรัน `pnpm db:migrate` บนเครื่องจริงแล้วดูว่า Prisma ไม่รายงาน drift**
+
+---
+
+## ขั้น 9 · Web: sidebar ตัวเลขจริง + Focus — `d3d7996`
+
+📚 **ความรู้พื้นฐาน:** query key แบบลำดับชั้น, invalidate แบบ prefix, นาฬิกาฝั่ง client, effect cleanup → บท [12](../learn/12-phase2a-tasks-page-frontend.md) หัวข้อ 4–5
+
+**สิ่งที่เปลี่ยน** — 📁 `apps/web/src/features/tasks/`
+
+- `api.ts`, `use-task-queries.ts` — sidebar / focus / start / stop + `useElapsedSeconds`
+- `task-sidebar.tsx` — ตัวเลขจาก server, smart list **Inbox** (`?list=inbox` → `GET /entries?inbox=true`)
+- `focus-card.tsx` — ยอดรวม/เป้าหมาย + progress + รอบที่กำลังจับ · มือถือบนสุด desktop ใต้ sidebar
+- `task-card.tsx` — ปุ่ม "เริ่มจับเวลา / กำลังจับเวลา" (`aria-pressed`)
+- "N ค้างอยู่" ใช้ `smartLists.all` จาก server (เดิมนับจากหน้าแรก 50 รายการ)
+- 📁 `lib/format.ts` — `formatDuration`, `formatClock` + เทสต์
+
+**การตัดสินใจ**
+
+- key ของ sidebar = `['entries', 'tasks-sidebar']` → mutation เดิมทุกตัว invalidate `['entries']` อยู่แล้ว ตัวเลขจึงสดเอง
+- นาฬิกาคำนวณจาก `Date.now() - startedAt` ทุกวินาที ไม่ใช่ `+1` สะสม (แท็บที่ถูกพักจะช้า)
+- ยอดรวม = ค่าจาก server + เวลาที่ผ่านไปตั้งแต่ server ตอบ · refetch ทุก 5 นาที
+- การ์ด Focus โหลดไม่สำเร็จ → ซ่อนเงียบ ๆ (เป็นข้อมูลเสริม ไม่ควรแย่งพื้นที่รายการงาน)
+
+**วิธีตรวจ:** unit test web ผ่านทั้งหมด · typecheck · lint · `next build` (`/tasks` 165 kB < 180 kB)
+
+---
+
+## ขั้น 10 · เอกสารเรียนรู้ระดับเดียวกับ Phase 0–1
+
+**เหตุผล:** เอกสารรอบแรก (บท 10 เดิม) สรุปสั้นเกินไปเทียบกับบท 02–07
+ที่อธิบายพื้นฐานตั้งแต่ศูนย์แล้วค่อยพาเดินโค้ดทีละขั้น
+
+**สิ่งที่เปลี่ยน** — 📁 `docs/learn/`
+
+| บท  | เนื้อหาพื้นฐานที่แทรก                                                                                                                     | โค้ดที่พาเดิน                                                            |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| 10  | cascade, specificity, `@layer`, custom property, สีและ alpha, Tailwind สร้าง CSS อย่างไร, FOUC, สูตร contrast, การโหลดฟอนต์               | tokens.css → globals.css → card.tsx, กับดัก layer, เดินทางของหนึ่งพิกเซล |
+| 11  | a11y คืออะไร, accessibility tree, กฎข้อแรกของ ARIA, focus/tab order, live region, mobile-first, flex/grid, sticky/fixed, safe area, `dvh` | Button, Checkbox, Segmented, Menu, StatusPill, shell ทั้งชุด             |
+| 12  | ประเภทของ state, push/replace, pure function, `useMemo`, Suspense + prerender, debounce/throttle, regex ฉบับเร่งรัด, Unicode `\p{M}`      | use-task-view, quick-capture-parser, query key, undo, นาฬิกา             |
+| 13  | instant/หน้าปัด/โซนเวลา, DST, half-open interval, COUNT/GROUP BY, isolation level, TOCTOU, unique/partial index, ACID, idempotency        | sidebar, timer, migration, race condition test                           |
+
+- ลบบท 10 เดิม (`10-phase2a-design-system-and-ui.md`) — เนื้อหาย้ายเข้าบท 10–13
+- เพิ่มอภิธานศัพท์ 2 หมวด (Design system & UI, เวลาและความถูกต้องของข้อมูล)
+- อัปเดตสารบัญ `00-how-to-read.md`, `index.html` และลิงก์ในบท 07
+- ทุกขั้นในไฟล์นี้มีบรรทัด 📚 ชี้ไปหัวข้อพื้นฐานที่เกี่ยวข้อง
+
+---
+
 ## สิ่งที่ยังไม่ได้ตรวจ (ต้องทำบนเครื่องจริง)
 
 - [ ] **ดูด้วยตา** ทั้ง 2 ธีม × desktop/mobile — sandbox ไม่มี browser
@@ -207,6 +313,7 @@
 - [ ] e2e smoke (ต้องมี API + DB)
 - [ ] axe 0 serious ทั้ง 2 ธีม
 - [ ] integration test ของ API (`pnpm test:int` — ต้องมี Postgres + Redis)
+- [ ] `pnpm db:migrate` บนเครื่องจริง — ยืนยันว่า migration `focus_sessions` ที่เขียนมือไม่ทำให้ Prisma รายงาน drift
 
 ## หมายเหตุสภาพแวดล้อมที่ใช้ตรวจ
 
