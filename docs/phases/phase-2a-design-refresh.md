@@ -153,12 +153,60 @@
 
 ---
 
+## ขั้น 7 · API: `GET /tasks/sidebar` — `cca6648`
+
+**เป้าหมาย:** ตัวเลขทุกอย่างใน sidebar หน้า Tasks ในคำขอเดียว (สเปก 7.3, 8.11.2)
+
+**สิ่งที่เปลี่ยน**
+
+- 📁 `apps/api/src/modules/task/`
+  - `tasks.controller.ts` — `@Controller('tasks')` endpoint เฉพาะโมดูล (CRUD ยังอยู่ที่ `/entries`)
+  - `task-stats.service.ts` — 8 query ขนานกันด้วย `Promise.all` + `buildSidebar()` pure function
+  - `task-ranges.ts` — ขอบ "วันนี้" / "7 วัน" ตามโซนเวลาผู้ใช้
+- 📁 `packages/contracts/src/tasks.ts` — DTO ของ sidebar / focus / timer
+- 📁 `apps/api/src/entries/` — ตัวกรอง `inbox=true` · `completed-at.ts`
+- 📁 `packages/core/src/errors.ts` — `InvalidStateError` → 409
+
+**ตัวอย่าง response**
+
+```json
+{
+  "smartLists": { "all": 24, "inbox": 12, "today": 4, "week": 8, "overdue": 1 },
+  "projects": [{ "id": "…", "name": "NOSION Core", "color": "#6366f1", "count": 9 }],
+  "topTags": [{ "id": "…", "name": "dev", "count": 7 }]
+}
+```
+
+**การตัดสินใจ**
+
+- "วันนี้" = `occurredAt < ต้นวันพรุ่งนี้` (รวมที่เลยกำหนด) · "7 วัน" = `[ต้นวันนี้, ต้นวันที่ 8)`
+  → งานเลยกำหนดอยู่ใน "วันนี้" แต่ไม่อยู่ใน "7 วัน"
+- ขอบวันที่ 8 หาจากขอบวันจริง ไม่ใช่ `+7×24 ชม.` → ถูกต้องข้าม DST (มีเทสต์ New York)
+- ใส่ `userId` เองทุก query: `PrismaService.forUser()` ไม่ดัก `groupBy` — ถ้าพึ่ง extension อย่างเดียวจะรั่วข้ามผู้ใช้
+- ใช้ `Promise.all` ไม่ใช่ `$transaction` — อ่านอย่างเดียว ตัวเลขคลาดกันเสี้ยววินาทียอมรับได้ แลกกับไม่ถือ connection ยาว
+- โปรเจกต์ที่ไม่มีงานค้างยังแสดง (count 0) — เพิ่งสร้างแล้วหายจาก sidebar จะงง
+
+**แก้บั๊กที่เจอระหว่างทาง**
+
+- `z.coerce.boolean()` แปลง `"false"` เป็น `true` (string ไม่ว่าง = truthy) → `?overdue=false` เคยได้งานเลยกำหนด
+  แก้ด้วย `queryBool` ที่รับเฉพาะ `true/false/1/0`
+- `PATCH status=pending` ไม่ล้าง `completedAt` → undo แล้วสถิติรายสัปดาห์ยังนับว่าเสร็จ
+
+**วิธีตรวจ**
+
+- unit: `task-ranges` 3 เคส (รวม DST), `buildSidebar` 2 เคส, `completedAtFor` 3 เคส, `queryBool` 5 assertion
+- typecheck + lint ทั้ง monorepo ผ่าน (ครั้งแรกที่ตรวจ API ได้ใน sandbox — generate Prisma client ด้วย engine ปลอม)
+- integration: 📁 `test/tasks.int-spec.ts` (sidebar นับถูก + ไม่รวมของผู้ใช้อื่น, inbox, undo) — **ยังไม่ได้รัน** ต้องมี Postgres → รันใน CI
+
+---
+
 ## สิ่งที่ยังไม่ได้ตรวจ (ต้องทำบนเครื่องจริง)
 
 - [ ] **ดูด้วยตา** ทั้ง 2 ธีม × desktop/mobile — sandbox ไม่มี browser
 - [ ] `next build` ที่โหลดฟอนต์จริง — sandbox ต่อ Google Fonts ไม่ได้ (ตรวจด้วยฟอนต์จำลอง) · CI ต่อได้
 - [ ] e2e smoke (ต้องมี API + DB)
 - [ ] axe 0 serious ทั้ง 2 ธีม
+- [ ] integration test ของ API (`pnpm test:int` — ต้องมี Postgres + Redis)
 
 ## หมายเหตุสภาพแวดล้อมที่ใช้ตรวจ
 
