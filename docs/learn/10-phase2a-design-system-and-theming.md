@@ -144,7 +144,7 @@ a {
   --surface-sunken: #f5f5f7; /* แถวในการ์ด   level 1.5 */
   --text-primary: #1d1d1f;
   --text-secondary: #6e6e73;
-  --accent: #0071e3;
+  --accent: #0062c5; /* ขั้น 11: เดิม #0071e3 (สเปก) — บท 14 */
 }
 .dark {
   /* Dark — Monochrome Studio OS */
@@ -153,7 +153,7 @@ a {
   --surface-sunken: #1c1c1e;
   --text-primary: #ffffff;
   --text-secondary: #86868b;
-  --accent: #2997ff;
+  --accent: #2e9aff; /* ขั้น 11: เดิม #2997ff (สเปก) */
 }
 ```
 
@@ -354,6 +354,10 @@ const value = mounted ? theme : 'system';
 ส่วน `#86868b` ยังอยู่ในระบบเป็น `--text-tertiary` สำหรับ placeholder/ข้อความตกแต่งเท่านั้น
 
 ธีมมืดมีปัญหากลับด้าน: accent `#0071e3` บนพื้นดำได้แค่ 3.6:1 → ใช้ `#2997ff` ที่สว่างกว่า
+
+> **อัปเดตขั้น 11:** ตอนเพิ่มการตรวจอัตโนมัติ พบว่าค่าจากสเปกอีกหลายค่าตกเมื่อ **สีโปร่งซ้อนกันสองชั้น**
+> (badge `*-soft` บนแถว `surface-sunken`) จึงปรับ accent/danger/warning/success ทั้งสองธีมเล็กน้อย
+> และทุกคู่สีถูกตรวจใน 📁 `packages/ui/src/tokens.test.ts` — อ่านต่อที่ [บท 14](./14-phase2a-pwa-icons-visual-and-a11y-testing.md) หัวข้อ 4
 
 🎤 _"ถ้า designer ไม่ยอมเปลี่ยนสีล่ะ?"_ → เอาตัวเลขไปคุย ไม่ใช่ความชอบ แล้วเสนอทางเลือก
 เช่น คงสีเดิมไว้ใช้เฉพาะข้อความใหญ่ หรือเพิ่มน้ำหนักฟอนต์

@@ -10,19 +10,19 @@
 
 ## ภาพรวมความคืบหน้า
 
-| #   | ขั้น                                                          | Commit         | สถานะ |
-| --- | ------------------------------------------------------------- | -------------- | ----- |
-| 1   | Contracts: habit payload v1.1                                 | `3e8b928`      | ✅    |
-| 2   | Design token + ฟอนต์                                          | `e3b8067`      | ✅    |
-| 3   | UI primitives + theme switcher                                | `6e4c09e`      | ✅    |
-| 4   | App shell                                                     | `1cff933`      | ✅    |
-| 5   | Restyle Tasks + Login/Register                                | `2a133e7`      | ✅    |
-| 6   | เอกสาร Phase 2a + ADR-009 (รอบแรก)                            | `436cc59`      | ✅    |
-| 7   | API: `GET /tasks/sidebar` + ตัวกรอง inbox                     | `cca6648`      | ✅    |
-| 8   | API: Focus timer + `GET /tasks/focus/today`                   | `3224f90`      | ✅    |
-| 9   | Web: ตัวเลข smart list, Inbox, การ์ด Focus, ปุ่มจับเวลา       | `d3d7996`      | ✅    |
-| 10  | เอกสารเรียนรู้ละเอียดระดับ Phase 0–1 (บท 10–13) + อภิธานศัพท์ | _(commit นี้)_ | ✅    |
-| 11  | PWA icon, Playwright screenshot baseline, axe                 | —              | ⏳    |
+| #   | ขั้น                                                                      | Commit                        | สถานะ           |
+| --- | ------------------------------------------------------------------------- | ----------------------------- | --------------- |
+| 1   | Contracts: habit payload v1.1                                             | `3e8b928`                     | ✅              |
+| 2   | Design token + ฟอนต์                                                      | `e3b8067`                     | ✅              |
+| 3   | UI primitives + theme switcher                                            | `6e4c09e`                     | ✅              |
+| 4   | App shell                                                                 | `1cff933`                     | ✅              |
+| 5   | Restyle Tasks + Login/Register                                            | `2a133e7`                     | ✅              |
+| 6   | เอกสาร Phase 2a + ADR-009 (รอบแรก)                                        | `436cc59`                     | ✅              |
+| 7   | API: `GET /tasks/sidebar` + ตัวกรอง inbox                                 | `cca6648`                     | ✅              |
+| 8   | API: Focus timer + `GET /tasks/focus/today`                               | `3224f90`                     | ✅              |
+| 9   | Web: ตัวเลข smart list, Inbox, การ์ด Focus, ปุ่มจับเวลา                   | `d3d7996`                     | ✅              |
+| 10  | เอกสารเรียนรู้ละเอียดระดับ Phase 0–1 (บท 10–13) + อภิธานศัพท์             | `05b3e6b`                     | ✅              |
+| 11  | ไอคอน PWA + manifest · contrast เป็นเทสต์ · visual regression + axe ใน CI | `70f9986` `5b6f04d` `22fbee4` | ✅ (รอรันใน CI) |
 
 ---
 
@@ -306,12 +306,66 @@
 
 ---
 
+## ขั้น 11 · ไอคอน PWA, contrast เป็นเทสต์, visual regression + axe — `70f9986` `5b6f04d` `22fbee4`
+
+📚 **ความรู้พื้นฐาน:** manifest, maskable/safe zone, visual regression, deterministic test, `page.route`, `page.clock`, axe, alpha compositing → บท [14](../learn/14-phase2a-pwa-icons-visual-and-a11y-testing.md)
+
+### 11a · ไอคอน + manifest — `70f9986`
+
+- 📁 `apps/web/scripts/generate-icons.mjs` (`pnpm --filter @nosion/web icons`) — sharp render SVG → PNG
+  - `public/icons/icon-192.png`, `icon-512.png` — มุมมน + ขอบ `#27272a` แบบเดียวกับ `icon.svg`
+  - `public/icons/maskable-512.png`, `src/app/apple-icon.png` (180) — พื้นเต็มกรอบ ตัว N ย่อ 80% อยู่ใน safe zone
+- 📁 `apps/web/src/app/manifest.ts` → `/manifest.webmanifest` (standalone, start_url `/today`, สีดำ)
+- devDependencies ใหม่: `sharp` (เดิมเป็นของ next ทางอ้อม), `@axe-core/playwright`
+- ตรวจ: ดูภาพไอคอนทั้ง 3 แบบด้วยตาแล้ว · build ผ่าน (`/manifest.webmanifest`, `/apple-icon.png` อยู่ใน route list)
+- ⚠️ สคริปต์ต้องอยู่ใน `apps/web/` — วางที่ root แล้ว `import sharp` ไม่เจอ (pnpm แยก node_modules ต่อ package)
+
+### 11b · ตรวจ contrast ของ token เป็น unit test — `5b6f04d`
+
+- 📁 `packages/ui/src/contrast.ts` + `tokens.test.ts` (67 เคส) — อ่าน `tokens.css` จริง ตรวจทุกคู่ ข้อความ × พื้น
+  รวม **สีบน `*-soft` ที่ทับการ์ด/แถว**
+- **เจอว่าค่าจากสเปกตก AA 11 คู่** (ส่วนใหญ่คือ badge ที่สีโปร่งซ้อนสองชั้น) → ปรับน้อยที่สุดจนผ่าน:
+
+  | token                                     | สเปก                                          | ใช้จริง                                       |
+  | ----------------------------------------- | --------------------------------------------- | --------------------------------------------- |
+  | light accent / danger / warning / success | `#0071e3` / `#d70015` / `#b25000` / `#248a3d` | `#0062c5` / `#cf0014` / `#ac4d00` / `#1f7835` |
+  | dark accent / danger                      | `#2997ff` / `#ff453a`                         | `#2e9aff` / `#ff5950`                         |
+
+- เลิกใช้ `text-tertiary` กับข้อความปกติ 4 จุด (ชื่องานที่เสร็จ, "(Today)", เมนูที่ยังไม่พร้อม, "หรือ")
+- ADR-009 เพิ่ม 2 แถวในตาราง "จุดที่ไม่ทำตาม mockup/สเปก"
+- ตรวจ: unit test ui ผ่าน 67/67 · typecheck/lint/test ทั้ง monorepo
+
+### 11c · Visual regression + axe — `22fbee4`
+
+- 📁 `apps/web/playwright.config.ts` — project `smoke` (API จริง) แยกจาก `ui` (API ปลอม) · webServer `pnpm start`
+- 📁 `apps/web/e2e/support/` — `mock-data.ts` (type จาก contracts), `mock-api.ts` (`page.route`), `ui-test.ts` (fixture ตรึงเวลา/โซน/ภาษา)
+- 📁 `e2e/visual.spec.ts` — Tasks + Login × light/dark × desktop 1440 / mobile 390 = **8 ภาพ**
+- 📁 `e2e/a11y.spec.ts` — axe บน 5 หน้า × 2 ธีม = **10 เทสต์** ล้มเมื่อ serious/critical
+- 📁 `apps/web/scripts/playwright-docker.sh` (`test:ui:docker`) — สร้าง baseline ใน image เดียวกับ CI
+- CI job **"UI · visual + a11y"** ใน `mcr.microsoft.com/playwright:v1.63.0-noble` ·
+  `--update-snapshots=missing` + อัปโหลด artifact `ui-screenshots` / `playwright-report`
+- `typecheck` ของ web รวม `e2e/` แล้ว (mock ล้าสมัยเมื่อ DTO เปลี่ยน = typecheck แดง)
+
+**การตัดสินใจ**
+
+- API ปลอมที่ระดับ network ในเบราว์เซอร์ แทน API + DB จริง → นิ่ง เร็ว ไม่ต้องมี Postgres ใน job นี้
+- baseline สร้างใน Docker เท่านั้น (ภาพ macOS ≠ Linux) และมี `{platform}` ในชื่อไฟล์
+- CI **ไม่ commit ภาพเอง** — คนต้องดาวน์โหลด artifact ตรวจด้วยตาแล้ว commit
+- ยอมต่างได้ 1% ของพิกเซล (0 = flaky, สูงกว่านี้ = ปุ่มหายก็ไม่ล้ม)
+
+**วิธีตรวจ:** typecheck ของ e2e ผ่าน · `playwright test --list` เห็น 18 เทสต์ · build ผ่าน
+⚠️ **ยังไม่ได้รันจริง** — sandbox ไม่มี browser (ดาวน์โหลด Chromium ไม่ได้) · รอบแรกจะรันใน CI
+
+---
+
 ## สิ่งที่ยังไม่ได้ตรวจ (ต้องทำบนเครื่องจริง)
 
 - [ ] **ดูด้วยตา** ทั้ง 2 ธีม × desktop/mobile — sandbox ไม่มี browser
 - [ ] `next build` ที่โหลดฟอนต์จริง — sandbox ต่อ Google Fonts ไม่ได้ (ตรวจด้วยฟอนต์จำลอง) · CI ต่อได้
-- [ ] e2e smoke (ต้องมี API + DB)
-- [ ] axe 0 serious ทั้ง 2 ธีม
+- [ ] e2e smoke (ต้องมี API + DB) — `pnpm test:e2e`
+- [ ] หลัง `git pull` บน Mac ต้อง `pnpm install` (มี devDependency ใหม่: sharp, @axe-core/playwright, vitest ใน ui)
+- [ ] CI job "UI · visual + a11y" รอบแรก → ดาวน์โหลด artifact `ui-screenshots` ตรวจด้วยตา แล้ว commit เข้า `apps/web/e2e/__screenshots__/` (หรือรัน `pnpm --filter @nosion/web test:ui:docker`)
+- [ ] axe 0 serious ทั้ง 2 ธีม — เทสต์เขียนแล้ว รอผลรอบแรกใน CI
 - [ ] integration test ของ API (`pnpm test:int` — ต้องมี Postgres + Redis)
 - [ ] `pnpm db:migrate` บนเครื่องจริง — ยืนยันว่า migration `focus_sessions` ที่เขียนมือไม่ทำให้ Prisma รายงาน drift
 
