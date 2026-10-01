@@ -35,6 +35,7 @@
 | [12](./12-phase2a-tasks-page-frontend.md)                 | **Phase 2a** · URL state, pure function, debounce, regex + Unicode, query key, นาฬิกาฝั่ง client          | หลังอ่าน 11  |
 | [13](./13-phase2a-task-api-sidebar-and-focus-timer.md)    | **Phase 2a** · timezone/DST, COUNT/GROUP BY, isolation, race condition, partial unique index, idempotency | หลังอ่าน 12  |
 | [14](./14-phase2a-pwa-icons-visual-and-a11y-testing.md)   | **Phase 2a** · web app manifest, maskable icon, visual regression, API ปลอม, axe, contrast เป็นเทสต์      | หลังอ่าน 13  |
+| [15](./15-phase2b-money-months-and-second-module.md)      | **Phase 2b** · เงินเป็น integer, ขอบเดือนตามโซนเวลา, โมดูลที่สอง, parser "กาแฟ 65"                        | หลังอ่าน 14  |
 | [08](./08-testing-and-quality.md)                         | การทดสอบและคุณภาพ: pyramid, unit/integration/e2e, coverage, CI gate                                       | ท้ายสุด      |
 | [09](./09-glossary.md)                                    | อภิธานศัพท์ — เปิดหาเวลาเจอคำที่ไม่รู้จัก                                                                 | ใช้อ้างอิง   |
 
