@@ -23,6 +23,6 @@
     "@nosion/tsconfig": "workspace:*",
     "typescript": "5.9.3",
     "vitest": "3.2.7",
-    "@types/node": "22.20.3"
+    "@types/node": "22.20.4"
   }
 }
