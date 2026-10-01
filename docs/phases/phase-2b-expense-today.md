@@ -11,7 +11,7 @@
 | --- | ----------------------------------------------------------------------------- | ------------------- | ----- |
 | 1   | API: ExpenseModule + NL parser + helper เงิน/เดือน                            | `6cc6284`           | ✅    |
 | 2   | API: Budget CRUD + `GET /budgets/status` (กฎสี 85% / 100%)                    | `048ad51` `8c0d1c1` | ✅    |
-| 3   | API: `/expenses/summary`, `/forecast`, `/trends`, `/bills/upcoming`           |                     | ⏳    |
+| 3   | API: `/expenses/summary`, `/forecast`, `/trends`, `/bills/upcoming`           | `b1a9493`           | ✅    |
 | 4   | API: `GET /today` + `GET /tasks/standup/today?format=markdown`                |                     | ⏳    |
 | 5   | Web: หน้า Expenses (quick capture, KPI 3 การ์ด, บิล, หมวด, transactions, CSV) |                     | ⏳    |
 | 6   | Web: หน้า Today (hero, widget registry, Developer Quick Actions, standup)     |                     | ⏳    |
@@ -19,7 +19,7 @@
 | 8   | Seed demo account ชุดเดียวกับ mockup · visual + axe ของหน้าใหม่               |                     | ⏳    |
 | 9   | Deploy staging (deploy-staging.yml)                                           |                     | ⏳    |
 
-**ค้างจาก Phase 2a ที่กระทบ 2b:** baseline visual 8 ภาพรออนุมัติ (ยังไม่ commit) · commit ทั้งหมดยังไม่ push → CI ยังไม่เคยรัน job "UI"
+**Phase 2a ปิดแล้ว:** baseline อนุมัติ (`5e38508`) · CI เขียวทั้ง 8 job — ทุกขั้นของ 2b push แล้วรอ CI เขียวก่อนไปขั้นถัดไป
 
 ---
 
@@ -112,3 +112,55 @@ unique `("userId", "category", "period")` จาก migration แรกกัน
 
 - `alertThreshold` / `alertSentAt` ยังไม่ใช้ — job `budget-alert` อยู่ใน Phase 4
 - web ยังมีเกณฑ์ 85% ซ้ำใน `lib/progress.ts` (แก้ในขั้น 5)
+
+---
+
+## ขั้น 3 · API: summary / forecast / trends / bills — `b1a9493`
+
+📚 **ความรู้พื้นฐาน:** run-rate forecast, fixed vs variable, การแบ่งถังเวลา (bucketing), JSON path filter,
+วันปฏิทินกับ DST → บท [15](../learn/15-phase2b-money-months-and-second-module.md) หัวข้อ 6
+
+**เป้าหมาย:** ข้อมูลของ KPI 2–3 และการ์ดบิล/หมวด/กราฟในหน้า Expenses (สเปก 8.11.3)
+
+**Endpoint**
+
+| Method | Path                               | ผล                                                                      |
+| ------ | ---------------------------------- | ----------------------------------------------------------------------- |
+| `GET`  | `/expenses/summary?period=YYYY-MM` | รายจ่าย/รายรับ/net · fixed/variable · หมวด + `share`                    |
+| `GET`  | `/expenses/forecast`               | `projectedMinor`, `marginMinor`, `status`, `series[]` (เดือนปัจจุบัน)   |
+| `GET`  | `/expenses/trends?months=6`        | `points[]` เก่า→ใหม่ ต่อเดือน: expense/income/fixed/variable/byCategory |
+| `GET`  | `/expenses/bills/upcoming?days=7`  | `bills[]`, `fixedMonthlyMinor`, `dueSoonCount`, `overdueCount`          |
+
+**สิ่งที่เปลี่ยน**
+
+- 📁 `apps/api/src/modules/expense/expense-analytics.ts` — `buildSummary`, `buildForecast`, `buildTrends`, `buildBills`, `daysBetween` (pure)
+- 📁 `expense-stats.service.ts` — `rangeWhere()` (เดิม `monthWhere`), select ฟิลด์ชุดเดียว, 4 method ใหม่
+- 📁 `expenses.controller.ts` · 📁 `budget-status.ts` แยก `resolveTotalBudget()` ให้ forecast ใช้ร่วม
+- 📁 `packages/contracts/src/expenses.ts` — DTO 4 ตัว + `trendsQuerySchema`, `billsQuerySchema`
+
+**การตัดสินใจ**
+
+- **คาดการณ์** = variable ถึงวันนี้ × (วันในเดือน ÷ วันที่ผ่านไป) + fixed ที่จ่ายแล้ว + บิลของเดือนที่ยังไม่จ่าย
+  - ไม่คูณ fixed — จ่ายค่าเช่า ฿8,500 วันที่ 1 แล้วคูณ 30 จะได้ ฿255,000 (มีเทสต์)
+  - ไม่ใช้ค่าเฉลี่ยเดือนก่อน / regression — ข้อมูลน้อยในช่วงแรกของผู้ใช้ และอธิบายผู้ใช้ได้ในประโยคเดียว
+  - ต้นเดือน (วันที่ 1–3) ตัวเลขแกว่งแรงเพราะหารด้วยวันน้อย — ยอมรับ (ดู "สิ่งที่ค้าง")
+- forecast รับเฉพาะเดือนปัจจุบัน (ไม่มี `?period`) — คาดการณ์เดือนที่จบแล้วไม่มีความหมาย
+- **บิล**: เดือนนี้ทุกสถานะ + **บิลค้างจ่ายจากเดือนก่อน** (ไม่ให้บิลที่ลืมจ่ายหายไปเพราะข้ามเดือน) ·
+  `fixedMonthlyMinor` นับเฉพาะบิลที่ครบกำหนดในเดือนนี้ · "ใกล้ครบ" = 0 ถึง `days − 1` วัน (7 → วันนี้ถึงอีก 6 วัน)
+- `daysUntilDue` คำนวณจากวันปฏิทิน 'YYYY-MM-DD' สองค่า ไม่ใช่ (due − now) ÷ 24 ชม. — ไม่ขึ้นกับเวลาในวัน/DST
+- trends ใช้ query เดียวทั้งช่วงแล้วแบ่งถังใน JS (ไม่ใช่ N query ต่อเดือน) · เดือนที่ไม่มีรายการได้ศูนย์ ไม่หายจากกราฟ
+- `isBill` อยู่ใน JSONB → ใช้ Prisma JSON filter `payload: { path: ['isBill'], equals: true }` (ตรวจด้วย integration test เพราะ unit test พิสูจน์ไม่ได้)
+
+**วิธีตรวจ**
+
+- unit `expense-analytics.spec.ts` 9 เคส: daysBetween ข้ามปี · summary แยก fixed/variable + share รวม = 1 ·
+  forecast (85.3% = warning, ค่าเช่าวันที่ 1, series เวลาไทย, เกินงบ) · trends เดือนว่าง + ขอบเดือน · bills เรียง/นับ/ค้างข้ามเดือน
+- integration 4 เคส (เขียนให้ไม่ขึ้นกับวันที่รัน): summary ตรงตัวเลข · bills ผ่าน JSON filter, ค้างข้ามเดือนอยู่, จ่ายแล้วเดือนก่อนไม่อยู่, ไม่รวมของคนอื่น ·
+  forecast ใช้งบเดียวกับ status · trends 3 จุดจบเดือนนี้ + `months=13` → 422
+- `pnpm test:int:local` 29/29 · lint/typecheck/unit ทั้ง monorepo 20/20
+
+**สิ่งที่ค้าง**
+
+- คาดการณ์ต้นเดือนแกว่ง — ทางเลือกภายหลัง: ผสมกับค่าเฉลี่ยเดือนก่อนแบบถ่วงน้ำหนักตามวันที่ผ่านไป
+- `/expenses/analytics`, `/expenses/bills` (หน้ารายละเอียด) ยังไม่มี — ขั้น 7
+- รายการรายรับไม่มี "บิล" (เงินเดือนประจำ) — ยังไม่ต้องใช้
