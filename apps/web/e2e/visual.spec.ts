@@ -24,7 +24,8 @@ for (const theme of THEMES) {
       test('Tasks', async ({ page }) => {
         await page.goto('/tasks');
         await expect(page.getByText('Re-architect Auth Token refresh flow')).toBeVisible();
-        await expect(page.getByText('2h 45m')).toBeVisible();
+        // การ์ด Focus มี 2 ชุดใน DOM (มือถือ lg:hidden / desktop ใน sidebar) — เลือกตัวที่มองเห็น
+        await expect(page.getByText('2h 45m').filter({ visible: true })).toBeVisible();
         await settle(page);
         await expect(page).toHaveScreenshot(`tasks-${theme}-${device}.png`, { fullPage: true });
       });
