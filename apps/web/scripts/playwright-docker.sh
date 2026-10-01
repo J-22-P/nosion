@@ -27,7 +27,9 @@ docker run --rm -t \
     pnpm install --frozen-lockfile
     pnpm db:generate
     pnpm turbo run build --filter=@nosion/web
-    pnpm --filter @nosion/web exec playwright test --project=ui --update-snapshots "$@" || true
+    # =all: เขียนทับทุกภาพ · ค่าเริ่มต้น (changed) เขียนเฉพาะภาพที่ต่างเกิน maxDiffPixelRatio
+    # → การเปลี่ยนเล็ก ๆ (สีลิงก์) จะค้างภาพเก่าไว้เงียบ ๆ
+    pnpm --filter @nosion/web exec playwright test --project=ui --update-snapshots=all "$@" || true
     cp -r apps/web/e2e/__screenshots__/. /out/
   ' _ "$@"
 
