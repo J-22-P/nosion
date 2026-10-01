@@ -10,7 +10,7 @@ import {
   type ExpenseTrendPointDto,
 } from '@nosion/contracts';
 import { formatInTimeZone, monthBoundsInTimeZone, type MonthBounds } from '@nosion/core';
-import { isSpent, type SpendableEntry } from './expense.trackable';
+import { isSpent, type SpendableEntry } from './spend-rules';
 
 /**
  * ตัวเลขวิเคราะห์ของโมดูลการเงิน — pure function ทั้งหมด (ไม่มี Prisma, ไม่อ่านนาฬิกาเอง)

@@ -2,7 +2,7 @@ import { expensePayloadSchema, type ExpensePayload } from '@nosion/contracts';
 import { periodBounds } from '@nosion/core';
 import { describe, expect, it } from 'vitest';
 import { buildBudgetStatus, spentByCategory } from './budget-status';
-import type { SpendableEntry } from './expense.trackable';
+import type { SpendableEntry } from './spend-rules';
 
 const TZ = 'Asia/Bangkok';
 const bounds = periodBounds('2026-09', TZ);

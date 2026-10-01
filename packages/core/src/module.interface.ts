@@ -43,8 +43,14 @@ export interface TrackableModule<TPayload = unknown> {
   /** แปลง entry เป็น event สำหรับแสดงบนปฏิทินรวม */
   toCalendarEvent(entry: Entry): CalendarEvent | null;
 
-  /** สรุปข้อมูลโมดูลนี้สำหรับหน้า Today */
-  summarizeToday(entries: Entry[], ctx: UserContext): TodayWidget;
+  /**
+   * สรุปข้อมูลโมดูลนี้สำหรับหน้า Today
+   *
+   * entries = รายการของโมดูลนี้ที่ "เกี่ยวกับวันนี้" (เกิดวันนี้ / เสร็จวันนี้ / ค้างถึงวันนี้)
+   * คืน Promise ได้ — โมดูลที่ต้องใช้ข้อมูลนอกเหนือจาก entries (เช่น งบทั้งเดือน, บิลถัดไป)
+   * ดึงเองผ่าน DI ของตัวเอง core ไม่ต้องรู้ (สเปก 3.2 เขียนเป็น sync — ปรับใน Phase 2b ขั้น 4)
+   */
+  summarizeToday(entries: Entry[], ctx: UserContext): TodayWidget | Promise<TodayWidget>;
 
   /** สรุปสำหรับ Weekly Review */
   summarizeWeek(entries: Entry[], ctx: UserContext): WeeklySection;

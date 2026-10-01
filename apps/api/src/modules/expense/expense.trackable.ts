@@ -11,41 +11,11 @@ import {
   type WeeklySection,
 } from '@nosion/core';
 import { RegisterModule } from '../../core/registry/register-module.decorator';
+import { ExpenseStatsService } from './expense-stats.service';
+import { CATEGORY_LABEL_TH } from './expense-labels';
 import { parseExpenseText } from './expense-text';
-
-/** ชื่อหมวดภาษาไทยสำหรับข้อความสรุป (UI มีชุดของตัวเองพร้อมไอคอน) */
-export const CATEGORY_LABEL_TH: Record<ExpenseCategory, string> = {
-  food: 'อาหาร',
-  transport: 'เดินทาง',
-  housing: 'ที่พัก',
-  utilities: 'สาธารณูปโภค',
-  health: 'สุขภาพ',
-  entertainment: 'บันเทิง',
-  shopping: 'ช้อปปิ้ง',
-  education: 'การศึกษา',
-  subscription: 'สมาชิกรายเดือน',
-  debt: 'หนี้สิน',
-  savings: 'เงินออม',
-  other: 'อื่น ๆ',
-};
-
-/** ฟิลด์ที่กฎ "ใช้จ่ายจริง" ต้องใช้ — query ที่ select แค่นี้ก็เรียกได้ */
-export type SpendableEntry = Pick<Entry, 'status' | 'deletedAt' | 'payload'>;
-
-/** รายการที่นับเป็น "ใช้จ่ายจริง" — ยกเลิกแล้วไม่นับ · บิลที่ยังไม่จ่ายไม่นับ */
-export function isSpent(entry: SpendableEntry): boolean {
-  if (entry.status === 'cancelled' || entry.deletedAt) return false;
-  const p = entry.payload as ExpensePayload;
-  if (p.direction !== 'expense') return false;
-  return !p.isBill || entry.status === 'done';
-}
-
-/** ผลรวมรายจ่าย (หน่วยย่อย) ของรายการที่ใช้จ่ายจริง */
-export function sumSpent(entries: SpendableEntry[]): number {
-  return entries
-    .filter(isSpent)
-    .reduce((sum, e) => sum + (e.payload as ExpensePayload).amountMinor, 0);
-}
+import { buildExpenseTodayWidget } from './expense-today';
+import { isSpent, sumSpent } from './spend-rules';
 
 /**
  * โมดูลที่สอง — พิสูจน์ว่าเพิ่มโมดูลได้โดยไม่แก้ core:
@@ -68,6 +38,9 @@ export class ExpenseTrackableModule implements TrackableModule<ExpensePayload> {
   /** เตือนก่อนบิลครบกำหนด (Phase 4) */
   readonly supportsReminder = true;
 
+  /** ข้อมูลทั้งเดือน (งบ, บิล) ของการ์ด Today — โมดูลดึงเอง core ไม่ต้องรู้ */
+  constructor(private readonly stats: ExpenseStatsService) {}
+
   /** ขึ้นปฏิทินเฉพาะบิล — รายจ่ายจรที่บันทึกย้อนหลังไม่ต้องขึ้น รกเปล่า ๆ (สเปก 6.3) */
   toCalendarEvent(entry: Entry): CalendarEvent | null {
     const p = entry.payload as ExpensePayload;
@@ -87,33 +60,14 @@ export class ExpenseTrackableModule implements TrackableModule<ExpensePayload> {
     };
   }
 
-  /** entries = รายการของวันนี้ · ยอดทั้งเดือนเทียบงบมาจาก /budgets/status (หน้า Today ประกอบเอง) */
-  summarizeToday(entries: Entry[], ctx: UserContext): TodayWidget {
-    const spent = sumSpent(entries);
-    const recent = entries
-      .filter((e) => e.status !== 'cancelled')
-      .sort((a, b) => (b.occurredAt?.getTime() ?? 0) - (a.occurredAt?.getTime() ?? 0));
-
-    return {
-      module: this.key,
-      title: 'รายจ่ายวันนี้',
-      order: 20,
-      headline: `วันนี้ใช้ ${formatMoney(spent, ctx.currency, { decimals: false })}`,
-      subline: entries.length > 0 ? `${entries.length} รายการ` : undefined,
-      items: recent.slice(0, 5).map((e) => {
-        const p = e.payload as ExpensePayload;
-        const sign = p.direction === 'income' ? '+' : '−';
-        return {
-          entryId: e.id,
-          title: e.title,
-          status: e.status,
-          occurredAt: e.occurredAt,
-          detail: `${sign}${formatMoney(Math.abs(p.amountMinor), p.currency)}`,
-        };
-      }),
-      isEmpty: entries.length === 0,
-      emptyCta: { label: 'บันทึกรายจ่ายแรก', href: '/expenses?new=1' },
-    };
+  /** การ์ด "การเงินและงบประมาณ": ใช้วันนี้ + เดือนนี้เทียบงบ + แจ้งเตือนหมวด/บิล */
+  async summarizeToday(entries: Entry[], ctx: UserContext): Promise<TodayWidget> {
+    const now = ctx.now ?? new Date();
+    const [status, bills] = await Promise.all([
+      this.stats.budgetStatus(ctx.userId, undefined, now),
+      this.stats.billsUpcoming(ctx.userId, 2, now),
+    ]);
+    return buildExpenseTodayWidget({ entries, status, bills, timeZone: ctx.timezone, now });
   }
 
   summarizeWeek(entries: Entry[], ctx: UserContext): WeeklySection {

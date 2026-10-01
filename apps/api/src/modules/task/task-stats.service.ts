@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import type { TaskSidebarDto } from '@nosion/contracts';
+import type { StandupDto, TaskSidebarDto } from '@nosion/contracts';
+import { formatInTimeZone } from '@nosion/core';
 import { EntryStatus, ModuleKey, type Prisma } from '@prisma/client';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { UserContextService } from '../../users/user-context.service';
+import { buildStandup, type StandupTask } from './standup';
 import { taskRanges } from './task-ranges';
 
 const OPEN_STATUSES = [EntryStatus.pending, EntryStatus.active];
@@ -72,6 +74,58 @@ export class TaskStatsService {
       perProject: perProject.map((p) => ({ projectId: p.projectId, count: p._count._all })),
       tags,
       perTag: perTag.map((t) => ({ tagId: t.tagId, count: t._count.tagId })),
+    });
+  }
+
+  /** standup ของวันนี้ — Done / Doing / Blocked (สเปก 7.3) */
+  async standup(userId: string, now: Date = new Date()): Promise<StandupDto> {
+    const ctx = await this.userContext.forUser(userId, now);
+    const r = taskRanges(now, ctx.timezone);
+
+    const rows = await this.prisma.entry.findMany({
+      where: {
+        userId,
+        module: ModuleKey.task,
+        deletedAt: null,
+        OR: [
+          { status: EntryStatus.done, completedAt: { gte: r.todayStart, lt: r.todayEnd } },
+          { status: { in: OPEN_STATUSES } },
+        ],
+      },
+      orderBy: [{ occurredAt: { sort: 'asc', nulls: 'last' } }, { sortOrder: 'asc' }],
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        occurredAt: true,
+        completedAt: true,
+        project: { select: { name: true } },
+        tags: { select: { tag: { select: { name: true } } } },
+        dependsOn: {
+          select: { blocker: { select: { title: true, status: true, deletedAt: true } } },
+        },
+      },
+    });
+
+    const tasks: StandupTask[] = rows.map((row) => ({
+      id: row.id,
+      title: row.title,
+      status: row.status,
+      occurredAt: row.occurredAt,
+      completedAt: row.completedAt,
+      projectName: row.project?.name ?? null,
+      tags: row.tags.map((t) => t.tag.name),
+      // งานที่ถูกลบไปแล้วไม่ควรบล็อกใคร
+      blockers: row.dependsOn
+        .filter((d) => d.blocker.deletedAt === null)
+        .map((d) => ({ title: d.blocker.title, status: d.blocker.status })),
+    }));
+
+    return buildStandup({
+      date: formatInTimeZone(now, ctx.timezone),
+      todayStart: r.todayStart,
+      todayEnd: r.todayEnd,
+      tasks,
     });
   }
 }

@@ -82,6 +82,22 @@ export interface TodayWidget {
   isEmpty: boolean;
   /** ปุ่ม CTA เมื่อว่าง เช่น "เพิ่มงานแรก" */
   emptyCta?: { label: string; href: string };
+  /** progress bar ของการ์ด เช่น งาน 2/6 · เงินเป็นหน่วยย่อย (สตางค์) เสมอ */
+  progress?: { done: number; total: number | null };
+  /** แถบแจ้งเตือนในการ์ด เช่น "หมวดอาหารใช้ไป 87% ของงบแล้ว" — warning → การ์ด soft */
+  alerts?: TodayWidgetAlert[];
+  /** ปุ่มลัดของการ์ด เช่น "สร้าง standup" */
+  actions?: { label: string; href: string }[];
+  /**
+   * ข้อมูลเฉพาะโมดูลที่ UI ของโมดูลนั้นใช้ (core ไม่อ่าน ไม่ตรวจ)
+   * เช่น expense: ยอดวันนี้ / ยอดเดือน / บิลถัดไป
+   */
+  data?: Record<string, unknown>;
+}
+
+export interface TodayWidgetAlert {
+  level: 'info' | 'warning' | 'danger';
+  message: string;
 }
 
 export interface WeeklySectionStat {

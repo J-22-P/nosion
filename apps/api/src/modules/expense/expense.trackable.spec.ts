@@ -1,7 +1,10 @@
 import { expensePayloadSchema, type ExpensePayload } from '@nosion/contracts';
 import { type Entry, type UserContext } from '@nosion/core';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { ExpenseTrackableModule, isSpent, sumSpent } from './expense.trackable';
+import type { BudgetStatusDto } from '@nosion/contracts';
+import type { ExpenseStatsService } from './expense-stats.service';
+import { ExpenseTrackableModule } from './expense.trackable';
+import { isSpent, sumSpent } from './spend-rules';
 
 const ctx: UserContext = {
   userId: 'u1',
@@ -41,6 +44,21 @@ const entry = (
   ...over,
 });
 
+const STATUS: BudgetStatusDto = {
+  period: '2026-09',
+  firstDay: '2026-09-01',
+  lastDay: '2026-09-30',
+  currency: 'THB',
+  total: {
+    spentMinor: 842000,
+    budgetMinor: 1500000,
+    ratio: 0.5613,
+    tone: 'safe',
+    budgetSource: 'total',
+  },
+  categories: [],
+};
+
 describe('isSpent / sumSpent', () => {
   it('นับรายจ่าย · ไม่นับรายรับ, รายการที่ยกเลิก และบิลที่ยังไม่จ่าย', () => {
     const entries = [
@@ -59,7 +77,8 @@ describe('ExpenseTrackableModule', () => {
   let module: ExpenseTrackableModule;
 
   beforeEach(() => {
-    module = new ExpenseTrackableModule();
+    // stats ใช้เฉพาะ summarizeToday — เทสต์อื่นไม่แตะ
+    module = new ExpenseTrackableModule({} as ExpenseStatsService);
   });
 
   it('ขึ้นปฏิทินเฉพาะบิล', () => {
@@ -74,24 +93,33 @@ describe('ExpenseTrackableModule', () => {
     });
   });
 
-  it('summarizeToday: ยอดใช้วันนี้ไม่มีทศนิยม · รายรับมีเครื่องหมาย +', () => {
-    const w = module.summarizeToday(
-      [
-        entry({ amountMinor: 6500 }),
-        entry({ amountMinor: 27500 }, { id: 'e2', title: 'ข้าวเย็น' }),
-        entry({ amountMinor: 30000, direction: 'income' }, { id: 'e3', title: 'ขายของ' }),
-      ],
+  it('summarizeToday: ดึงงบ + บิลของผู้ใช้จาก stats แล้วประกอบการ์ด (รายละเอียดอยู่ใน expense-today.spec)', async () => {
+    const calls: unknown[][] = [];
+    const stats = {
+      budgetStatus: async (...args: unknown[]) => {
+        calls.push(['budgetStatus', ...args]);
+        return STATUS;
+      },
+      billsUpcoming: async (...args: unknown[]) => {
+        calls.push(['billsUpcoming', ...args]);
+        return {
+          currency: 'THB',
+          fixedMonthlyMinor: 0,
+          bills: [],
+          dueSoonCount: 0,
+          overdueCount: 0,
+        };
+      },
+    } as unknown as ExpenseStatsService;
+    const w = await new ExpenseTrackableModule(stats).summarizeToday(
+      [entry({ amountMinor: 6500 }, { occurredAt: new Date('2026-09-18T02:00:00Z') })],
       ctx,
     );
-    expect(w.headline).toBe('วันนี้ใช้ ฿340');
-    expect(w.items.find((i) => i.entryId === 'e3')?.detail).toBe('+฿300.00');
-    expect(w.items.find((i) => i.entryId === 'e1')?.detail).toBe('−฿65.00');
-  });
-
-  it('summarizeToday: ไม่มีรายการ → empty state พร้อม CTA', () => {
-    const w = module.summarizeToday([], ctx);
-    expect(w.isEmpty).toBe(true);
-    expect(w.emptyCta?.href).toBe('/expenses?new=1');
+    expect(calls).toEqual([
+      ['budgetStatus', 'u1', undefined, ctx.now],
+      ['billsUpcoming', 'u1', 2, ctx.now],
+    ]);
+    expect(w.headline).toBe('วันนี้ใช้ ฿65 · เดือนนี้ ฿8,420 / ฿15,000');
   });
 
   it('summarizeWeek: หมวดที่ใช้มากที่สุดพร้อมสัดส่วน', () => {

@@ -1,7 +1,9 @@
-import { Controller, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
+import { Controller, Get, HttpCode, HttpStatus, Param, Post, Query, Res } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import type {
   FocusSessionDto,
+  StandupDto,
   FocusTodayDto,
   TaskSidebarDto,
   TimerStopResultDto,
@@ -26,6 +28,22 @@ export class TasksController {
   @Get('sidebar')
   sidebar(@CurrentUser('userId') userId: string): Promise<TaskSidebarDto> {
     return this.stats.sidebar(userId);
+  }
+
+  /**
+   * standup ของวันนี้ จัดกลุ่ม Done / Doing / Blocked
+   * `?format=markdown` → text/markdown สำหรับปุ่ม "คัดลอก Standup Markdown" · ค่าเริ่มต้น JSON (มี markdown ด้วย)
+   */
+  @Get('standup/today')
+  async standupToday(
+    @CurrentUser('userId') userId: string,
+    @Query('format') format: string | undefined,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StandupDto | string> {
+    const standup = await this.stats.standup(userId);
+    if (format !== 'markdown') return standup;
+    res.type('text/markdown; charset=utf-8');
+    return standup.markdown;
   }
 
   /** เวลาโฟกัสรวมวันนี้ + เป้าหมาย + รอบที่กำลังจับ (การ์ด Focus Session) */

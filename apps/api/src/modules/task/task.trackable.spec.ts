@@ -72,8 +72,11 @@ describe('TaskTrackableModule', () => {
         ],
         ctx,
       );
-      expect(widget.headline).toBe('1/3 งาน');
-      expect(widget.subline).toBe('เลยกำหนด 1 รายการ');
+      // สเปก 7.4: "งานวันนี้ 4 ชิ้น · เลยกำหนด 1" + progress done/total + ปุ่ม standup
+      expect(widget.headline).toBe('งานวันนี้ 3 ชิ้น · เลยกำหนด 1');
+      expect(widget.subline).toBe('เสร็จแล้ว 1/3');
+      expect(widget.progress).toEqual({ done: 1, total: 3 });
+      expect(widget.actions?.[0]?.label).toBe('สร้าง standup');
       expect(widget.isEmpty).toBe(false);
     });
 

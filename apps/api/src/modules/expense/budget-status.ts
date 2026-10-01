@@ -6,7 +6,7 @@ import {
   type ExpensePayload,
 } from '@nosion/contracts';
 import { formatInTimeZone, type MonthBounds } from '@nosion/core';
-import { isSpent, type SpendableEntry } from './expense.trackable';
+import { isSpent, type SpendableEntry } from './spend-rules';
 
 /** ยอดใช้จริงแยกหมวด — ใช้กฎ isSpent() ตัวเดียวกับ Today/Weekly */
 export function spentByCategory(entries: SpendableEntry[]): Map<ExpenseCategory, number> {

@@ -65,8 +65,13 @@ export class TaskTrackableModule implements TrackableModule<TaskPayload> {
       module: this.key,
       title: 'งานวันนี้',
       order: 10,
-      headline: `${done}/${entries.length} งาน`,
-      subline: overdue.length > 0 ? `เลยกำหนด ${overdue.length} รายการ` : undefined,
+      headline:
+        `งานวันนี้ ${entries.length} ชิ้น` +
+        (overdue.length > 0 ? ` · เลยกำหนด ${overdue.length}` : ''),
+      subline: entries.length > 0 ? `เสร็จแล้ว ${done}/${entries.length}` : undefined,
+      progress: { done, total: entries.length },
+      actions: [{ label: 'สร้าง standup', href: '/today?standup=1' }],
+      data: { overdueCount: overdue.length },
       items: open.slice(0, 8).map((e) => ({
         entryId: e.id,
         title: e.title,

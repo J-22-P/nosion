@@ -6,6 +6,7 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { ProblemDetailsFilter } from './common/problem.filter';
 import { TraceMiddleware } from './common/trace.middleware';
 import { RegistryModule } from './core/registry/registry.module';
+import { TodayModule } from './entries/today/today.module';
 import { EntriesModule } from './entries/entries.module';
 import { HealthModule } from './health/health.module';
 import { ConfigModule } from './infra/config/config.module';
@@ -29,6 +30,7 @@ import { UsersModule } from './users/users.module';
     UsersModule,
     OrganizationModule,
     EntriesModule,
+    TodayModule,
 
     // ── โมดูลโดเมน: เพิ่มบรรทัดเดียวต่อโมดูลใหม่ ──
     TaskModule,
