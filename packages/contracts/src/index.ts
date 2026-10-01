@@ -6,3 +6,4 @@ export * from './organization';
 export * from './pagination';
 export * from './problem';
 export * from './tasks';
+export * from './expenses';
