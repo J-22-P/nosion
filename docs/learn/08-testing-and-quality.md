@@ -192,12 +192,25 @@ plugins: [swc.vite({ module: { type: 'es6' } })];
 ```ts
 projects: [
   { test: { name: 'unit', include: ['src/**/*.spec.ts'] } },
-  { test: { name: 'integration', include: ['test/**/*.int-spec.ts'], fileParallelism: false } },
+  {
+    test: {
+      name: 'integration',
+      include: ['test/**/*.int-spec.ts'],
+      pool: 'forks',
+      poolOptions: { forks: { singleFork: true } },
+    },
+  },
 ];
 ```
 
-`fileParallelism: false` สำหรับ integration เพราะทุกไฟล์ใช้ฐานข้อมูลเดียวกัน
+integration ต้องรัน **ทีละไฟล์** เพราะทุกไฟล์ใช้ฐานข้อมูลเดียวกัน (และ `truncateAll()` ตอนเริ่ม)
 ถ้ารันขนานกันจะล้างข้อมูลทับกันเอง → เทสต์ flaky
+
+⚠️ **เรื่องจริง (Phase 2b ขั้น 4):** เดิมเขียน `fileParallelism: false` ไว้ใน project — ดูถูกต้อง แต่ vitest 3 ถือว่า
+option นี้เป็น "NonProjectOptions" และ **เมินเงียบ ๆ** เมื่ออยู่ใน `projects[]` · ไฟล์รันขนานกันมาตลอดตั้งแต่ Phase 1
+ผ่านได้เพราะโชค จนเพิ่มไฟล์ที่ 5 แล้วเจอ Postgres `40P01 deadlock detected` (TRUNCATE ของไฟล์หนึ่งชน INSERT ของอีกไฟล์)
+หลักฐานที่ดูได้เองโดยไม่ต้องเดา: **ผลรวมเวลาของแต่ละไฟล์มากกว่า Duration ทั้งชุด** = ขนานกันแน่นอน
+บทเรียน: config ที่ "ไม่ error" ไม่ได้แปลว่า "ทำงาน" — ตรวจผลของมันด้วย (บท 15 หัวข้อ 7)
 
 ### Flaky test — ศัตรูตัวจริง
 

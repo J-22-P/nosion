@@ -67,7 +67,7 @@ export interface TrackableModule<TPayload = unknown> {
   readonly supportsReminder: boolean;
 
   toCalendarEvent(entry: Entry): CalendarEvent | null;
-  summarizeToday(entries: Entry[], ctx: UserContext): TodayWidget;
+  summarizeToday(entries: Entry[], ctx: UserContext): TodayWidget | Promise<TodayWidget>; // Promise ได้ตั้งแต่ Phase 2b (บท 15 หัวข้อ 7)
   summarizeWeek(entries: Entry[], ctx: UserContext): WeeklySection;
   parseNaturalLanguage(input: string, ctx: UserContext): ParsedEntry | null;
   onAfterWrite?(event: EntryWriteEvent): Promise<void>;

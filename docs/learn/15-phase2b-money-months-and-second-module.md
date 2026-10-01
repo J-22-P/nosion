@@ -3,9 +3,9 @@
 > Phase 2b เริ่มจากโมดูลการเงิน — โมดูลที่สองของระบบ
 > คำถามของบทนี้: **(1) ทำไมโปรแกรมเมอร์ไม่เก็บเงินเป็นทศนิยม (2) "เดือนนี้" เริ่มตอนไหนกันแน่
 > (3) เพิ่มโมดูลใหม่ทั้งโมดูลโดยแก้โค้ดเดิม 2 บรรทัดได้อย่างไร (4) แปลง "กาแฟ 65" เป็นข้อมูลโดยไม่ใช้ AI
-> (5) ทำไม unique constraint ปล่อยให้งบรวมซ้ำได้ (6) คาดการณ์สิ้นเดือนอย่างไรให้อธิบายได้**
+> (5) ทำไม unique constraint ปล่อยให้งบรวมซ้ำได้ (6) คาดการณ์สิ้นเดือนอย่างไรให้อธิบายได้ (7) หน้า Today รวมทุกโมดูลโดยไม่รู้จักโมดูลไหน**
 
-อ่านคู่กับ: 📁 `docs/phases/phase-2b-expense-today.md` ขั้น 1–3 · บท [05](./05-phase1-plugin-architecture-and-di.md) (plugin architecture) ·
+อ่านคู่กับ: 📁 `docs/phases/phase-2b-expense-today.md` ขั้น 1–4 · บท [05](./05-phase1-plugin-architecture-and-di.md) (plugin architecture) ·
 บท [13](./13-phase2a-task-api-sidebar-and-focus-timer.md) หัวข้อ 1–2 (instant / หน้าปัด / DST)
 
 ---
@@ -308,6 +308,79 @@ integration test เรียก endpoint ที่ใช้ "ตอนนี้
 
 ---
 
+## 7. หน้า Today: รวมทุกโมดูลโดยไม่รู้จักโมดูลไหน
+
+### 7.1 Aggregator บน registry
+
+📁 `apps/api/src/entries/today/today.service.ts`
+
+```ts
+const modules = this.registry.all(ctx.enabledModules);          // เฉพาะที่ผู้ใช้เปิด
+const rows = await prisma.entry.findMany({ … module: { in: keys } … });
+const settled = await Promise.allSettled(
+  modules.map(async (m) => m.summarizeToday(byModule.get(m.key) ?? [], ctx)),
+);
+```
+
+ไม่มีคำว่า `task` หรือ `expense` ในไฟล์นี้เลย — เทสต์ "ปิดโมดูลใน settings → การ์ดหาย" พิสูจน์ว่าวนตาม registry จริง
+core ส่ง entries ที่ "เกี่ยวกับวันนี้" แบบกว้าง ๆ (เกิดวันนี้ / ค้างจากวันก่อน / เสร็จวันนี้) แล้วให้ **โมดูลตีความเอง** —
+งานที่ค้างคือ "เลยกำหนด" แต่บิลที่ค้างไม่ใช่ "รายจ่ายวันนี้"
+
+### 7.2 MaybePromise — เมื่อ interface ในสเปกเล็กไป
+
+สเปกเขียน `summarizeToday(): TodayWidget` (sync) แต่การ์ดการเงินต้องรู้ยอดทั้งเดือนเทียบงบ ซึ่งไม่อยู่ใน entries ของวันนี้
+
+| ทางเลือก                                          | ปัญหา                                                          |
+| ------------------------------------------------- | -------------------------------------------------------------- |
+| TodayService ดึงงบให้                             | core ต้องรู้จัก "งบ" → ผิดกฎข้อ 1 · เพิ่มโมดูลใหม่ต้องแก้ core |
+| หน้าเว็บยิง /today + /budgets/status + /bills เอง | เสีย "คำขอเดียว" และหน้าเว็บต้องรู้จักโมดูล                    |
+| **ให้คืน `TodayWidget \| Promise<TodayWidget>`**  | โมดูลดึงข้อมูลเองผ่าน DI · core แค่ `await`                    |
+
+`TodayWidget | Promise<TodayWidget>` (เรียกว่า **MaybePromise**) ทำให้โมดูลเดิมที่ sync ไม่ต้องแก้สักบรรทัด —
+`await` ค่าที่ไม่ใช่ Promise ได้ค่าเดิมกลับมา · ข้อเสีย: ต้อง `await` ทุกที่ที่เรียก (TypeScript บังคับให้เอง)
+
+### 7.3 Partial failure ด้วย `Promise.allSettled`
+
+|                 | `Promise.all`             | `Promise.allSettled`                                |
+| --------------- | ------------------------- | --------------------------------------------------- |
+| ตัวหนึ่ง reject | ทั้งก้อน reject ทันที     | ได้ผลครบทุกตัว แต่ละตัวบอก `fulfilled` / `rejected` |
+| เหมาะกับ        | ต้องได้ครบถึงจะมีความหมาย | ส่วนต่าง ๆ อิสระต่อกัน                              |
+
+หน้า Today คือกรณีที่สอง: query งบพังไม่ควรทำให้ผู้ใช้มองไม่เห็นงานวันนี้ → ตอบ 200 พร้อม `failedModules: ['expense']`
+ให้หน้าเว็บแสดง error เฉพาะการ์ดนั้น (ตรงกับที่สเปก 8.11.1 ให้แต่ละการ์ดมี Suspense ของตัวเอง)
+
+### 7.4 Lint เป็นสถาปนิกที่ไม่เคยลืม
+
+ครั้งแรกวาง TodayService ไว้ใน `core/today/` — ฟังดูถูก ("Today เป็นของกลาง") แต่ lint แดงสองกฎ:
+
+```
+'@prisma/client' import is restricted … core/ ทำงานกับ domain type เท่านั้น
+No rule allowing this dependency was found. File is of type 'core'. Dependency is of type 'entries'
+```
+
+กฎเขียนไว้ตั้งแต่ Phase 0 (บท 05) และ **จับได้ก่อนรีวิว** · คำตอบอยู่ใน config เอง: ชั้น `entries/` นิยามว่า
+"ทำงานกับโมดูลผ่าน registry เท่านั้น" — ตรงกับงานของ Today พอดี จึงย้ายไป `entries/today/`
+
+### 7.5 ค่าที่คำนวณ ไม่ต้องเก็บ: Blocked ใน standup
+
+สเปกไม่เพิ่ม status `blocked` — งานติดอยู่ = ยังไม่เสร็จ **และ** (มี dependency ที่ยังไม่จบ **หรือ** แท็ก `#blocked`)
+ถ้าเก็บเป็น status ต้องคอยอัปเดตทุกครั้งที่งานต้นทางเสร็จ (ลืมเมื่อไรข้อมูลเพี้ยน) · คำนวณตอนอ่านจึงถูกเสมอ
+นี่คือหลักเดียวกับ "derived state" ใน React (บท 12) — อย่าเก็บสิ่งที่คำนวณจากสิ่งที่เก็บอยู่แล้วได้
+
+### 7.6 Config ที่ไม่ error ≠ config ที่ทำงาน
+
+`fileParallelism: false` ใน `projects[]` ของ vitest 3 **ถูกเมินเงียบ ๆ** (บท 08) — integration test รันขนานกันมาตั้งแต่ Phase 1
+โดยที่ทุกคนเชื่อว่ารันทีละไฟล์ จนเพิ่มไฟล์ที่ 5 แล้วเจอ deadlock · วิธีพิสูจน์ด้วยตัวเลข ไม่ต้องเชื่อ config:
+**ผลรวมเวลาของแต่ละไฟล์ > เวลารวมของทั้งชุด = รันขนานแน่นอน**
+
+📌 ทุกครั้งที่ตั้ง option เพื่อ "กัน" อะไร ให้หาวิธีเห็นผลของมัน — ไม่ใช่แค่ไม่มี error
+
+🎤 _"เคยเจอเทสต์ flaky ไหม แก้อย่างไร"_ → เรื่องนี้ครบทุกขั้น: อาการสุ่ม → อ่าน log ฐานข้อมูลเจอ 40P01 →
+ตั้งสมมติฐาน "รันขนาน" → พิสูจน์ด้วยเวลา → หาว่า config ถูกเมินเพราะอะไร (อ่าน type ของ vitest) → แก้ → รันซ้ำหลายรอบ →
+แยกความล้มที่เหลือว่าเป็นของสภาพแวดล้อม (Docker บน Mac) ไม่ใช่ของโค้ด
+
+---
+
 ## ข้อเสียที่ยอมรับ
 
 - พจนานุกรมหมวดเขียนด้วยมือ — คำที่ไม่อยู่ในรายการได้ `other` (ผู้ใช้แก้ได้ใน UI) · Phase 8 อาจเรียนรู้จากที่ผู้ใช้แก้
@@ -327,3 +400,5 @@ integration test เรียก endpoint ที่ใช้ "ตอนนี้
 7. ลบ migration `budget_one_total` ออกจากฐานเทสต์ (DROP INDEX) แล้วรัน `pnpm test:int:local` — เทสต์ไหนแดง ข้อความว่าอะไร
 8. ใน `buildForecast` ลองคูณ fixed ด้วยสัดส่วนวันเหมือน variable แล้วรันเทสต์ — เคสไหนแดง ตัวเลขเท่าไร
 9. ทำไม integration test ของ bills ใช้บิล "40 วันก่อน" ไม่ใช่ "เมื่อวาน" สำหรับเคสค้างข้ามเดือน
+10. ใน `today.service.ts` เปลี่ยน `Promise.allSettled` เป็น `Promise.all` แล้วทำให้ `ExpenseStatsService.budgetStatus` throw — หน้า Today ตอบอะไร
+11. หาว่าทำไม `new Date('2026-10-01')` กับ `new Date('2026-10-01T00:00:00')` ได้คนละเวลา (ลองใน Node) แล้วโยงกับบั๊กที่บันทึกในขั้น 4

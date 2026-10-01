@@ -12,7 +12,7 @@
 | 1   | API: ExpenseModule + NL parser + helper เงิน/เดือน                            | `6cc6284`           | ✅    |
 | 2   | API: Budget CRUD + `GET /budgets/status` (กฎสี 85% / 100%)                    | `048ad51` `8c0d1c1` | ✅    |
 | 3   | API: `/expenses/summary`, `/forecast`, `/trends`, `/bills/upcoming`           | `b1a9493`           | ✅    |
-| 4   | API: `GET /today` + `GET /tasks/standup/today?format=markdown`                |                     | ⏳    |
+| 4   | API: `GET /today` + `GET /tasks/standup/today?format=markdown`                | `cae92c7` `5f7a4e1` | ✅    |
 | 5   | Web: หน้า Expenses (quick capture, KPI 3 การ์ด, บิล, หมวด, transactions, CSV) |                     | ⏳    |
 | 6   | Web: หน้า Today (hero, widget registry, Developer Quick Actions, standup)     |                     | ⏳    |
 | 7   | Web: Analytics (donut, trend, fixed vs variable) + empty/error/skeleton       |                     | ⏳    |
@@ -164,3 +164,96 @@ unique `("userId", "category", "period")` จาก migration แรกกัน
 - คาดการณ์ต้นเดือนแกว่ง — ทางเลือกภายหลัง: ผสมกับค่าเฉลี่ยเดือนก่อนแบบถ่วงน้ำหนักตามวันที่ผ่านไป
 - `/expenses/analytics`, `/expenses/bills` (หน้ารายละเอียด) ยังไม่มี — ขั้น 7
 - รายการรายรับไม่มี "บิล" (เงินเดือนประจำ) — ยังไม่ต้องใช้
+
+---
+
+## ขั้น 4 · API: `GET /today` + standup — `cae92c7` `5f7a4e1`
+
+📚 **ความรู้พื้นฐาน:** aggregator บน registry, MaybePromise, `Promise.allSettled` / partial failure, layering ด้วย lint,
+ค่าที่คำนวณแทนการเก็บ, config ที่ถูกเมินเงียบ ๆ → บท [15](../learn/15-phase2b-money-months-and-second-module.md) หัวข้อ 7 · บท [08](../learn/08-testing-and-quality.md)
+
+**เป้าหมาย:** ข้อมูลของหน้า Today ทั้งหน้าในคำขอเดียว (สเปก 7.4) และปุ่ม "สร้าง Standup" (8.11.1)
+
+**สิ่งที่เปลี่ยน**
+
+- 📁 `apps/api/src/entries/today/` — `today.service.ts` (วน registry), `today.ts` (`greetingFor`, `localHour`, `toWidgetDto`), controller, module
+- 📁 `packages/core/src/module.interface.ts` — `summarizeToday` คืน `TodayWidget | Promise<TodayWidget>`
+- 📁 `packages/core/src/domain.ts` — `TodayWidget` เพิ่ม `progress`, `alerts`, `actions`, `data` · `TodayWidgetAlert`
+- 📁 `packages/contracts/src/today.ts` — `TodayDto`, `TodayWidgetDto`, `StandupDto`
+- 📁 `modules/expense/` — `expense-today.ts` (การ์ดการเงิน pure), trackable inject `ExpenseStatsService`,
+  แยก `spend-rules.ts` (isSpent) และ `expense-labels.ts` ออกมา (กัน import วน trackable ↔ stats)
+- 📁 `modules/task/` — `standup.ts` (pure), `TaskStatsService.standup()`, `GET /tasks/standup/today`, การ์ดงานเพิ่ม progress + ปุ่ม standup
+- 📁 `apps/api/vitest.config.ts` — integration รันทีละไฟล์จริง (`cae92c7`)
+
+**ตัวอย่าง response (ย่อ)**
+
+```json
+{
+  "date": "2026-10-01",
+  "timezone": "Asia/Bangkok",
+  "greeting": "สวัสดีตอนเย็น Jay",
+  "widgets": [
+    {
+      "module": "task",
+      "headline": "งานวันนี้ 3 ชิ้น · เลยกำหนด 1",
+      "progress": { "done": 1, "total": 3 },
+      "actions": [{ "label": "สร้าง standup", "href": "/today?standup=1" }]
+    },
+    {
+      "module": "expense",
+      "headline": "วันนี้ใช้ ฿340 · เดือนนี้ ฿8,420 / ฿15,000",
+      "progress": { "done": 842000, "total": 1500000 },
+      "alerts": [{ "level": "warning", "message": "หมวดอาหารใช้ไป 87% ของงบแล้ว" }]
+    }
+  ],
+  "failedModules": []
+}
+```
+
+**การตัดสินใจ**
+
+- **`summarizeToday` คืน Promise ได้** _(ต่างจากสเปก 3.2 ที่เป็น sync)_ — การ์ดการเงินตามสเปก 7.4 ต้องมียอดทั้งเดือน + งบ + บิลถัดไป
+  ซึ่งไม่อยู่ใน entries ของวันนี้ · ทางเลือกที่ไม่เอา: ให้ TodayService ดึงข้อมูลเพิ่มให้ (core ต้องรู้จักงบ = ผิดกฎข้อ 1)
+  หรือให้หน้าเว็บยิง 3 endpoint เอง (เสีย "คำขอเดียว" ของสเปก) · task ยังเป็น sync ได้ตามเดิม
+- **TodayService อยู่ใน `entries/` ไม่ใช่ `core/`** — ครั้งแรกวางใน `core/today/` แล้ว lint (boundaries + no-restricted-imports) แดง:
+  core ห้ามใช้ Prisma · ชั้น `entries/` ถูกนิยามไว้แล้วว่า "ทำงานกับโมดูลผ่าน registry" ซึ่งตรงกับงานนี้พอดี
+- entries ที่ส่งให้โมดูล = เกิดวันนี้ ∪ ไม่มีวันที่แต่สร้างวันนี้ ∪ **ค้างจากวันก่อน (pending/active)** ∪ เสร็จวันนี้ —
+  กว้างพอให้งานเลยกำหนดและบิลค้างจ่ายโผล่ · แต่ละโมดูลกรองต่อตามความหมายของตัวเอง (การเงินนับ "ใช้วันนี้" เฉพาะวันที่ตรงกับวันนี้)
+- **`Promise.allSettled`** — การ์ดหนึ่งล้ม (เช่น query งบช้า/พัง) หน้า Today ยังได้การ์ดอื่น + `failedModules` ให้ UI แสดง error เฉพาะการ์ด
+- `progress` ของเงินเป็นหน่วยย่อยเสมอ (ไม่แปลงเป็นบาทใน API) · `total: null` = ไม่มีงบ
+- alert เรียง danger > warning > info และไม่เกิน 3 รายการ · บิลเตือนเมื่อเหลือ ≤ 1 วันหรือเลยกำหนด
+- **standup**: Done = เสร็จวันนี้ · Blocked = dependency ที่ยังไม่จบ (ไม่นับงานที่ถูกลบ) หรือแท็ก `blocked` (ไม่สนตัวพิมพ์) ·
+  Doing = ที่เหลือที่ active / ครบกำหนดภายในวันนี้ / เลยกำหนด — งานอนาคตและ inbox ไม่อยู่ ·
+  กลุ่มว่างเขียน "- ไม่มี" · `?format=markdown` ตอบ `text/markdown; charset=utf-8` ค่าเริ่มต้นเป็น JSON (มี `markdown` ด้วย)
+- ปุ่มในการ์ดงานชี้ `/today?standup=1` (หน้าเว็บเปิด sheet) ไม่ใช่ path ของ API ตามตัวอย่างสเปก
+
+**บั๊กที่เจอระหว่างทาง (`cae92c7`)**
+
+เพิ่ม `today.int-spec.ts` (ไฟล์ที่ 5) แล้วชุด integration แดงแบบสุ่ม — log มี Postgres `40P01 deadlock detected`
+ระหว่าง TRUNCATE กับ INSERT · `vitest.config.ts` ตั้ง `fileParallelism: false` ไว้ใน `projects[]` ซึ่ง vitest 3 **เมินเงียบ ๆ**
+(อยู่ในรายการ `NonProjectOptions` ของ type definition) → ไฟล์รันขนานกันมาตั้งแต่ Phase 1
+หลักฐาน: เวลารวมของไฟล์ 2.8 + 3.0 + 3.3 s > Duration 5.3 s · แก้เป็น `pool: 'forks'` + `singleFork: true` →
+รันซ้ำ 8 รอบ: **ไม่มี deadlock อีก** · 6 รอบผ่านหมด · 2 รอบล้มด้วย `Can't reach database server at localhost:5432`
+และ timeout 30 s (การเชื่อมต่อ Mac → Docker Desktop สะดุด ไม่ใช่ตรรกะ — container healthy ไม่ restart) → ใช้ CI (Linux) เป็นตัวตัดสิน
+
+**แก้เทสต์ที่ผิดเอง:** งาน "วันนี้" ในเทสต์เดิมใช้ `occurredAt = now` → พอเรียก `/today` เวลาผ่านไปแล้ว `isOverdue` (เทียบเวลาจริง
+เหมือน sidebar) จึงนับเป็นเลยกำหนด · เปลี่ยนเป็น 23:59 ของวันนี้ตามเวลาไทย
+
+**วิธีตรวจ**
+
+- unit: `expense-today.spec.ts` 7 (headline ตามสเปก, ไม่มีงบ, บิลค้างเมื่อวานไม่นับเป็นวันนี้, alert ลำดับ/จำนวน, empty) ·
+  `standup.spec.ts` 4 · `today.spec.ts` 7 (ขอบ 12:00 / 18:00, โซนผู้ใช้ไม่ใช่โซนเซิร์ฟเวอร์) · task widget ปรับตามสเปก
+- integration `today.int-spec.ts` 4: ผู้ใช้ใหม่ได้การ์ดว่างครบ · งานวันนี้/เลยกำหนด/เสร็จวันนี้ไม่ปนของคนอื่น + การ์ดเงิน ·
+  **ปิดโมดูลใน settings → การ์ดหาย** · standup แท็ก #blocked + `text/markdown`
+- `pnpm test:int:local` 33/33 (3 รอบติดหลังแก้) · lint/typecheck/unit ทั้ง monorepo 20/20
+
+**สิ่งที่ค้าง**
+
+- การ์ดการเงินเรียก `userContext.forUser` ซ้ำ (TodayService 1 + stats 2) — 3 query เล็กต่อคำขอ ยังไม่ใช่ปัญหา
+- `POST /tasks/:id/standup` (สเปก 7.3) ยังไม่ทำ — ไม่อยู่ใน checklist ของ 2b
+- ยังไม่มี API สร้าง dependency ระหว่างงาน → Blocked จาก dependency ทดสอบได้แค่ใน unit test
+- **บั๊กที่ยืนยันแล้ว (มีมาตั้งแต่ก่อน 2b) — ต้องแก้ก่อนทำหน้า Today ฝั่งเว็บ:**
+  QuickCapture ส่งวันกำหนดเป็น `"2026-10-01"` (date ล้วน) → `isoDate` ใน contracts ทำ `new Date("2026-10-01")` = **00:00 UTC = 07:00 เวลาไทย**
+  → งานทั้งวันที่กำหนดวันนี้ถูกนับ "เลยกำหนด" ตั้งแต่ 07:00 ของวันนั้นเอง (ทั้ง `isOverdue` ฝั่ง API, sidebar และ `isOverdueDate` ฝั่งเว็บ)
+  · ผู้ใช้โซนตะวันตกของ UTC (New York) งานไปตกวันก่อนหน้า · แนวทาง: แปลง date ล้วนเป็นเที่ยงคืนตามโซนผู้ใช้ตอนบันทึก
+  และให้ "เลยกำหนด" ของงานทั้งวัน = เลยสิ้นวันท้องถิ่น ไม่ใช่เลยเวลา 00:00
