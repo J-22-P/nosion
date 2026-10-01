@@ -2,9 +2,10 @@
 
 > Phase 2b เริ่มจากโมดูลการเงิน — โมดูลที่สองของระบบ
 > คำถามของบทนี้: **(1) ทำไมโปรแกรมเมอร์ไม่เก็บเงินเป็นทศนิยม (2) "เดือนนี้" เริ่มตอนไหนกันแน่
-> (3) เพิ่มโมดูลใหม่ทั้งโมดูลโดยแก้โค้ดเดิม 2 บรรทัดได้อย่างไร (4) แปลง "กาแฟ 65" เป็นข้อมูลโดยไม่ใช้ AI**
+> (3) เพิ่มโมดูลใหม่ทั้งโมดูลโดยแก้โค้ดเดิม 2 บรรทัดได้อย่างไร (4) แปลง "กาแฟ 65" เป็นข้อมูลโดยไม่ใช้ AI
+> (5) ทำไม unique constraint ปล่อยให้งบรวมซ้ำได้**
 
-อ่านคู่กับ: 📁 `docs/phases/phase-2b-expense-today.md` ขั้น 1 · บท [05](./05-phase1-plugin-architecture-and-di.md) (plugin architecture) ·
+อ่านคู่กับ: 📁 `docs/phases/phase-2b-expense-today.md` ขั้น 1–2 · บท [05](./05-phase1-plugin-architecture-and-di.md) (plugin architecture) ·
 บท [13](./13-phase2a-task-api-sidebar-and-focus-timer.md) หัวข้อ 1–2 (instant / หน้าปัด / DST)
 
 ---
@@ -172,6 +173,69 @@ it.each(CASES)('"$input"', …);
 
 ---
 
+## 5. งบประมาณ: NULL, partial index และ "กฎที่เดียว"
+
+### 5.1 NULL ไม่เท่ากับ NULL
+
+SQL ใช้ **ตรรกะสามค่า**: `TRUE`, `FALSE` และ `UNKNOWN` · NULL แปลว่า "ไม่รู้ค่า" —
+"ค่าที่ไม่รู้ เท่ากับ ค่าที่ไม่รู้ไหม?" คำตอบคือ "ไม่รู้" (`UNKNOWN`) ไม่ใช่ `TRUE`
+
+```sql
+SELECT NULL = NULL;   -- NULL (ไม่ใช่ true)
+SELECT NULL IS NULL;  -- true  ← ต้องใช้ IS เสมอ
+```
+
+unique constraint ถือว่าสองแถว "ซ้ำ" ก็ต่อเมื่อเทียบแล้วได้ `TRUE` → แถวที่มี NULL **ไม่ซ้ำกับใครเลย**
+
+```
+budgets UNIQUE ("userId", "category", "period")
+  (alice, 'food', 'monthly')  +  (alice, 'food', 'monthly')  → ❌ ชน
+  (alice,  NULL,  'monthly')  +  (alice,  NULL,  'monthly')  → ✅ ผ่านทั้งคู่ ← งบรวมสองก้อน
+```
+
+เราเจอเรื่องนี้ตอนเขียน endpoint งบประมาณ — ลอง INSERT จริงในฐานเทสต์ (ใน transaction แล้ว ROLLBACK) ได้สองแถว
+ถ้าไม่ลอง จะรู้ตัวเมื่อหน้า Expenses แสดงงบรวมผิดเพราะ `findFirst` สุ่มได้คนละก้อน
+
+### 5.2 ทางแก้: partial unique index
+
+```sql
+CREATE UNIQUE INDEX "budgets_one_total_per_user_period"
+  ON "budgets" ("userId", "period")
+  WHERE "category" IS NULL;
+```
+
+index นี้มีเฉพาะแถวที่ `category IS NULL` และไม่มีคอลัมน์ `category` ใน key เลย → ปัญหา NULL หายไป
+เทคนิคเดียวกับ `focus_sessions_one_running_per_user` (บท 13 หัวข้อ 7) — "unique เฉพาะบางแถว"
+
+ทางเลือกอื่น: Postgres 15+ มี `UNIQUE NULLS NOT DISTINCT` แต่ประกาศใน `schema.prisma` ไม่ได้
+ส่วน partial index เราตรวจแล้วว่า `prisma migrate diff` ไม่นับเป็น drift
+
+📁 `budgets.service.ts` จับ `P2002` (unique violation) แปลงเป็น **409** พร้อมข้อความว่าชนเพราะอะไร —
+ไม่ `findFirst` ก่อนแล้วค่อย `create` เพราะสองคำขอพร้อมกันจะผ่านการเช็คทั้งคู่ (TOCTOU, บท 13)
+
+🎤 _"unique constraint กับคอลัมน์ที่ nullable ทำงานอย่างไร"_ → NULL ไม่ชนกัน · ถ้าต้องการ "ได้ NULL แถวเดียว"
+ใช้ partial unique index หรือ `NULLS NOT DISTINCT` · และอย่าเช็คด้วย SELECT ก่อน INSERT
+
+### 5.3 รวมยอดที่ไหน: SQL หรือโค้ด
+
+| ทาง                                                | ข้อดี                                      | ข้อเสีย                                                             |
+| -------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------- |
+| `SELECT payload->>'category', SUM(...) GROUP BY 1` | เร็ว ส่งข้อมูลน้อย                         | กฎ "ใช้จ่ายจริง" (ไม่นับรายรับ/บิลค้าง/ยกเลิก) ต้องเขียนซ้ำเป็น SQL |
+| ดึงแถวของเดือน แล้วรวมด้วย `isSpent()`             | **กฎอยู่ที่เดียว** ทดสอบด้วย unit test ได้ | ส่งแถวมามากกว่า                                                     |
+
+ข้อมูลการเงินของคนหนึ่งคนต่อเดือนมีหลักร้อยแถว → เลือกทางที่สอง
+ถ้าวันหนึ่งกฎเปลี่ยน (เช่น "ไม่นับเงินออม") แก้ที่ `isSpent()` แล้ว Today, Weekly, งบ, คาดการณ์ ตรงกันหมดทันที
+
+📌 เลือก "ถูกต้องและแก้ที่เดียว" ก่อน "เร็ว" — แล้ว **จดไว้ว่าจะเปลี่ยนเมื่อไร** (ในโค้ด: "ถ้าเกินหลักหมื่นค่อยย้ายเป็น raw SQL")
+
+### 5.4 กฎสีอยู่ใน contracts
+
+`budgetTone(spent, limit)` อยู่ใน 📁 `packages/contracts/src/expenses.ts` — API ใช้ตอบ `tone`, web ใช้ระบายสี bar
+ถ้า API บอก `warning` แต่ web คำนวณเองได้ `safe` เพราะเขียนเกณฑ์ไม่ตรงกัน ผู้ใช้จะเห็น chip "ใกล้เกิน" คู่กับ bar สีปกติ
+เทสต์ขอบ: 85% พอดี = warning · 100% พอดี = over · งบ 0 = safe (ไม่หารด้วยศูนย์)
+
+---
+
 ## ข้อเสียที่ยอมรับ
 
 - พจนานุกรมหมวดเขียนด้วยมือ — คำที่ไม่อยู่ในรายการได้ `other` (ผู้ใช้แก้ได้ใน UI) · Phase 8 อาจเรียนรู้จากที่ผู้ใช้แก้
@@ -187,3 +251,5 @@ it.each(CASES)('"$input"', …);
 3. `monthBoundsInTimeZone(new Date('2026-09-30T18:00:00Z'), 'Asia/Bangkok').period` ได้เดือนอะไร? คิดก่อนรัน
 4. ถ้าเปลี่ยน `.+?` ใน `AMOUNT_PATTERN` เป็น `.+` เคส `ค่าเน็ต 799 ทุกวันที่ 5` จะได้ title และ amount เป็นอะไร
 5. ทำไม `isSpent` ไม่นับบิลที่ยังไม่จ่าย — ถ้านับ ตัวเลข "คาดการณ์สิ้นเดือน" จะผิดไปทางไหน
+6. ใน psql ลอง `SELECT NULL = NULL, NULL IS NULL, NULL IS DISTINCT FROM NULL;` แล้วอธิบายผลทีละคอลัมน์
+7. ลบ migration `budget_one_total` ออกจากฐานเทสต์ (DROP INDEX) แล้วรัน `pnpm test:int:local` — เทสต์ไหนแดง ข้อความว่าอะไร
