@@ -314,4 +314,28 @@ describe('Expense module', () => {
       await api().get('/api/v1/expenses/trends?months=13').set(as(alice)).expect(422);
     });
   });
+
+  describe('POST /expenses/parse', () => {
+    it('"ค่าเน็ต 799 ทุกวันที่ 5" → บิล fixed · ข้อความที่ไม่มีเงิน → result null · ไม่บันทึกอะไร', async () => {
+      const before = await api().get('/api/v1/entries?module=expense').set(as(alice)).expect(200);
+      const bill = await api()
+        .post('/api/v1/expenses/parse')
+        .set(as(alice))
+        .send({ text: 'ค่าเน็ต 799 ทุกวันที่ 5' })
+        .expect(200);
+      expect(bill.body.result).toMatchObject({
+        title: 'ค่าเน็ต',
+        isAllDay: true,
+        payload: { amountMinor: 79900, category: 'utilities', isBill: true, costType: 'fixed' },
+      });
+      const none = await api()
+        .post('/api/v1/expenses/parse')
+        .set(as(alice))
+        .send({ text: 'ประชุมทีม' })
+        .expect(200);
+      expect(none.body).toEqual({ result: null });
+      const after = await api().get('/api/v1/entries?module=expense').set(as(alice)).expect(200);
+      expect(after.body.data).toHaveLength(before.body.data.length);
+    });
+  });
 });

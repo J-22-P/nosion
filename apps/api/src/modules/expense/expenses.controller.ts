@@ -1,7 +1,10 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import {
   billsQuerySchema,
+  parseExpenseSchema,
+  type ExpenseParseDto,
+  type ExpensePayload,
   periodQuerySchema,
   trendsQuerySchema,
   type BillsUpcomingDto,
@@ -10,17 +13,45 @@ import {
   type ExpenseTrendsDto,
 } from '@nosion/contracts';
 import { CurrentUser } from '../../common/decorators';
-import { zodQuery } from '../../common/zod-validation.pipe';
+import { zodBody, zodQuery } from '../../common/zod-validation.pipe';
+import { UserContextService } from '../../users/user-context.service';
 import { ExpenseStatsService } from './expense-stats.service';
+import { ExpenseTrackableModule } from './expense.trackable';
 
 /**
- * endpoint เฉพาะโมดูลการเงิน (สเปก 7.3) — อ่านอย่างเดียว
+ * endpoint เฉพาะโมดูลการเงิน (สเปก 7.3) — อ่านอย่างเดียว (parse = preview ไม่บันทึก)
  * CRUD ของรายการยังอยู่ที่ /entries ตัวกลาง
  */
 @ApiTags('expenses')
 @Controller('expenses')
 export class ExpensesController {
-  constructor(private readonly stats: ExpenseStatsService) {}
+  constructor(
+    private readonly stats: ExpenseStatsService,
+    private readonly expense: ExpenseTrackableModule,
+    private readonly userContext: UserContextService,
+  ) {}
+
+  /** แปลง "กาแฟ 65" เป็น preview ของรายจ่าย — ใช้ parser เดียวกับ ⌘K (ไม่เขียนซ้ำฝั่งเว็บ) */
+  @Post('parse')
+  @HttpCode(HttpStatus.OK)
+  async parse(
+    @CurrentUser('userId') userId: string,
+    @Body(zodBody(parseExpenseSchema)) dto: { text: string },
+  ): Promise<ExpenseParseDto> {
+    const ctx = await this.userContext.forUser(userId);
+    const parsed = this.expense.parseNaturalLanguage(dto.text, ctx);
+    if (!parsed) return { result: null };
+    return {
+      result: {
+        title: parsed.title,
+        occurredAt: parsed.occurredAt?.toISOString() ?? null,
+        isAllDay: parsed.isAllDay,
+        payload: parsed.payload as ExpensePayload,
+        confidence: parsed.confidence,
+        matchedTokens: parsed.matchedTokens ?? [],
+      },
+    };
+  }
 
   /** ยอดรวม แยกหมวด fixed vs variable — `?period=YYYY-MM` */
   @Get('summary')

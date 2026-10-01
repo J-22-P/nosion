@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { expenseCategorySchema, type ExpenseCategory } from './payloads';
+import { expenseCategorySchema, type ExpenseCategory, type ExpensePayload } from './payloads';
 
 /**
  * สัญญาของโมดูลการเงิน (สเปก 7.3 · 8.11.3)
@@ -178,4 +178,20 @@ export interface BillsUpcomingDto {
   /** ยังไม่จ่าย และครบกำหนดภายใน `days` วัน (รวมวันนี้) */
   dueSoonCount: number;
   overdueCount: number;
+}
+
+// ── POST /expenses/parse ──────────────────────────
+/** quick capture หน้า Expenses — preview ไม่บันทึก (ตัวกลาง /parse ทุกโมดูลมาใน Phase 5) */
+export const parseExpenseSchema = z.object({ text: z.string().trim().min(1).max(200) });
+
+export interface ExpenseParseDto {
+  /** null = ข้อความนี้ไม่ใช่รายจ่าย (ไม่มีจำนวนเงิน) */
+  result: {
+    title: string;
+    occurredAt: string | null;
+    isAllDay: boolean;
+    payload: ExpensePayload;
+    confidence: number;
+    matchedTokens: string[];
+  } | null;
 }
