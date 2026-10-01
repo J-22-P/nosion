@@ -178,7 +178,8 @@ pnpm db:seed
 pnpm dev            # รันทั้งสามแอปพร้อมกัน
 pnpm verify         # lint + format + typecheck + unit + build — รันก่อน push
 pnpm test:unit      # unit test ทุก package
-pnpm test:int       # integration test (ต้องมี postgres + redis)
+pnpm test:int:local # integration test บนเครื่อง — ใช้ฐาน nosion_test แยก ไม่ล้างข้อมูล dev
+pnpm test:int       # integration test ด้วย DATABASE_URL ปัจจุบัน (CI) ⚠ ล้างทุกตาราง
 pnpm test:e2e       # Playwright
 pnpm db:studio      # Prisma Studio
 pnpm db:reset       # ล้างฐานข้อมูลแล้ว migrate + seed ใหม่
