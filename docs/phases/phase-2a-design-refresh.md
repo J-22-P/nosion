@@ -10,20 +10,21 @@
 
 ## ภาพรวมความคืบหน้า
 
-| #   | ขั้น                                                                      | Commit                                  | สถานะ                   |
-| --- | ------------------------------------------------------------------------- | --------------------------------------- | ----------------------- |
-| 1   | Contracts: habit payload v1.1                                             | `3e8b928`                               | ✅                      |
-| 2   | Design token + ฟอนต์                                                      | `e3b8067`                               | ✅                      |
-| 3   | UI primitives + theme switcher                                            | `6e4c09e`                               | ✅                      |
-| 4   | App shell                                                                 | `1cff933`                               | ✅                      |
-| 5   | Restyle Tasks + Login/Register                                            | `2a133e7`                               | ✅                      |
-| 6   | เอกสาร Phase 2a + ADR-009 (รอบแรก)                                        | `436cc59`                               | ✅                      |
-| 7   | API: `GET /tasks/sidebar` + ตัวกรอง inbox                                 | `cca6648`                               | ✅                      |
-| 8   | API: Focus timer + `GET /tasks/focus/today`                               | `3224f90`                               | ✅                      |
-| 9   | Web: ตัวเลข smart list, Inbox, การ์ด Focus, ปุ่มจับเวลา                   | `d3d7996`                               | ✅                      |
-| 10  | เอกสารเรียนรู้ละเอียดระดับ Phase 0–1 (บท 10–13) + อภิธานศัพท์             | `05b3e6b`                               | ✅                      |
-| 11  | ไอคอน PWA + manifest · contrast เป็นเทสต์ · visual regression + axe ใน CI | `70f9986` `5b6f04d` `22fbee4`           | ✅ (รอรันใน CI)         |
-| 12  | รันบนเครื่องจริงครั้งแรก · แก้ contrast 2 สาเหตุ + visual test            | `7ddc632` `705451a` `1b717e1` `905177e` | ✅ (รออนุมัติ baseline) |
+| #   | ขั้น                                                                             | Commit                                  | สถานะ                               |
+| --- | -------------------------------------------------------------------------------- | --------------------------------------- | ----------------------------------- |
+| 1   | Contracts: habit payload v1.1                                                    | `3e8b928`                               | ✅                                  |
+| 2   | Design token + ฟอนต์                                                             | `e3b8067`                               | ✅                                  |
+| 3   | UI primitives + theme switcher                                                   | `6e4c09e`                               | ✅                                  |
+| 4   | App shell                                                                        | `1cff933`                               | ✅                                  |
+| 5   | Restyle Tasks + Login/Register                                                   | `2a133e7`                               | ✅                                  |
+| 6   | เอกสาร Phase 2a + ADR-009 (รอบแรก)                                               | `436cc59`                               | ✅                                  |
+| 7   | API: `GET /tasks/sidebar` + ตัวกรอง inbox                                        | `cca6648`                               | ✅                                  |
+| 8   | API: Focus timer + `GET /tasks/focus/today`                                      | `3224f90`                               | ✅                                  |
+| 9   | Web: ตัวเลข smart list, Inbox, การ์ด Focus, ปุ่มจับเวลา                          | `d3d7996`                               | ✅                                  |
+| 10  | เอกสารเรียนรู้ละเอียดระดับ Phase 0–1 (บท 10–13) + อภิธานศัพท์                    | `05b3e6b`                               | ✅                                  |
+| 11  | ไอคอน PWA + manifest · contrast เป็นเทสต์ · visual regression + axe ใน CI        | `70f9986` `5b6f04d` `22fbee4`           | ✅ (รอรันใน CI)                     |
+| 12  | รันบนเครื่องจริงครั้งแรก · แก้ contrast 2 สาเหตุ + visual test                   | `7ddc632` `705451a` `1b717e1` `905177e` | ✅ (รออนุมัติ baseline)             |
+| 13  | CI รอบแรก (push 27 commit) · แก้ความเข้าใจผิดเรื่อง `--update-snapshots=missing` | _(commit นี้)_                          | ✅ (UI แดงจนกว่าจะ commit baseline) |
 
 ---
 
@@ -409,13 +410,45 @@ strict mode ของ Playwright locator → บท [14](../learn/14-phase2a-pwa
 **สิ่งที่ค้าง**
 
 - [ ] **ภาพ baseline 8 ภาพ** ใน `apps/web/e2e/__screenshots__/` — สร้างแล้วแต่ **ยังไม่ commit** รอเจ้าของดูด้วยตาและอนุมัติ
-- [ ] baseline สร้างบน Docker `arm64` (Apple Silicon) · CI เป็น `amd64` — ถ้า CI ล้มด้วย diff เล็ก ๆ ให้ใช้ภาพจาก artifact ของ CI แทน
+- [x] baseline สร้างบน Docker `arm64` · CI เป็น `amd64` — เทียบแล้วเหมือนกันทุกพิกเซล (ขั้น 13)
 - [ ] `text-secondary` บน `wash-active` (hover การ์ดงาน/แถว) 3.7–4.1 : 1 — axe ไม่เห็นเพราะเป็นสถานะ hover
 - [ ] focus ring เปลี่ยนเป็นสีทึบแล้ว แต่ยังไม่ได้ลองกด Tab ดูด้วยตา
 - [ ] ภาพ Tasks มือถือ: tab bar ล่าง (`position: fixed`) ไปโผล่กลางภาพ fullPage ทับการ์ดแรก — เป็นพฤติกรรมของ Playwright
       ไม่ใช่บั๊กแอป แต่ทำให้ baseline บังเนื้อหา · ทางเลือก: `mask` / ซ่อน tab bar ตอนถ่าย หรือถ่ายแค่ viewport
 - [ ] `test:ui` บน Mac ทิ้งไฟล์ `-darwin.png` ในโฟลเดอร์ baseline — พิจารณาใส่ `.gitignore` กัน commit พลาด
-- [ ] commit ทั้งหมดของ Phase 2a ยังไม่ push → CI ยังไม่เคยรัน job "UI"
+- [x] push แล้ว · CI รันครบ (ขั้น 13)
+
+---
+
+## ขั้น 13 · CI รอบแรก — run `36882589592`
+
+📚 **ความรู้พื้นฐาน:** โหมดของ `--update-snapshots`, baseline ข้ามสถาปัตยกรรม → บท [14](../learn/14-phase2a-pwa-icons-visual-and-a11y-testing.md) หัวข้อ 2.5, 2.7
+
+**เป้าหมาย:** push งาน Phase 2a + 2b ขั้น 1–2 ทั้งหมด (`cd03a34..f75b4d5`, 27 commit) แล้วดูผล CI ก่อนทำขั้นต่อไป
+
+**ผล**
+
+| Job                                        | ผล                                                                     |
+| ------------------------------------------ | ---------------------------------------------------------------------- |
+| Lint · Format · Typecheck                  | ✅                                                                     |
+| Unit tests                                 | ✅                                                                     |
+| Integration tests (Postgres + Redis ใน CI) | ✅                                                                     |
+| Security scan                              | ✅                                                                     |
+| Build api / web / worker                   | ✅                                                                     |
+| UI · visual + a11y                         | ❌ — **axe 10/10 ผ่านบน amd64** · visual 8/8 ล้มเพราะยังไม่มี baseline |
+
+**สิ่งที่เรียนรู้ / แก้**
+
+- ขั้น 11 เขียนไว้ว่า `--update-snapshots=missing` "สร้างภาพที่ยังไม่มีแทนที่จะล้ม" — **ผิด**
+  Playwright 1.63 เขียนภาพลงโฟลเดอร์ แต่เทสต์นั้นยังล้ม (ยืนยันทั้งใน CI และรันซ้ำบน Mac ด้วย `CI=1`)
+  → job UI แดงจนกว่าจะ commit baseline · ไม่แก้พฤติกรรม เพราะ "ไม่มี baseline = ยังไม่ได้ตรวจ" เป็นสัญญาณที่ถูกต้อง
+  แก้คอมเมนต์ใน 📁 `.github/workflows/ci.yml` และบท 14 หัวข้อ 2.7 ให้ตรงความจริง
+- ดาวน์โหลด artifact `ui-screenshots` (amd64) เทียบกับภาพที่สร้างบน Mac Docker (arm64) ทีละพิกเซล:
+  **ต่าง 0.000% ทั้ง 8 ภาพ** → ข้อกังวลเรื่องสถาปัตยกรรมในขั้น 12 ตกไป ใช้ภาพจาก `test:ui:docker` ได้เลย
+
+**สิ่งที่ค้าง**
+
+- [ ] เจ้าของดูภาพ 8 ภาพแล้วอนุมัติ → commit `apps/web/e2e/__screenshots__/` → CI ควรเขียวทั้งหมด
 
 ---
 
@@ -427,7 +460,7 @@ strict mode ของ Playwright locator → บท [14](../learn/14-phase2a-pwa
 - [x] `next build` ที่โหลดฟอนต์จริง — ผ่านใน `pnpm verify` บน Mac (ขั้น 12)
 - [ ] e2e smoke (ต้องมี API + DB) — `pnpm test:e2e` · ยังไม่ได้รัน
 - [x] `pnpm install` หลัง pull — ติดตั้งครบ (unit/integration/ui รันได้)
-- [ ] CI job "UI · visual + a11y" รอบแรก — ยังไม่ push · baseline สร้างด้วย `test:ui:docker` แล้ว (arm64)
+- [x] CI job "UI · visual + a11y" รอบแรก — axe ผ่าน · visual รอ baseline (ขั้น 13)
 - [x] axe 0 serious ทั้ง 2 ธีม — ผ่าน 10/10 ทั้งบน macOS และใน Docker Linux หลังแก้ขั้น 12
 - [x] integration test ของ API — `pnpm test:int:local` 19/19 (ฐาน `nosion_test`)
 - [x] migration `focus_sessions` ไม่ drift — `prisma migrate diff --from-url <nosion_test> --to-schema-datamodel` ได้ "No difference"
