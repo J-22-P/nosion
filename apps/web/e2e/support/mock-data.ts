@@ -1,5 +1,11 @@
 import type {
+  BillDto,
+  BillsUpcomingDto,
+  BudgetStatusDto,
   EntryDto,
+  ExpenseForecastDto,
+  ExpensePayload,
+  ExpenseTrendsDto,
   FocusTodayDto,
   ProjectDto,
   TagDto,
@@ -179,3 +185,161 @@ export const FOCUS_TODAY: FocusTodayDto = {
   completedSessions: 3,
   running: null,
 };
+
+// ── การเงิน (หน้า Expenses) ─────────────────────────
+// ตัวเลขชุดเดียวกัน: ผลรวมหมวด = ยอดเดือน · ผลรวมบิล = fixedMonthly · NOW = 30 ก.ย. (วันสุดท้ายของเดือน)
+
+export const BUDGET_STATUS: BudgetStatusDto = {
+  period: '2026-09',
+  firstDay: '2026-09-01',
+  lastDay: '2026-09-30',
+  currency: 'THB',
+  total: {
+    spentMinor: 842000,
+    budgetMinor: 1500000,
+    ratio: 842000 / 1500000,
+    tone: 'safe',
+    budgetSource: 'total',
+  },
+  categories: [
+    { category: 'food', spentMinor: 382000, budgetMinor: 500000, ratio: 0.764, tone: 'safe' },
+    { category: 'housing', spentMinor: 228000, budgetMinor: 300000, ratio: 0.76, tone: 'safe' },
+    {
+      category: 'transport',
+      spentMinor: 174000,
+      budgetMinor: 200000,
+      ratio: 0.87,
+      tone: 'warning',
+    },
+    { category: 'subscription', spentMinor: 58000, budgetMinor: null, ratio: null, tone: 'safe' },
+  ],
+};
+
+/** ยอดสะสมรายวัน 1–30 ก.ย. — โตไม่เท่ากันทุกวัน (มีวันไม่ใช้เงิน) ให้เส้นดูเหมือนจริง */
+const DAILY = [
+  210, 0, 1040, 120, 380, 0, 0, 450, 260, 180, 920, 90, 0, 310, 640, 150, 220, 0, 380, 860, 120,
+  300, 0, 250, 410, 410, 260, 0, 330, 130,
+];
+let running = 0;
+const SERIES = DAILY.map((baht, i) => {
+  running += baht * 100;
+  return { date: `2026-09-${String(i + 1).padStart(2, '0')}`, cumulativeMinor: running };
+});
+
+export const FORECAST: ExpenseForecastDto = {
+  period: '2026-09',
+  currency: 'THB',
+  asOf: '2026-09-30',
+  dayOfMonth: 30,
+  daysInMonth: 30,
+  spentToDateMinor: running,
+  projectedMinor: running + 105000,
+  unpaidBillsMinor: 105000,
+  budgetMinor: 1500000,
+  marginMinor: 1500000 - (running + 105000),
+  status: 'safe',
+  series: SERIES,
+};
+
+const bill = (
+  id: string,
+  title: string,
+  amountMinor: number,
+  dueDate: string,
+  paid: boolean,
+  paymentMethod: BillDto['paymentMethod'],
+): BillDto => ({
+  id,
+  title,
+  amountMinor,
+  currency: 'THB',
+  dueDate,
+  paid,
+  paymentMethod,
+  daysUntilDue: paid ? null : 0,
+  version: 1,
+});
+
+export const BILLS: BillsUpcomingDto = {
+  currency: 'THB',
+  fixedMonthlyMinor: 79900 + 125000 + 35000 + 105000,
+  bills: [
+    bill('b_ais', 'AIS Fibre', 79900, '2026-09-05', true, 'card'),
+    bill('b_copilot', 'GitHub Copilot', 35000, '2026-09-12', true, 'card'),
+    bill('b_aws', 'AWS', 125000, '2026-09-15', true, 'transfer'),
+    bill('b_power', 'ค่าไฟ', 105000, '2026-09-30', false, 'transfer'),
+  ],
+  dueSoonCount: 1,
+  overdueCount: 0,
+};
+
+export const TRENDS: ExpenseTrendsDto = {
+  currency: 'THB',
+  points: [
+    ['2026-04', 910000],
+    ['2026-05', 1120000],
+    ['2026-06', 980000],
+    ['2026-07', 1340000],
+    ['2026-08', 1050000],
+    ['2026-09', 842000],
+  ].map(([period, expenseMinor]) => ({
+    period: period as string,
+    expenseMinor: expenseMinor as number,
+    incomeMinor: 4500000,
+    fixedMinor: 344900,
+    variableMinor: (expenseMinor as number) - 344900,
+    byCategory: {},
+  })),
+};
+
+const expense = (
+  id: string,
+  title: string,
+  hoursAgo: number,
+  payload: Partial<ExpensePayload> & { amountMinor: number },
+): EntryDto =>
+  entry({
+    id,
+    title,
+    module: 'expense',
+    status: 'done',
+    occurredAt: iso(-hoursAgo),
+    isAllDay: false,
+    payload: {
+      currency: 'THB',
+      direction: 'expense',
+      category: 'other',
+      costType: 'variable',
+      merchant: null,
+      paymentMethod: 'cash',
+      isBill: false,
+      note: null,
+      ...payload,
+    },
+  });
+
+export const EXPENSES: EntryDto[] = [
+  expense('x1', 'Craft Specialty Coffee', 1, {
+    amountMinor: 14500,
+    category: 'food',
+    paymentMethod: 'ewallet',
+    merchant: 'PromptPay',
+  }),
+  expense('x2', 'Grab ไปออฟฟิศ', 6, {
+    amountMinor: 18900,
+    category: 'transport',
+    paymentMethod: 'card',
+  }),
+  expense('x3', 'ข้าวมันไก่', 26, { amountMinor: 6000, category: 'food' }),
+  expense('x4', 'หนังสือ Clean Architecture', 30, {
+    amountMinor: 59000,
+    category: 'education',
+    paymentMethod: 'card',
+  }),
+  expense('x5', 'ขายคีย์บอร์ดมือสอง', 50, {
+    amountMinor: 120000,
+    direction: 'income',
+    paymentMethod: 'transfer',
+  }),
+  expense('x6', 'BTS', 54, { amountMinor: 4700, category: 'transport' }),
+];

@@ -1,12 +1,17 @@
 import type { Page, Route } from '@playwright/test';
 import {
   ACTIVE_TASKS,
+  BILLS,
+  BUDGET_STATUS,
   DONE_TASKS,
+  EXPENSES,
   FOCUS_TODAY,
+  FORECAST,
   PROJECTS,
   SETTINGS,
   SIDEBAR,
   TAGS,
+  TRENDS,
   USER,
 } from './mock-data';
 
@@ -37,6 +42,13 @@ export async function mockApi(page: Page, options: { authenticated?: boolean } =
     if (method === 'GET' && path === '/tags') return json(TAGS);
     if (method === 'GET' && path === '/tasks/sidebar') return json(SIDEBAR);
     if (method === 'GET' && path === '/tasks/focus/today') return json(FOCUS_TODAY);
+    if (method === 'GET' && path === '/budgets/status') return json(BUDGET_STATUS);
+    if (method === 'GET' && path === '/expenses/forecast') return json(FORECAST);
+    if (method === 'GET' && path === '/expenses/bills/upcoming') return json(BILLS);
+    if (method === 'GET' && path === '/expenses/trends') return json(TRENDS);
+    if (method === 'GET' && path === '/entries' && url.searchParams.get('module') === 'expense') {
+      return json({ data: EXPENSES, pageInfo: { hasMore: false, nextCursor: null } });
+    }
     if (method === 'GET' && path === '/entries') {
       const done = url.searchParams.get('status') === 'done';
       const data = done ? DONE_TASKS : ACTIVE_TASKS;

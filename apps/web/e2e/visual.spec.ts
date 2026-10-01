@@ -16,6 +16,12 @@ const VIEWPORTS = {
 
 const THEMES: Theme[] = ['light', 'dark'];
 
+/**
+ * รอ "หน้าพร้อม" นานกว่าค่าเริ่มต้น 5 s — โหลดแรกของแต่ละหน้าใน container เย็น ๆ ที่รันหลาย worker พร้อมกัน
+ * (หน้า Expenses ยิง API 5 ตัวพร้อมกัน) เคยเกิน 5 s แล้ว retry ผ่าน · ใช้กับการรอข้อมูลเท่านั้น ไม่ใช่การเทียบภาพ
+ */
+const READY = { timeout: 15_000 };
+
 for (const theme of THEMES) {
   for (const [device, viewport] of Object.entries(VIEWPORTS)) {
     test.describe(`${theme} · ${device}`, () => {
@@ -23,16 +29,26 @@ for (const theme of THEMES) {
 
       test('Tasks', async ({ page }) => {
         await page.goto('/tasks');
-        await expect(page.getByText('Re-architect Auth Token refresh flow')).toBeVisible();
+        await expect(page.getByText('Re-architect Auth Token refresh flow')).toBeVisible(READY);
         // การ์ด Focus มี 2 ชุดใน DOM (มือถือ lg:hidden / desktop ใน sidebar) — เลือกตัวที่มองเห็น
         await expect(page.getByText('2h 45m').filter({ visible: true })).toBeVisible();
         await settle(page);
         await expect(page).toHaveScreenshot(`tasks-${theme}-${device}.png`, { fullPage: true });
       });
 
+      test('Expenses', async ({ page }) => {
+        await page.goto('/expenses');
+        await expect(
+          page.getByText('Craft Specialty Coffee').filter({ visible: true }),
+        ).toBeVisible(READY);
+        await expect(page.getByText('AIS Fibre')).toBeVisible();
+        await settle(page);
+        await expect(page).toHaveScreenshot(`expenses-${theme}-${device}.png`, { fullPage: true });
+      });
+
       test('Login', async ({ page }) => {
         await page.goto('/login');
-        await expect(page.getByRole('heading', { name: 'เข้าสู่ระบบ' })).toBeVisible();
+        await expect(page.getByRole('heading', { name: 'เข้าสู่ระบบ' })).toBeVisible(READY);
         await settle(page);
         await expect(page).toHaveScreenshot(`login-${theme}-${device}.png`, { fullPage: true });
       });

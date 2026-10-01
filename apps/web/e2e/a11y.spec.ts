@@ -13,6 +13,7 @@ const PAGES = [
   { path: '/login', ready: 'เข้าสู่ระบบ' },
   { path: '/register', ready: 'สร้างบัญชีใหม่' },
   { path: '/tasks', ready: 'Re-architect Auth Token refresh flow' },
+  { path: '/expenses', ready: 'AIS Fibre' },
   { path: '/hub', ready: 'Workouts' },
   { path: '/settings', ready: 'การแสดงผล' },
 ] as const;
@@ -26,7 +27,8 @@ for (const theme of THEMES) {
     for (const { path, ready } of PAGES) {
       test(path, async ({ page }, testInfo) => {
         await page.goto(path);
-        await expect(page.getByText(ready).first()).toBeVisible();
+        // 15 s: โหลดแรกใน container ที่รันหลาย worker พร้อมกันเคยเกิน 5 s (ดู visual.spec.ts)
+        await expect(page.getByText(ready).first()).toBeVisible({ timeout: 15_000 });
         await settle(page);
 
         const results = await new AxeBuilder({ page })
