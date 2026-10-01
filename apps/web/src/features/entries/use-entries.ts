@@ -102,16 +102,21 @@ export function useUpdateEntry(filters: EntryFilters) {
   );
 }
 
-export function useCreateEntry() {
+export function useCreateEntry(
+  messages: { success: string; error: string } = {
+    success: 'เพิ่มงานแล้ว',
+    error: 'เพิ่มงานไม่สำเร็จ',
+  },
+) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: CreateEntryInput) => entriesApi.create(input),
     onSuccess: (entry) => {
-      toast.success('เพิ่มงานแล้ว', { description: entry.title });
+      toast.success(messages.success, { description: entry.title });
       void queryClient.invalidateQueries({ queryKey: ['entries'] });
     },
     onError: (error) => {
-      toast.error('เพิ่มงานไม่สำเร็จ', {
+      toast.error(messages.error, {
         description: error instanceof ApiError ? error.message : undefined,
       });
     },

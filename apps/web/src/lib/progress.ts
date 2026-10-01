@@ -1,7 +1,9 @@
+import { budgetTone } from '@nosion/contracts';
+
 export type ProgressTone = 'default' | 'warning' | 'danger';
 
-/** เกณฑ์สีของงบ (สเปก 8.7.5): ≥ 85% เตือน · ≥ 100% เกิน */
-export const BUDGET_WARNING_RATIO = 0.85;
+/** เกณฑ์สีของงบ (สเปก 8.7.5) อยู่ที่ contracts ที่เดียว — API ตอบ `tone` ด้วยกฎเดียวกัน */
+export { BUDGET_WARNING_RATIO } from '@nosion/contracts';
 
 /** สัดส่วน 0..1 ที่ปลอดภัยจาก max = 0, ค่าติดลบ และ NaN */
 export function progressRatio(value: number, max: number): number {
@@ -14,9 +16,7 @@ export function progressRatio(value: number, max: number): number {
  * (progress ของ subtask/focus ยิ่งเต็มยิ่งดี ไม่ควรแดง)
  */
 export function progressTone(value: number, max: number, budget: boolean): ProgressTone {
-  if (!budget || max <= 0) return 'default';
-  const raw = value / max;
-  if (raw >= 1) return 'danger';
-  if (raw >= BUDGET_WARNING_RATIO) return 'warning';
-  return 'default';
+  if (!budget) return 'default';
+  const tone = budgetTone(value, max);
+  return tone === 'over' ? 'danger' : tone === 'warning' ? 'warning' : 'default';
 }

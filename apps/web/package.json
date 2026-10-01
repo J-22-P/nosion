@@ -19,6 +19,7 @@
   "dependencies": {
     "@hookform/resolvers": "5.9.1",
     "@nosion/contracts": "workspace:*",
+    "@nosion/core": "workspace:*",
     "@nosion/ui": "workspace:*",
     "@tanstack/react-query": "5.103.1",
     "class-variance-authority": "0.7.1",

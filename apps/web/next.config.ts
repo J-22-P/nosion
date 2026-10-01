@@ -8,7 +8,7 @@ const nextConfig: NextConfig = {
   // ชี้ราก monorepo เพื่อให้ tracing เก็บไฟล์จาก workspace package มาด้วย
   outputFileTracingRoot: process.cwd() + '/../..',
   // ใช้ซอร์สโดยตรงจาก workspace package — เปลี่ยน contract แล้วเห็นผลทันทีตอน dev
-  transpilePackages: ['@nosion/ui', '@nosion/contracts'],
+  transpilePackages: ['@nosion/ui', '@nosion/contracts', '@nosion/core'],
   async headers() {
     return [
       {

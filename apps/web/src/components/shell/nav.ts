@@ -26,7 +26,7 @@ export interface NavItem {
 export const PRIMARY_NAV: readonly NavItem[] = [
   { href: '/today', label: 'วันนี้', en: 'Today', icon: Sparkles, ready: true },
   { href: '/tasks', label: 'งาน', en: 'Tasks', icon: CircleCheck, ready: true },
-  { href: '/expenses', label: 'การเงิน', en: 'Finance', icon: Wallet, ready: false },
+  { href: '/expenses', label: 'การเงิน', en: 'Finance', icon: Wallet, ready: true },
   { href: '/workouts', label: 'ออกกำลังกาย', en: 'Workouts', icon: Dumbbell, ready: false },
   { href: '/habits', label: 'นิสัย', en: 'Habits', icon: Repeat, ready: false },
   { href: '/calendar', label: 'ปฏิทิน', en: 'Calendar', icon: CalendarDays, ready: false },

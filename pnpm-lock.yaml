@@ -156,6 +156,9 @@ importers:
       '@nosion/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@nosion/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@nosion/ui':
         specifier: workspace:*
         version: link:../../packages/ui
