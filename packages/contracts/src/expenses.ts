@@ -82,3 +82,100 @@ export interface BudgetStatusDto {
   /** ทุกหมวดที่มีงบ หรือมีรายจ่าย — เรียงตามยอดใช้มากไปน้อย */
   categories: (BudgetLineDto & { category: ExpenseCategory })[];
 }
+
+// ── /expenses/summary ─────────────────────────────
+export interface CategoryAmountDto {
+  category: ExpenseCategory;
+  amountMinor: number;
+  count: number;
+  /** สัดส่วนของรายจ่ายทั้งหมด 0..1 (donut) */
+  share: number;
+}
+
+export interface ExpenseSummaryDto {
+  period: string;
+  currency: string;
+  /** รายจ่ายที่ "ใช้จริง" (กฎ isSpent: ไม่รวมบิลค้างจ่าย/ยกเลิก) */
+  expenseMinor: number;
+  incomeMinor: number;
+  /** income − expense */
+  netMinor: number;
+  fixedMinor: number;
+  variableMinor: number;
+  /** จำนวนรายการรายจ่ายที่นับ */
+  count: number;
+  /** มากไปน้อย */
+  byCategory: CategoryAmountDto[];
+}
+
+// ── /expenses/forecast ────────────────────────────
+export interface ExpenseForecastDto {
+  period: string;
+  currency: string;
+  /** วันนี้ตามโซนผู้ใช้ 'YYYY-MM-DD' */
+  asOf: string;
+  dayOfMonth: number;
+  daysInMonth: number;
+  spentToDateMinor: number;
+  /** variable ถึงวันนี้ ÷ วันที่ผ่านไป × จำนวนวันในเดือน + fixed ที่จ่ายแล้ว + บิลค้างจ่ายของเดือนนี้ */
+  projectedMinor: number;
+  /** บิลของเดือนนี้ที่ยังไม่จ่าย (รวมในคาดการณ์แล้ว) */
+  unpaidBillsMinor: number;
+  budgetMinor: number | null;
+  /** budget − projected (บวก = ต่ำกว่าเป้า) · null เมื่อไม่มีงบ */
+  marginMinor: number | null;
+  status: BudgetTone;
+  /** ยอดใช้สะสมรายวันตั้งแต่วันที่ 1 ถึงวันนี้ — sparkline */
+  series: { date: string; cumulativeMinor: number }[];
+}
+
+// ── /expenses/trends ──────────────────────────────
+export const trendsQuerySchema = z.object({
+  months: z.coerce.number().int().min(1).max(12).default(6),
+});
+
+export interface ExpenseTrendPointDto {
+  period: string;
+  expenseMinor: number;
+  incomeMinor: number;
+  fixedMinor: number;
+  variableMinor: number;
+  byCategory: Partial<Record<ExpenseCategory, number>>;
+}
+
+export interface ExpenseTrendsDto {
+  currency: string;
+  /** เก่า → ใหม่ · เดือนปัจจุบันอยู่ท้ายสุด (ยังไม่จบเดือน) */
+  points: ExpenseTrendPointDto[];
+}
+
+// ── /expenses/bills/upcoming ──────────────────────
+export const billsQuerySchema = z.object({
+  /** หน้าต่าง "ใกล้ครบกำหนด" (วัน) */
+  days: z.coerce.number().int().min(1).max(31).default(7),
+});
+
+export interface BillDto {
+  id: string;
+  title: string;
+  amountMinor: number;
+  currency: string;
+  /** 'YYYY-MM-DD' ตามโซนผู้ใช้ */
+  dueDate: string;
+  paid: boolean;
+  paymentMethod: 'cash' | 'card' | 'transfer' | 'ewallet' | 'other';
+  /** ติดลบ = เลยกำหนดมาแล้ว · null เมื่อจ่ายแล้ว */
+  daysUntilDue: number | null;
+  version: number;
+}
+
+export interface BillsUpcomingDto {
+  currency: string;
+  /** ผลรวมบิลทั้งหมดของเดือนนี้ (จ่ายแล้ว + ยังไม่จ่าย) — "฿3,450 / เดือน" */
+  fixedMonthlyMinor: number;
+  /** บิลของเดือนนี้ + บิลค้างจ่ายจากเดือนก่อน เรียงตามวันครบกำหนด */
+  bills: BillDto[];
+  /** ยังไม่จ่าย และครบกำหนดภายใน `days` วัน (รวมวันนี้) */
+  dueSoonCount: number;
+  overdueCount: number;
+}

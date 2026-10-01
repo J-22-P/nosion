@@ -29,6 +29,23 @@ function line(spentMinor: number, budgetMinor: number | null): BudgetLineDto {
 }
 
 /**
+ * งบรวมของเดือน — ก้อน category=null ถ้ามี · ไม่มีแต่ตั้งรายหมวดไว้ = ผลรวมรายหมวด
+ * ใช้ทั้ง /budgets/status และ /expenses/forecast (กฎเดียว ตัวเลขสองการ์ดตรงกัน)
+ */
+export function resolveTotalBudget(
+  budgets: { category: ExpenseCategory | null; amountMinor: number }[],
+): { budgetMinor: number | null; budgetSource: 'total' | 'sum-of-categories' | 'none' } {
+  const explicit = budgets.find((b) => b.category === null);
+  if (explicit) return { budgetMinor: explicit.amountMinor, budgetSource: 'total' };
+  const perCategory = budgets.filter((b) => b.category !== null);
+  if (perCategory.length === 0) return { budgetMinor: null, budgetSource: 'none' };
+  return {
+    budgetMinor: perCategory.reduce((a, b) => a + b.amountMinor, 0),
+    budgetSource: 'sum-of-categories',
+  };
+}
+
+/**
  * ประกอบ /budgets/status จากข้อมูลดิบ — pure function ทดสอบได้โดยไม่มีฐานข้อมูล
  * budgets = เฉพาะที่ isActive
  */
@@ -45,12 +62,7 @@ export function buildBudgetStatus(input: {
       .filter((b): b is { category: ExpenseCategory; amountMinor: number } => b.category !== null)
       .map((b) => [b.category, b.amountMinor]),
   );
-  const explicitTotal = input.budgets.find((b) => b.category === null)?.amountMinor ?? null;
-  const sumOfCategories = [...byCategory.values()].reduce((a, b) => a + b, 0);
-
-  const totalBudget = explicitTotal ?? (byCategory.size > 0 ? sumOfCategories : null);
-  const budgetSource =
-    explicitTotal !== null ? 'total' : byCategory.size > 0 ? 'sum-of-categories' : 'none';
+  const { budgetMinor: totalBudget, budgetSource } = resolveTotalBudget(input.budgets);
   const totalSpent = [...spent.values()].reduce((a, b) => a + b, 0);
 
   const categories = [...new Set<ExpenseCategory>([...byCategory.keys(), ...spent.keys()])]

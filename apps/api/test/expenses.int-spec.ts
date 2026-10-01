@@ -190,4 +190,128 @@ describe('Expense module', () => {
       await api().get('/api/v1/budgets/status?period=2026-13').set(as(alice)).expect(422);
     });
   });
+
+  describe('/expenses/*', () => {
+    const DAY = 24 * 60 * 60 * 1000;
+    /** 'YYYY-MM' ของตอนนี้ตามเวลาไทย (ผู้ใช้ทดสอบใช้ Asia/Bangkok) */
+    const currentPeriod = () =>
+      new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Bangkok',
+        year: 'numeric',
+        month: '2-digit',
+      })
+        .format(new Date())
+        .slice(0, 7);
+
+    async function bill(
+      token: string,
+      title: string,
+      amountMinor: number,
+      at: Date,
+      status = 'pending',
+    ) {
+      const res = await api()
+        .post('/api/v1/entries')
+        .set(as(token))
+        .send({
+          module: 'expense',
+          title,
+          status,
+          occurredAt: at.toISOString(),
+          isAllDay: true,
+          payload: { amountMinor, category: 'utilities', isBill: true, costType: 'fixed' },
+        })
+        .expect(201);
+      return res.body.id as string;
+    }
+
+    it('summary ?period: fixed/variable, รายรับ, หมวด — เฉพาะของผู้ใช้คนนั้น', async () => {
+      const res = await api()
+        .get('/api/v1/expenses/summary?period=2026-09')
+        .set(as(alice))
+        .expect(200);
+      // จากเทสต์ /budgets/status: ข้าวต้มดึก 60 (food) + เงินเดือน 45,000 · บิลค่าเน็ตยังไม่จ่าย → ไม่นับ
+      expect(res.body).toMatchObject({
+        period: '2026-09',
+        expenseMinor: 6000,
+        incomeMinor: 4500000,
+        netMinor: 4494000,
+        variableMinor: 6000,
+        fixedMinor: 0,
+        count: 1,
+      });
+      expect(res.body.byCategory).toEqual([
+        { category: 'food', amountMinor: 6000, count: 1, share: 1 },
+      ]);
+    });
+
+    it('bills/upcoming: JSON filter isBill · ค้างจ่ายข้ามเดือนยังอยู่ · จ่ายแล้วเดือนก่อนไม่อยู่ · ไม่รวมของคนอื่น', async () => {
+      const now = new Date();
+      const today = await bill(alice, 'บิลวันนี้', 79900, now);
+      const overdue = await bill(
+        alice,
+        'บิลค้าง 40 วัน',
+        50000,
+        new Date(now.getTime() - 40 * DAY),
+      );
+      const paidOld = await bill(
+        alice,
+        'บิลจ่ายแล้วเดือนก่อน',
+        12300,
+        new Date(now.getTime() - 40 * DAY),
+        'done',
+      );
+      await spend(alice, 'กาแฟไม่ใช่บิล', { amountMinor: 6500 }, now.toISOString());
+      const bobs = await bill(bob, 'บิลของบ็อบ', 99900, now);
+
+      const res = await api().get('/api/v1/expenses/bills/upcoming').set(as(alice)).expect(200);
+      const ids = res.body.bills.map((b: { id: string }) => b.id);
+      expect(ids).toContain(today);
+      expect(ids).toContain(overdue);
+      expect(ids).not.toContain(paidOld);
+      expect(ids).not.toContain(bobs);
+      expect(res.body.bills.every((b: { title: string }) => b.title !== 'กาแฟไม่ใช่บิล')).toBe(
+        true,
+      );
+
+      const todayBill = res.body.bills.find((b: { id: string }) => b.id === today);
+      expect(todayBill).toMatchObject({ daysUntilDue: 0, paid: false, amountMinor: 79900 });
+      expect(res.body.dueSoonCount).toBeGreaterThanOrEqual(1);
+      expect(res.body.overdueCount).toBeGreaterThanOrEqual(1);
+      // บิลค้างจากเดือนก่อนไม่นับใน "ต่อเดือน" ของเดือนนี้
+      const thisMonth = res.body.bills
+        .filter((b: { dueDate: string }) => b.dueDate.startsWith(currentPeriod()))
+        .reduce((sum: number, b: { amountMinor: number }) => sum + b.amountMinor, 0);
+      expect(res.body.fixedMonthlyMinor).toBe(thisMonth);
+      expect(
+        res.body.bills
+          .find((b: { id: string }) => b.id === overdue)
+          .dueDate.startsWith(currentPeriod()),
+      ).toBe(false);
+    });
+
+    it('forecast: เดือนปัจจุบัน · series ยาวเท่าวันที่ · ใช้งบรวมก้อนเดียวกับ /budgets/status', async () => {
+      const [forecast, status] = await Promise.all([
+        api().get('/api/v1/expenses/forecast').set(as(alice)).expect(200),
+        api().get('/api/v1/budgets/status').set(as(alice)).expect(200),
+      ]);
+      expect(forecast.body.period).toBe(currentPeriod());
+      expect(forecast.body.series).toHaveLength(forecast.body.dayOfMonth);
+      expect(forecast.body.budgetMinor).toBe(status.body.total.budgetMinor);
+      // บิลวันนี้ 799 ยังไม่จ่าย → อยู่ในคาดการณ์ แต่ไม่อยู่ในยอดใช้จริง
+      expect(forecast.body.unpaidBillsMinor).toBeGreaterThanOrEqual(79900);
+      expect(forecast.body.projectedMinor).toBeGreaterThanOrEqual(
+        forecast.body.spentToDateMinor + forecast.body.unpaidBillsMinor,
+      );
+    });
+
+    it('trends ?months=3: 3 จุด เก่า→ใหม่ จบที่เดือนนี้ · months เกิน 12 → 422', async () => {
+      const res = await api().get('/api/v1/expenses/trends?months=3').set(as(alice)).expect(200);
+      expect(res.body.points).toHaveLength(3);
+      expect(res.body.points.at(-1).period).toBe(currentPeriod());
+      const periods = res.body.points.map((p: { period: string }) => p.period);
+      expect([...periods].sort()).toEqual(periods);
+      await api().get('/api/v1/expenses/trends?months=13').set(as(alice)).expect(422);
+    });
+  });
 });
