@@ -10,19 +10,20 @@
 
 ## ภาพรวมความคืบหน้า
 
-| #   | ขั้น                                                                      | Commit                        | สถานะ           |
-| --- | ------------------------------------------------------------------------- | ----------------------------- | --------------- |
-| 1   | Contracts: habit payload v1.1                                             | `3e8b928`                     | ✅              |
-| 2   | Design token + ฟอนต์                                                      | `e3b8067`                     | ✅              |
-| 3   | UI primitives + theme switcher                                            | `6e4c09e`                     | ✅              |
-| 4   | App shell                                                                 | `1cff933`                     | ✅              |
-| 5   | Restyle Tasks + Login/Register                                            | `2a133e7`                     | ✅              |
-| 6   | เอกสาร Phase 2a + ADR-009 (รอบแรก)                                        | `436cc59`                     | ✅              |
-| 7   | API: `GET /tasks/sidebar` + ตัวกรอง inbox                                 | `cca6648`                     | ✅              |
-| 8   | API: Focus timer + `GET /tasks/focus/today`                               | `3224f90`                     | ✅              |
-| 9   | Web: ตัวเลข smart list, Inbox, การ์ด Focus, ปุ่มจับเวลา                   | `d3d7996`                     | ✅              |
-| 10  | เอกสารเรียนรู้ละเอียดระดับ Phase 0–1 (บท 10–13) + อภิธานศัพท์             | `05b3e6b`                     | ✅              |
-| 11  | ไอคอน PWA + manifest · contrast เป็นเทสต์ · visual regression + axe ใน CI | `70f9986` `5b6f04d` `22fbee4` | ✅ (รอรันใน CI) |
+| #   | ขั้น                                                                      | Commit                                  | สถานะ                   |
+| --- | ------------------------------------------------------------------------- | --------------------------------------- | ----------------------- |
+| 1   | Contracts: habit payload v1.1                                             | `3e8b928`                               | ✅                      |
+| 2   | Design token + ฟอนต์                                                      | `e3b8067`                               | ✅                      |
+| 3   | UI primitives + theme switcher                                            | `6e4c09e`                               | ✅                      |
+| 4   | App shell                                                                 | `1cff933`                               | ✅                      |
+| 5   | Restyle Tasks + Login/Register                                            | `2a133e7`                               | ✅                      |
+| 6   | เอกสาร Phase 2a + ADR-009 (รอบแรก)                                        | `436cc59`                               | ✅                      |
+| 7   | API: `GET /tasks/sidebar` + ตัวกรอง inbox                                 | `cca6648`                               | ✅                      |
+| 8   | API: Focus timer + `GET /tasks/focus/today`                               | `3224f90`                               | ✅                      |
+| 9   | Web: ตัวเลข smart list, Inbox, การ์ด Focus, ปุ่มจับเวลา                   | `d3d7996`                               | ✅                      |
+| 10  | เอกสารเรียนรู้ละเอียดระดับ Phase 0–1 (บท 10–13) + อภิธานศัพท์             | `05b3e6b`                               | ✅                      |
+| 11  | ไอคอน PWA + manifest · contrast เป็นเทสต์ · visual regression + axe ใน CI | `70f9986` `5b6f04d` `22fbee4`           | ✅ (รอรันใน CI)         |
+| 12  | รันบนเครื่องจริงครั้งแรก · แก้ contrast 2 สาเหตุ + visual test            | `7ddc632` `705451a` `1b717e1` `905177e` | ✅ (รออนุมัติ baseline) |
 
 ---
 
@@ -358,16 +359,79 @@
 
 ---
 
+## ขั้น 12 · รันบนเครื่องจริงครั้งแรก — `7ddc632` `705451a` `1b717e1` `905177e`
+
+📚 **ความรู้พื้นฐาน:** ชั้นการตรวจแต่ละชั้นมีจุดบอดต่างกัน, mapping ของ Tailwind, composite แล้วปัด 8 บิต,
+strict mode ของ Playwright locator → บท [14](../learn/14-phase2a-pwa-icons-visual-and-a11y-testing.md) หัวข้อ 4.6, 2.5
+
+**เป้าหมาย:** ปิดรายการ "สิ่งที่ยังไม่ได้ตรวจ" ที่ทำได้บน Mac (Docker Desktop, Apple Silicon)
+
+**ผลรันรอบแรก (ก่อนแก้)**
+
+| คำสั่ง                                               | ผล                                                                                                       |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `docker compose up -d postgres redis mailpit --wait` | ✅ healthy ทั้ง 3                                                                                        |
+| `pnpm test:int:local`                                | ✅ **19/19 ผ่านตั้งแต่ครั้งแรก** (auth 6 · entries 5 · tasks 8) — รวม "start พร้อมกัน 5 คำขอได้รอบเดียว" |
+| `prisma migrate diff` (ฐาน `nosion_test` ↔ schema)   | ✅ No difference — migration `focus_sessions` ที่เขียนมือไม่ drift                                       |
+| `pnpm verify`                                        | ✅ ผ่าน · `next build` โหลด Google Fonts จริงได้ · `/tasks` 165 kB                                       |
+| `test:ui:docker` (สร้าง baseline)                    | ❌ **14/18 ล้ม** — axe 10/10 · visual Tasks 4/4                                                          |
+
+- `prisma:error … Unique constraint failed` ใน log ของ integration test เป็นเรื่องปกติ —
+  คือคำขอที่แพ้การแข่งใน test race condition (Prisma log ก่อนที่ service จะจับ `P2002`)
+
+**สาเหตุและการแก้**
+
+| #   | อาการ                                                                                | สาเหตุ                                                                                                                             | แก้                                                                         | Commit    |
+| --- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | --------- |
+| 1   | ลิงก์ login/register contrast **1.17 : 1** ทั้งสองธีม                                | `globals.css` map `--color-accent: var(--accent-soft)` — ตกค้างจากการเปลี่ยนชื่อแบบกลไกในขั้น 2 (`--accent` ของ shadcn = พื้นอ่อน) | `--color-accent: var(--accent)` · `:focus-visible` ใช้ `--accent` ด้วย      | `7ddc632` |
+| 2   | kbd `⌘K`, status pill, input วันที่ 4.0–4.3 : 1                                      | `text-fg-secondary` บน `bg-wash` · `tokens.test.ts` ไม่มีคู่ hover-wash                                                            | เพิ่มคู่ในเทสต์ · secondary light `#6a6a6f` dark `#909095` · ADR-009 +1 แถว | `705451a` |
+| 2b  | หลังแก้ 2 ค่าแรก (`#6b6b70`) เทสต์ผ่าน 4.51 แต่ axe วัด 4.49                         | เทสต์ composite เป็นทศนิยม เบราว์เซอร์ปัดเป็น 8 บิต                                                                                | `onScreen()` ปัดก่อนคำนวณ · เลื่อนอีก 1 ขั้น                                | `705451a` |
+| 3   | visual Tasks ล้มทุกขนาดจอ: `getByText('2h 45m') resolved to 2 elements`              | การ์ด Focus อยู่ใน DOM 2 ชุด (มือถือ / desktop) · locator ของ Playwright เป็น strict                                               | `.filter({ visible: true })`                                                | `1b717e1` |
+| 4   | baseline Login รอบสองยังเป็นลิงก์สีจาง ทั้งที่ axe ผ่านแล้ว (ดูด้วยตา + วัดสีพิกเซล) | `--update-snapshots` ค่าเริ่มต้นคือ `changed` — เขียนทับเฉพาะภาพที่ต่างเกิน 1% · สีลิงก์ต่าง < 1% ภาพเก่าจึงค้าง                   | `--update-snapshots=all` ใน `playwright-docker.sh` และ `test:ui:update`     | `905177e` |
+
+**การตัดสินใจ**
+
+- แก้ที่ **token** ไม่ใช่ที่ component (kbd/pill/input) — hover-wash คือพื้นของแถวที่ hover ทั้งแอป
+  ข้อความรองต้องอ่านได้บนพื้นนี้อยู่แล้ว ถ้าแก้ราย component จุดถัดไปที่ใช้ `bg-wash` จะตกอีก
+- เลื่อนค่าน้อยที่สุดที่ผ่าน (light เข้มขึ้น 4 ระดับ, dark สว่างขึ้น 10 ระดับ) — ตาแทบแยกไม่ออก
+- ไม่ครอบ **wash-active** (พื้นตอน hover การ์ดงาน: secondary ได้ 3.7–4.1 : 1) — ต้องเลื่อนสีมากจนเปลี่ยนลำดับชั้นของข้อความ
+  และเป็นสถานะชั่วคราวที่ axe ไม่เห็น → ค้างไว้ (ดูด้านล่าง)
+- แก้ commit `5b8ac45` ด้วย `--amend` เป็น `705451a` (ยังไม่ push, เรื่องเดียวกัน)
+
+**วิธีตรวจ**
+
+- unit `@nosion/ui` 79/79 (เดิม 67 + hover-wash 12) — เคสใหม่ล้ม 4 เคสก่อนแก้ token (ตรงกับที่ axe เจอ)
+- `pnpm verify` ผ่านหลังแก้ทั้งหมด
+- `test:ui` บน macOS: **axe 10/10 ผ่าน** ทั้งสองธีม · visual 8 ล้มตามคาด (ไม่มี baseline `-darwin` โดยตั้งใจ)
+- `test:ui:docker` รอบสาม (ลบภาพเก่าก่อน + `=all`): **18/18 ผ่าน** — axe 10/10 บน Linux · สร้าง baseline ครบ 8 ภาพ
+- เปิดดูภาพด้วยตา + วัดสีพิกเซลลิงก์ "สมัครใหม่": dark `#2389ff` (เดิม `#15243a`)
+
+**สิ่งที่ค้าง**
+
+- [ ] **ภาพ baseline 8 ภาพ** ใน `apps/web/e2e/__screenshots__/` — สร้างแล้วแต่ **ยังไม่ commit** รอเจ้าของดูด้วยตาและอนุมัติ
+- [ ] baseline สร้างบน Docker `arm64` (Apple Silicon) · CI เป็น `amd64` — ถ้า CI ล้มด้วย diff เล็ก ๆ ให้ใช้ภาพจาก artifact ของ CI แทน
+- [ ] `text-secondary` บน `wash-active` (hover การ์ดงาน/แถว) 3.7–4.1 : 1 — axe ไม่เห็นเพราะเป็นสถานะ hover
+- [ ] focus ring เปลี่ยนเป็นสีทึบแล้ว แต่ยังไม่ได้ลองกด Tab ดูด้วยตา
+- [ ] ภาพ Tasks มือถือ: tab bar ล่าง (`position: fixed`) ไปโผล่กลางภาพ fullPage ทับการ์ดแรก — เป็นพฤติกรรมของ Playwright
+      ไม่ใช่บั๊กแอป แต่ทำให้ baseline บังเนื้อหา · ทางเลือก: `mask` / ซ่อน tab bar ตอนถ่าย หรือถ่ายแค่ viewport
+- [ ] `test:ui` บน Mac ทิ้งไฟล์ `-darwin.png` ในโฟลเดอร์ baseline — พิจารณาใส่ `.gitignore` กัน commit พลาด
+- [ ] commit ทั้งหมดของ Phase 2a ยังไม่ push → CI ยังไม่เคยรัน job "UI"
+
+---
+
 ## สิ่งที่ยังไม่ได้ตรวจ (ต้องทำบนเครื่องจริง)
 
-- [ ] **ดูด้วยตา** ทั้ง 2 ธีม × desktop/mobile — sandbox ไม่มี browser
-- [ ] `next build` ที่โหลดฟอนต์จริง — sandbox ต่อ Google Fonts ไม่ได้ (ตรวจด้วยฟอนต์จำลอง) · CI ต่อได้
-- [ ] e2e smoke (ต้องมี API + DB) — `pnpm test:e2e`
-- [ ] หลัง `git pull` บน Mac ต้อง `pnpm install` (มี devDependency ใหม่: sharp, @axe-core/playwright, vitest ใน ui)
-- [ ] CI job "UI · visual + a11y" รอบแรก → ดาวน์โหลด artifact `ui-screenshots` ตรวจด้วยตา แล้ว commit เข้า `apps/web/e2e/__screenshots__/` (หรือรัน `pnpm --filter @nosion/web test:ui:docker`)
-- [ ] axe 0 serious ทั้ง 2 ธีม — เทสต์เขียนแล้ว รอผลรอบแรกใน CI
-- [ ] integration test ของ API (`pnpm test:int` — ต้องมี Postgres + Redis)
-- [ ] `pnpm db:migrate` บนเครื่องจริง — ยืนยันว่า migration `focus_sessions` ที่เขียนมือไม่ทำให้ Prisma รายงาน drift
+อัปเดตหลังขั้น 12 (รันบน Mac · Docker Desktop Apple Silicon)
+
+- [ ] **ดูด้วยตา** ทั้ง 2 ธีม × desktop/mobile — baseline 8 ภาพพร้อมแล้ว **รอเจ้าของดูและอนุมัติก่อน commit**
+- [x] `next build` ที่โหลดฟอนต์จริง — ผ่านใน `pnpm verify` บน Mac (ขั้น 12)
+- [ ] e2e smoke (ต้องมี API + DB) — `pnpm test:e2e` · ยังไม่ได้รัน
+- [x] `pnpm install` หลัง pull — ติดตั้งครบ (unit/integration/ui รันได้)
+- [ ] CI job "UI · visual + a11y" รอบแรก — ยังไม่ push · baseline สร้างด้วย `test:ui:docker` แล้ว (arm64)
+- [x] axe 0 serious ทั้ง 2 ธีม — ผ่าน 10/10 ทั้งบน macOS และใน Docker Linux หลังแก้ขั้น 12
+- [x] integration test ของ API — `pnpm test:int:local` 19/19 (ฐาน `nosion_test`)
+- [x] migration `focus_sessions` ไม่ drift — `prisma migrate diff --from-url <nosion_test> --to-schema-datamodel` ได้ "No difference"
+      (ตรวจบนฐานเทสต์ ไม่ได้รัน `pnpm db:migrate` บนฐาน dev)
 
 ## หมายเหตุสภาพแวดล้อมที่ใช้ตรวจ
 
