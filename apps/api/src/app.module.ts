@@ -12,6 +12,7 @@ import { ConfigModule } from './infra/config/config.module';
 import { MailModule } from './infra/mail/mail.module';
 import { PrismaModule } from './infra/prisma/prisma.module';
 import { RedisModule } from './infra/redis/redis.module';
+import { ExpenseModule } from './modules/expense/expense.module';
 import { TaskModule } from './modules/task/task.module';
 import { OrganizationModule } from './organization/organization.module';
 import { UsersModule } from './users/users.module';
@@ -31,6 +32,7 @@ import { UsersModule } from './users/users.module';
 
     // ── โมดูลโดเมน: เพิ่มบรรทัดเดียวต่อโมดูลใหม่ ──
     TaskModule,
+    ExpenseModule,
 
     HealthModule,
   ],

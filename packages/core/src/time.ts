@@ -11,6 +11,45 @@ export function dayBoundsInTimeZone(date: Date, timeZone: string): { start: Date
   return { start, end };
 }
 
+/** ช่วงเวลาของเดือนหนึ่งตามโซนเวลาของผู้ใช้ — `[start, end)` เป็น UTC */
+export interface MonthBounds {
+  /** 'YYYY-MM' */
+  period: string;
+  start: Date;
+  /** ต้นเดือนถัดไป (exclusive) */
+  end: Date;
+  daysInMonth: number;
+}
+
+/** 'YYYY-MM' ที่ถูกต้อง (เดือน 01–12) */
+export const PERIOD_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+function boundsOf(year: number, month: number, timeZone: string): MonthBounds {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const next = month === 12 ? { y: year + 1, m: 1 } : { y: year, m: month + 1 };
+  return {
+    period: `${year}-${pad(month)}`,
+    // ต้นเดือนตามหน้าปัดของผู้ใช้ — ไม่ใช่ 00:00 UTC (ไทย = 17:00 ของวันก่อนหน้าใน UTC)
+    start: zonedTimeToUtc(`${year}-${pad(month)}-01T00:00:00`, timeZone),
+    end: zonedTimeToUtc(`${next.y}-${pad(next.m)}-01T00:00:00`, timeZone),
+    daysInMonth: new Date(Date.UTC(year, month, 0)).getUTCDate(),
+  };
+}
+
+/** เดือนที่ `date` อยู่ ตามโซนเวลาของผู้ใช้ */
+export function monthBoundsInTimeZone(date: Date, timeZone: string): MonthBounds {
+  const [y, m] = formatInTimeZone(date, timeZone).split('-').map(Number);
+  return boundsOf(y!, m!, timeZone);
+}
+
+/** ขอบของเดือนจาก 'YYYY-MM' · `shift` เลื่อนไปกี่เดือน (ติดลบ = ย้อนหลัง) */
+export function periodBounds(period: string, timeZone: string, shift = 0): MonthBounds {
+  if (!PERIOD_PATTERN.test(period)) throw new RangeError(`period ไม่ถูกต้อง: ${period}`);
+  const [y, m] = period.split('-').map(Number);
+  const index = y! * 12 + (m! - 1) + shift;
+  return boundsOf(Math.floor(index / 12), (index % 12) + 1, timeZone);
+}
+
 /** คืน 'YYYY-MM-DD' ของวันที่นั้นในโซนเวลาที่กำหนด */
 export function formatInTimeZone(date: Date, timeZone: string): string {
   const parts = new Intl.DateTimeFormat('en-CA', {

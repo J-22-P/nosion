@@ -3,6 +3,8 @@ import {
   dayBoundsInTimeZone,
   formatInTimeZone,
   isOverdue,
+  monthBoundsInTimeZone,
+  periodBounds,
   timeZoneOffsetMs,
   zonedTimeToUtc,
 } from './time';
@@ -64,5 +66,39 @@ describe('isOverdue', () => {
   });
   it('ไม่มีกำหนดส่ง = ไม่เลยกำหนด', () => {
     expect(isOverdue(null, now, false)).toBe(false);
+  });
+});
+
+describe('monthBoundsInTimeZone', () => {
+  it('ต้นเดือนตามเวลาไทย = 17:00 UTC ของวันสุดท้ายเดือนก่อน', () => {
+    // 2026-08-31 18:00Z = 1 ก.ย. 01:00 ตามเวลาไทย → นับเป็นเดือนกันยายน
+    const b = monthBoundsInTimeZone(new Date('2026-08-31T18:00:00Z'), 'Asia/Bangkok');
+    expect(b.period).toBe('2026-09');
+    expect(b.start.toISOString()).toBe('2026-08-31T17:00:00.000Z');
+    expect(b.end.toISOString()).toBe('2026-09-30T17:00:00.000Z');
+    expect(b.daysInMonth).toBe(30);
+  });
+
+  it('ข้ามปี และกุมภาพันธ์ปีอธิกสุรทิน', () => {
+    expect(periodBounds('2026-12', 'UTC').end.toISOString()).toBe('2027-01-01T00:00:00.000Z');
+    expect(periodBounds('2028-02', 'UTC').daysInMonth).toBe(29);
+  });
+
+  it('เดือนที่มี DST ยาวไม่เท่า 24×จำนวนวัน แต่ขอบยังเป็นเที่ยงคืนท้องถิ่น', () => {
+    const b = periodBounds('2026-03', 'America/New_York');
+    expect(b.start.toISOString()).toBe('2026-03-01T05:00:00.000Z'); // EST
+    expect(b.end.toISOString()).toBe('2026-04-01T04:00:00.000Z'); // EDT
+  });
+});
+
+describe('periodBounds', () => {
+  it('เลื่อนย้อนหลังข้ามปี', () => {
+    expect(periodBounds('2026-02', 'UTC', -3).period).toBe('2025-11');
+    expect(periodBounds('2026-11', 'UTC', 2).period).toBe('2027-01');
+  });
+
+  it('รูปแบบผิด → RangeError', () => {
+    expect(() => periodBounds('2026-13', 'UTC')).toThrow(RangeError);
+    expect(() => periodBounds('2026-8', 'UTC')).toThrow(RangeError);
   });
 });
