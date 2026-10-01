@@ -23,7 +23,11 @@ export default defineConfig({
           environment: 'node',
           testTimeout: 30_000,
           hookTimeout: 60_000,
-          fileParallelism: false,
+          // ทุกไฟล์ truncateAll() ฐานเดียวกัน → ต้องรันทีละไฟล์ ไม่งั้น TRUNCATE ชน INSERT ของอีกไฟล์ (deadlock 40P01)
+          // ⚠️ fileParallelism ใช้ใน projects ไม่ได้ (vitest 3 ถือเป็น NonProjectOptions → ถูกเมินเงียบ ๆ)
+          //    singleFork เป็น option ระดับ project ที่ pool อ่านจริง
+          pool: 'forks',
+          poolOptions: { forks: { singleFork: true } },
         },
       },
     ],
