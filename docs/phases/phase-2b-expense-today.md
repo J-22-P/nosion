@@ -13,6 +13,7 @@
 | 2   | API: Budget CRUD + `GET /budgets/status` (กฎสี 85% / 100%)                    | `048ad51` `8c0d1c1` | ✅    |
 | 3   | API: `/expenses/summary`, `/forecast`, `/trends`, `/bills/upcoming`           | `b1a9493`           | ✅    |
 | 4   | API: `GET /today` + `GET /tasks/standup/today?format=markdown`                | `cae92c7` `5f7a4e1` | ✅    |
+| 4b  | แก้บั๊ก: วันกำหนดแบบ date ล้วน / เลยกำหนดของงานทั้งวัน                        | `17192f0`           | ✅    |
 | 5   | Web: หน้า Expenses (quick capture, KPI 3 การ์ด, บิล, หมวด, transactions, CSV) |                     | ⏳    |
 | 6   | Web: หน้า Today (hero, widget registry, Developer Quick Actions, standup)     |                     | ⏳    |
 | 7   | Web: Analytics (donut, trend, fixed vs variable) + empty/error/skeleton       |                     | ⏳    |
@@ -252,8 +253,61 @@ unique `("userId", "category", "period")` จาก migration แรกกัน
 - การ์ดการเงินเรียก `userContext.forUser` ซ้ำ (TodayService 1 + stats 2) — 3 query เล็กต่อคำขอ ยังไม่ใช่ปัญหา
 - `POST /tasks/:id/standup` (สเปก 7.3) ยังไม่ทำ — ไม่อยู่ใน checklist ของ 2b
 - ยังไม่มี API สร้าง dependency ระหว่างงาน → Blocked จาก dependency ทดสอบได้แค่ใน unit test
-- **บั๊กที่ยืนยันแล้ว (มีมาตั้งแต่ก่อน 2b) — ต้องแก้ก่อนทำหน้า Today ฝั่งเว็บ:**
-  QuickCapture ส่งวันกำหนดเป็น `"2026-10-01"` (date ล้วน) → `isoDate` ใน contracts ทำ `new Date("2026-10-01")` = **00:00 UTC = 07:00 เวลาไทย**
-  → งานทั้งวันที่กำหนดวันนี้ถูกนับ "เลยกำหนด" ตั้งแต่ 07:00 ของวันนั้นเอง (ทั้ง `isOverdue` ฝั่ง API, sidebar และ `isOverdueDate` ฝั่งเว็บ)
-  · ผู้ใช้โซนตะวันตกของ UTC (New York) งานไปตกวันก่อนหน้า · แนวทาง: แปลง date ล้วนเป็นเที่ยงคืนตามโซนผู้ใช้ตอนบันทึก
-  และให้ "เลยกำหนด" ของงานทั้งวัน = เลยสิ้นวันท้องถิ่น ไม่ใช่เลยเวลา 00:00
+- ~~บั๊กวันกำหนดแบบ date ล้วน (07:00 เวลาไทย)~~ → แก้แล้วในขั้น 4b (`17192f0`)
+
+---
+
+## ขั้น 4b · แก้บั๊ก: วันกำหนดแบบ date ล้วน — `17192f0`
+
+📚 **ความรู้พื้นฐาน:** instant vs วันที่ตามปฏิทิน (local date), `new Date('YYYY-MM-DD')` คือ UTC,
+"เลยกำหนด" ของงานทั้งวัน, เทสต์ที่ล็อกพฤติกรรมผิดไว้ → บท [15](../learn/15-phase2b-money-months-and-second-module.md) หัวข้อ 8 · บท [13](../learn/13-phase2a-task-api-sidebar-and-focus-timer.md) หัวข้อ 1
+
+**อาการ:** งานที่กำหนด "วันนี้" ถูกนับว่าเลยกำหนดตั้งแต่ 07:00 ของวันนั้น (sidebar, `?overdue`, การ์ด Today, ป้ายแดงบนการ์ดงาน) ·
+ผู้ใช้โซนตะวันตกของ UTC งานไปตกวันก่อนหน้า · มีมาตั้งแต่ Phase 1–2a — **เห็นได้ในภาพ baseline ที่อนุมัติแล้ว** (ป้ายแดง "⚠ วันนี้")
+
+**สาเหตุ 2 ชั้น**
+
+1. QuickCapture ส่ง `"2026-10-01"` → contracts ทำ `new Date("2026-10-01")` = 00:00 **UTC** = 07:00 เวลาไทย
+   (ECMAScript: date-only form ตีความเป็น UTC แต่ date-time ที่ไม่มี offset ตีความเป็นเวลาท้องถิ่น)
+2. "เลยกำหนด" เทียบ `occurredAt < now` โดยไม่สน `isAllDay` — งานทั้งวันจึงเลยกำหนดทันทีที่ผ่านเวลาที่เก็บไว้
+
+**สิ่งที่เปลี่ยน**
+
+| ชั้น      | ไฟล์                             | เปลี่ยน                                                                                                                                                                  |
+| --------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| contracts | `entry.ts`                       | date ล้วนคงเป็น string (`DateInput = Date \| string`) — contracts ไม่รู้ว่าผู้ใช้อยู่โซนไหน                                                                              |
+| core      | `time.ts`                        | `resolveDateInput(v, tz)` → 00:00 ตามโซนผู้ใช้ · `isEntryOverdue(entry, now, tz)` แทน `isOverdue`                                                                        |
+| API       | `entries.service.ts`, `defer.ts` | create / update / defer / bulk defer แปลงตามโซน · date ล้วนบังคับ `isAllDay: true` · `?from`/`?to` date ล้วน = ทั้งวัน (`to` เดิมเป็น `lte 00:00Z` ตัดงานของวันนั้นทิ้ง) |
+| API       | `common/overdue-where.ts`        | where ของ "เลยกำหนด" ที่เดียว: ทั้งวัน `occurredAt < ต้นวันนี้` · มีเวลา `occurredAt < now` — ใช้ใน sidebar และ `?overdue`                                               |
+| API       | task widget, standup             | ใช้ `isEntryOverdue`                                                                                                                                                     |
+| web       | `lib/format.ts`, `task-card.tsx` | `isOverdueDate(iso, status, isAllDay)` · เทียบวันด้วยโซนที่ระบุ (`DEFAULT_TIME_ZONE`) ไม่ใช่โซนของเครื่อง                                                                |
+| e2e       | `support/mock-data.ts`           | งานตัวอย่างที่ตั้งใจให้ "เลยกำหนด" เดิมพึ่งบั๊ก (ทั้งวัน 00:00 วันนี้) → เปลี่ยนเป็นงานมีเวลา                                                                            |
+
+**การตัดสินใจ**
+
+- แปลงที่ **service** ไม่ใช่ contracts — การตีความวันที่ต้องรู้ timezone ของผู้ใช้ ซึ่งมีแค่ฝั่ง API
+- ไม่ต้อง migrate ข้อมูลเดิม: แถวที่บันทึกเป็น 00:00Z (07:00 ไทย) ยังอยู่วันเดิมตามเวลาไทย และกฎ "ทั้งวัน = วันจบแล้ว" ให้ผลถูก
+  · ผู้ใช้โซนตะวันตกของ UTC (ถ้ามี) จะยังเห็นข้อมูลเก่าเลื่อนไปหนึ่งวัน — ระบบยังไม่มีผู้ใช้จริงนอกไทย จึงยอมรับ
+- web ยังใช้ `Asia/Bangkok` ตายตัว (เหมือน `TH_DATE` เดิม) แต่รับ `timeZone` เป็นพารามิเตอร์แล้ว — ผูกกับ `settings.timezone` ภายหลัง
+- mock data แก้ให้เป็น "งานมีเวลา" แทนการสร้าง baseline ใหม่ — ภาพเหมือนเดิมทุกพิกเซล ไม่ต้องอนุมัติซ้ำ และความหมายของข้อมูลตรงกับคอมเมนต์
+
+**เทสต์ที่ล็อกพฤติกรรมผิดไว้ (แก้ 2 ตัว)**
+
+- `contracts/entry.test.ts` — "แปลง occurredAt เป็น Date เสมอ ไม่ว่าจะส่งมาแบบ ISO เต็มหรือแค่วันที่"
+- `api/entry.mapper.spec.ts` — `resolveDeferTarget('2026-12-31')` → `'2026-12-31T00:00:00.000Z'`
+
+ทั้งสองผ่านมาตลอดเพราะ **ทดสอบสิ่งที่โค้ดทำ ไม่ใช่สิ่งที่ผู้ใช้ต้องการ** — เปลี่ยนให้ assert ค่าที่ถูก (00:00 เวลาไทย)
+
+**วิธีตรวจ**
+
+- unit: core `resolveDateInput` (ไทย + New York), `isEntryOverdue` (07:30 / 23:59:59 / 00:00 วันถัดไป, งานมีเวลา, สถานะจบ) ·
+  defer (date ล้วนสองโซน + ISO มี offset) · standup งานทั้งวัน · web `isOverdueDate` + `formatDueDate` **รันทั้งโซนไทยและ `TZ=UTC`** ผลเท่ากัน
+- integration (`tasks.int-spec.ts`, ผู้ใช้ใหม่): date ล้วนเก็บเป็น 00:00 ไทย + `isAllDay` · sidebar `today 2, overdue 1` ·
+  `?overdue` ได้เฉพาะเมื่อวาน · `from=to=วันนี้` ได้งานวันนี้ · การ์ด Today "งานวันนี้ 2 ชิ้น · เลยกำหนด 1" · defer ไปวันที่ได้ 00:00 ไทย
+- visual + axe ใน Docker **เทียบกับ baseline ที่อนุมัติ โดยไม่อัปเดตภาพ** (`--update-snapshots=none`): 18/18
+- `pnpm test:int:local` 35/35 · lint/typecheck/unit ทั้ง monorepo 20/20
+
+**สิ่งที่ค้าง**
+
+- web ยังไม่อ่าน timezone จาก `/me` (ใช้ `Asia/Bangkok`)
+- QuickCapture ยังส่งวันที่อย่างเดียว ไม่มีช่องเวลา — งานมีเวลาสร้างได้ผ่าน API เท่านั้น
