@@ -10,21 +10,21 @@
 
 ## ภาพรวมความคืบหน้า
 
-| #   | ขั้น                                                                             | Commit                                  | สถานะ                               |
-| --- | -------------------------------------------------------------------------------- | --------------------------------------- | ----------------------------------- |
-| 1   | Contracts: habit payload v1.1                                                    | `3e8b928`                               | ✅                                  |
-| 2   | Design token + ฟอนต์                                                             | `e3b8067`                               | ✅                                  |
-| 3   | UI primitives + theme switcher                                                   | `6e4c09e`                               | ✅                                  |
-| 4   | App shell                                                                        | `1cff933`                               | ✅                                  |
-| 5   | Restyle Tasks + Login/Register                                                   | `2a133e7`                               | ✅                                  |
-| 6   | เอกสาร Phase 2a + ADR-009 (รอบแรก)                                               | `436cc59`                               | ✅                                  |
-| 7   | API: `GET /tasks/sidebar` + ตัวกรอง inbox                                        | `cca6648`                               | ✅                                  |
-| 8   | API: Focus timer + `GET /tasks/focus/today`                                      | `3224f90`                               | ✅                                  |
-| 9   | Web: ตัวเลข smart list, Inbox, การ์ด Focus, ปุ่มจับเวลา                          | `d3d7996`                               | ✅                                  |
-| 10  | เอกสารเรียนรู้ละเอียดระดับ Phase 0–1 (บท 10–13) + อภิธานศัพท์                    | `05b3e6b`                               | ✅                                  |
-| 11  | ไอคอน PWA + manifest · contrast เป็นเทสต์ · visual regression + axe ใน CI        | `70f9986` `5b6f04d` `22fbee4`           | ✅ (รอรันใน CI)                     |
-| 12  | รันบนเครื่องจริงครั้งแรก · แก้ contrast 2 สาเหตุ + visual test                   | `7ddc632` `705451a` `1b717e1` `905177e` | ✅ (รออนุมัติ baseline)             |
-| 13  | CI รอบแรก (push 27 commit) · แก้ความเข้าใจผิดเรื่อง `--update-snapshots=missing` | _(commit นี้)_                          | ✅ (UI แดงจนกว่าจะ commit baseline) |
+| #   | ขั้น                                                                             | Commit                                  | สถานะ                   |
+| --- | -------------------------------------------------------------------------------- | --------------------------------------- | ----------------------- |
+| 1   | Contracts: habit payload v1.1                                                    | `3e8b928`                               | ✅                      |
+| 2   | Design token + ฟอนต์                                                             | `e3b8067`                               | ✅                      |
+| 3   | UI primitives + theme switcher                                                   | `6e4c09e`                               | ✅                      |
+| 4   | App shell                                                                        | `1cff933`                               | ✅                      |
+| 5   | Restyle Tasks + Login/Register                                                   | `2a133e7`                               | ✅                      |
+| 6   | เอกสาร Phase 2a + ADR-009 (รอบแรก)                                               | `436cc59`                               | ✅                      |
+| 7   | API: `GET /tasks/sidebar` + ตัวกรอง inbox                                        | `cca6648`                               | ✅                      |
+| 8   | API: Focus timer + `GET /tasks/focus/today`                                      | `3224f90`                               | ✅                      |
+| 9   | Web: ตัวเลข smart list, Inbox, การ์ด Focus, ปุ่มจับเวลา                          | `d3d7996`                               | ✅                      |
+| 10  | เอกสารเรียนรู้ละเอียดระดับ Phase 0–1 (บท 10–13) + อภิธานศัพท์                    | `05b3e6b`                               | ✅                      |
+| 11  | ไอคอน PWA + manifest · contrast เป็นเทสต์ · visual regression + axe ใน CI        | `70f9986` `5b6f04d` `22fbee4`           | ✅ (รอรันใน CI)         |
+| 12  | รันบนเครื่องจริงครั้งแรก · แก้ contrast 2 สาเหตุ + visual test                   | `7ddc632` `705451a` `1b717e1` `905177e` | ✅ (รออนุมัติ baseline) |
+| 13  | CI รอบแรก (push 27 commit) · แก้ความเข้าใจผิดเรื่อง `--update-snapshots=missing` | `1f5acf0` `5e38508`                     | ✅ CI เขียวทั้งหมด      |
 
 ---
 
@@ -448,7 +448,7 @@ strict mode ของ Playwright locator → บท [14](../learn/14-phase2a-pwa
 
 **สิ่งที่ค้าง**
 
-- [ ] เจ้าของดูภาพ 8 ภาพแล้วอนุมัติ → commit `apps/web/e2e/__screenshots__/` → CI ควรเขียวทั้งหมด
+- [x] เจ้าของดูภาพ 8 ภาพแล้วอนุมัติ → commit `5e38508` → **CI run `36884021283` เขียวทั้ง 8 job** (รวม UI · visual + a11y)
 
 ---
 
@@ -456,7 +456,7 @@ strict mode ของ Playwright locator → บท [14](../learn/14-phase2a-pwa
 
 อัปเดตหลังขั้น 12 (รันบน Mac · Docker Desktop Apple Silicon)
 
-- [ ] **ดูด้วยตา** ทั้ง 2 ธีม × desktop/mobile — baseline 8 ภาพพร้อมแล้ว **รอเจ้าของดูและอนุมัติก่อน commit**
+- [x] **ดูด้วยตา** ทั้ง 2 ธีม × desktop/mobile — เจ้าของอนุมัติ baseline 8 ภาพแล้ว (`5e38508`)
 - [x] `next build` ที่โหลดฟอนต์จริง — ผ่านใน `pnpm verify` บน Mac (ขั้น 12)
 - [ ] e2e smoke (ต้องมี API + DB) — `pnpm test:e2e` · ยังไม่ได้รัน
 - [x] `pnpm install` หลัง pull — ติดตั้งครบ (unit/integration/ui รันได้)

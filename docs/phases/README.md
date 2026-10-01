@@ -22,8 +22,8 @@
 
 ## สารบัญ
 
-| Phase | ไฟล์                                                       | สถานะ                                                                  |
-| ----- | ---------------------------------------------------------- | ---------------------------------------------------------------------- |
-| 0–1   | [phase-0-1-foundation.md](./phase-0-1-foundation.md)       | ✅ เสร็จ                                                               |
-| 2a    | [phase-2a-design-refresh.md](./phase-2a-design-refresh.md) | ✅ โค้ดครบ · ตรวจบนเครื่องจริงแล้ว (ขั้น 12) · รออนุมัติ baseline + CI |
-| 2b    | [phase-2b-expense-today.md](./phase-2b-expense-today.md)   | ▶ กำลังทำ (ขั้น 2/9)                                                   |
+| Phase | ไฟล์                                                       | สถานะ                         |
+| ----- | ---------------------------------------------------------- | ----------------------------- |
+| 0–1   | [phase-0-1-foundation.md](./phase-0-1-foundation.md)       | ✅ เสร็จ                      |
+| 2a    | [phase-2a-design-refresh.md](./phase-2a-design-refresh.md) | ✅ เสร็จ · CI เขียว (ขั้น 13) |
+| 2b    | [phase-2b-expense-today.md](./phase-2b-expense-today.md)   | ▶ กำลังทำ (ขั้น 2/9)          |
