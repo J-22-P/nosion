@@ -13,12 +13,15 @@ import {
 import {
   EntryNotFoundError,
   PayloadValidationError,
+  dayBoundsInTimeZone,
+  resolveDateInput,
   VersionConflictError,
   type EntryWriteEvent,
   type EntryWriteOperation,
 } from '@nosion/core';
 import { EntryStatus, Prisma } from '@prisma/client';
 import { ModuleRegistryService } from '../core/registry/module-registry.service';
+import { overdueWhere } from '../common/overdue-where';
 import { completedAtFor } from './completed-at';
 import { resolveDeferTarget } from './defer';
 import { PrismaService } from '../infra/prisma/prisma.service';
@@ -44,7 +47,8 @@ export class EntriesService {
 
   async list(userId: string, query: ListEntriesQuery): Promise<Paginated<EntryDto>> {
     const db = this.prisma.forUser(userId);
-    const where = this.buildWhere(query);
+    const { timezone } = await this.userContext.forUser(userId);
+    const where = this.buildWhere(query, timezone);
     const orderBy = parseSort(query.sort);
 
     const rows = await db.entry.findMany({
@@ -95,6 +99,10 @@ export class EntriesService {
   async create(userId: string, input: CreateEntryInput): Promise<EntryDto> {
     const dto = createEntrySchema.parse(input);
     const module = this.registry.get(dto.module);
+    const { timezone } = await this.userContext.forUser(userId);
+    const occurredAt = dto.occurredAt ? resolveDateInput(dto.occurredAt, timezone) : null;
+    // ส่งมาแค่วันที่ = งานทั้งวันแน่นอน (ไม่มีเวลาให้ "เลย")
+    const isAllDay = typeof dto.occurredAt === 'string' ? true : dto.isAllDay;
     const payload = this.validatePayload(dto.module, dto.payload);
 
     if (dto.clientId) {
@@ -106,11 +114,11 @@ export class EntriesService {
     }
 
     const reminders =
-      module.supportsReminder && dto.occurredAt
+      module.supportsReminder && occurredAt
         ? dto.reminders.map((r) => ({
             channel: r.channel,
             offsetMinutes: r.offsetMinutes,
-            fireAt: new Date(dto.occurredAt!.getTime() + r.offsetMinutes * 60_000),
+            fireAt: new Date(occurredAt.getTime() + r.offsetMinutes * 60_000),
             idempotencyKey: `${dto.clientId ?? crypto.randomUUID()}:${r.channel}:${r.offsetMinutes}`,
           }))
         : [];
@@ -123,8 +131,8 @@ export class EntriesService {
         description: dto.description ?? null,
         status: dto.status,
         priority: dto.priority,
-        occurredAt: dto.occurredAt ?? null,
-        isAllDay: dto.isAllDay,
+        occurredAt,
+        isAllDay,
         payload: payload as Prisma.InputJsonValue,
         projectId: dto.projectId ?? null,
         parentId: dto.parentId ?? null,
@@ -142,6 +150,14 @@ export class EntriesService {
   async update(userId: string, id: string, input: UpdateEntryInput): Promise<EntryDto> {
     const dto = updateEntrySchema.parse(input);
     const before = await this.requireEntry(userId, id);
+    const { timezone } = await this.userContext.forUser(userId);
+    const occurredAt =
+      dto.occurredAt === undefined
+        ? undefined
+        : dto.occurredAt === null
+          ? null
+          : resolveDateInput(dto.occurredAt, timezone);
+    const isAllDay = typeof dto.occurredAt === 'string' ? true : dto.isAllDay;
 
     const payload =
       dto.payload !== undefined
@@ -155,8 +171,8 @@ export class EntriesService {
       // completedAt ต้องตามสถานะเสมอ — เปิดงานกลับมาทำ (undo) แล้วยังค้างวันที่เสร็จไว้ สถิติจะเพี้ยน
       ...(dto.status !== undefined ? { completedAt: completedAtFor(dto.status, before) } : {}),
       ...(dto.priority !== undefined ? { priority: dto.priority } : {}),
-      ...(dto.occurredAt !== undefined ? { occurredAt: dto.occurredAt ?? null } : {}),
-      ...(dto.isAllDay !== undefined ? { isAllDay: dto.isAllDay } : {}),
+      ...(occurredAt !== undefined ? { occurredAt } : {}),
+      ...(isAllDay !== undefined ? { isAllDay } : {}),
       ...(payload !== undefined ? { payload: payload as Prisma.InputJsonValue } : {}),
       ...(dto.projectId !== undefined
         ? { project: dto.projectId ? { connect: { id: dto.projectId } } : { disconnect: true } }
@@ -208,7 +224,8 @@ export class EntriesService {
   /** เลื่อนกำหนด + นับ deferCount ไว้ทำสถิติ "งานที่ผัดบ่อยที่สุด" */
   async defer(userId: string, id: string, to: string): Promise<EntryDto> {
     const before = await this.requireEntry(userId, id);
-    const target = resolveDeferTarget(to, before.occurredAt ?? new Date());
+    const { timezone } = await this.userContext.forUser(userId);
+    const target = resolveDeferTarget(to, before.occurredAt ?? new Date(), timezone);
     const payload = { ...(before.payload as Record<string, unknown>) };
     if (typeof payload.deferCount === 'number') payload.deferCount += 1;
 
@@ -263,7 +280,8 @@ export class EntriesService {
         return { affected: res.count };
       }
       case 'defer': {
-        const target = resolveDeferTarget(input.to ?? 'tomorrow', new Date());
+        const { timezone } = await this.userContext.forUser(userId);
+        const target = resolveDeferTarget(input.to ?? 'tomorrow', new Date(), timezone);
         const res = await this.prisma.entry.updateMany({
           where,
           data: { occurredAt: target, version: { increment: 1 } },
@@ -311,8 +329,9 @@ export class EntriesService {
     return result.data as Record<string, unknown>;
   }
 
-  private buildWhere(query: ListEntriesQuery): Prisma.EntryWhereInput {
+  private buildWhere(query: ListEntriesQuery, timeZone: string): Prisma.EntryWhereInput {
     const where: Prisma.EntryWhereInput = { deletedAt: null };
+    const and: Prisma.EntryWhereInput[] = [];
 
     if (query.module?.length) where.module = { in: query.module };
     if (query.status?.length) where.status = { in: query.status };
@@ -324,9 +343,16 @@ export class EntriesService {
     if (query.hasReminder) where.reminders = { some: { status: 'scheduled' } };
 
     if (query.from || query.to) {
+      // date ล้วน: from = ต้นวัน · to = รวมทั้งวัน (< ต้นวันถัดไป) ตามโซนผู้ใช้
+      const to =
+        typeof query.to === 'string'
+          ? { lt: dayBoundsInTimeZone(resolveDateInput(query.to, timeZone), timeZone).end }
+          : query.to
+            ? { lte: query.to }
+            : {};
       where.occurredAt = {
-        ...(query.from ? { gte: query.from } : {}),
-        ...(query.to ? { lte: query.to } : {}),
+        ...(query.from ? { gte: resolveDateInput(query.from, timeZone) } : {}),
+        ...to,
       };
     }
 
@@ -336,11 +362,11 @@ export class EntriesService {
     }
 
     if (query.overdue) {
-      where.occurredAt = { ...(where.occurredAt as object), lt: new Date() };
-      where.status = { in: [EntryStatus.pending, EntryStatus.active] };
+      const now = new Date();
+      and.push(overdueWhere(now, dayBoundsInTimeZone(now, timeZone).start));
     }
 
-    return where;
+    return and.length ? { ...where, AND: and } : where;
   }
 
   private async requireEntry(userId: string, id: string): Promise<EntryWithRelations> {

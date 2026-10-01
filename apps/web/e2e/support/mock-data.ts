@@ -102,7 +102,10 @@ export const ACTIVE_TASKS: EntryDto[] = [
     title: 'Re-architect Auth Token refresh flow',
     description: 'รองรับ Multi-tenant JWT refresh token rotation พร้อม reuse detection',
     priority: 'urgent',
-    occurredAt: iso(-15), // เลยกำหนดตั้งแต่เมื่อวาน
+    // ส่งก่อน 00:00 วันนี้ (เวลาไทย) แบบมีเวลา → เลยกำหนดแล้ว ป้ายแดง "วันนี้"
+    // ถ้าเป็นงานทั้งวัน (isAllDay) จะยังไม่เลยกำหนดจนจบวัน — เดิมพึ่งบั๊กที่นับงานทั้งวันว่าเลยตั้งแต่ 00:00
+    occurredAt: iso(-15),
+    isAllDay: false,
     projectId: 'p_core',
     tags: [tag('t_dev')],
     payload: {

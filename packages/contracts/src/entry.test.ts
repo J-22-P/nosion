@@ -26,7 +26,7 @@ describe('createEntrySchema', () => {
     expect(createEntrySchema.safeParse({ module: 'task', title: '   ' }).success).toBe(false);
   });
 
-  it('แปลง occurredAt เป็น Date เสมอ ไม่ว่าจะส่งมาแบบ ISO เต็มหรือแค่วันที่', () => {
+  it('ISO เต็มเป็น Date · date ล้วนคงเป็น string ให้ service แปลงตามโซนผู้ใช้ (เดิม new Date() ได้ 07:00 เวลาไทย)', () => {
     const full = createEntrySchema.parse({
       module: 'task',
       title: 'a',
@@ -38,7 +38,7 @@ describe('createEntrySchema', () => {
       occurredAt: '2026-09-18',
     });
     expect(full.occurredAt).toBeInstanceOf(Date);
-    expect(dateOnly.occurredAt).toBeInstanceOf(Date);
+    expect(dateOnly.occurredAt).toBe('2026-09-18');
   });
 
   it('ปฏิเสธโมดูลที่ไม่รู้จัก', () => {

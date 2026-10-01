@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { StandupDto, TaskSidebarDto } from '@nosion/contracts';
 import { formatInTimeZone } from '@nosion/core';
 import { EntryStatus, ModuleKey, type Prisma } from '@prisma/client';
+import { overdueWhere } from '../../common/overdue-where';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { UserContextService } from '../../users/user-context.service';
 import { buildStandup, type StandupTask } from './standup';
@@ -41,7 +42,7 @@ export class TaskStatsService {
       this.prisma.entry.count({
         where: { ...open, occurredAt: { gte: r.todayStart, lt: r.weekEnd } },
       }),
-      this.prisma.entry.count({ where: { ...open, occurredAt: { lt: now } } }),
+      this.prisma.entry.count({ where: { AND: [open, overdueWhere(now, r.todayStart)] } }),
       this.prisma.entry.groupBy({
         by: ['projectId'],
         where: { ...open, projectId: { not: null } },
@@ -98,6 +99,7 @@ export class TaskStatsService {
         title: true,
         status: true,
         occurredAt: true,
+        isAllDay: true,
         completedAt: true,
         project: { select: { name: true } },
         tags: { select: { tag: { select: { name: true } } } },
@@ -112,6 +114,7 @@ export class TaskStatsService {
       title: row.title,
       status: row.status,
       occurredAt: row.occurredAt,
+      isAllDay: row.isAllDay,
       completedAt: row.completedAt,
       projectName: row.project?.name ?? null,
       tags: row.tags.map((t) => t.tag.name),
@@ -123,6 +126,8 @@ export class TaskStatsService {
 
     return buildStandup({
       date: formatInTimeZone(now, ctx.timezone),
+      now,
+      timeZone: ctx.timezone,
       todayStart: r.todayStart,
       todayEnd: r.todayEnd,
       tasks,

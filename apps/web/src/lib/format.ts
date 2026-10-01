@@ -1,17 +1,38 @@
 import type { Priority } from '@nosion/contracts';
 
+/**
+ * โซนเวลาที่ใช้ตีความ "วัน" บนหน้าจอ — ยังตายตัวเป็นเวลาไทยเหมือนเดิม
+ * (ควรมาจาก settings.timezone ของผู้ใช้ — ส่งเป็นพารามิเตอร์ได้แล้ว รอผูกกับ /me)
+ * ห้ามใช้ setHours/getDate ของเครื่อง: Mac เป็นเวลาไทย แต่ CI เป็น UTC → ผลไม่ตรงกัน
+ */
+export const DEFAULT_TIME_ZONE = 'Asia/Bangkok';
+
 const TH_DATE = new Intl.DateTimeFormat('th-TH', {
   day: 'numeric',
   month: 'short',
-  timeZone: 'Asia/Bangkok',
+  timeZone: DEFAULT_TIME_ZONE,
 });
 
+/** 'YYYY-MM-DD' ของจุดเวลานั้นตามโซนที่กำหนด */
+function ymd(date: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone }).format(date);
+}
+
+/** ต่างกันกี่วันตามปฏิทิน (ไม่ขึ้นกับเวลาในวัน) */
+function dayDiff(date: Date, now: Date, timeZone: string): number {
+  const utc = (s: string) => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10));
+  return Math.round((utc(ymd(date, timeZone)) - utc(ymd(now, timeZone))) / 86_400_000);
+}
+
 /** วันที่แบบอ่านง่าย: วันนี้ / พรุ่งนี้ / เมื่อวาน / 18 ก.ย. */
-export function formatDueDate(iso: string | null, now: Date = new Date()): string | null {
+export function formatDueDate(
+  iso: string | null,
+  now: Date = new Date(),
+  timeZone = DEFAULT_TIME_ZONE,
+): string | null {
   if (!iso) return null;
   const date = new Date(iso);
-  const diff = startOfDay(date).getTime() - startOfDay(now).getTime();
-  const days = Math.round(diff / 86_400_000);
+  const days = dayDiff(date, now, timeZone);
   if (days === 0) return 'วันนี้';
   if (days === 1) return 'พรุ่งนี้';
   if (days === -1) return 'เมื่อวาน';
@@ -19,15 +40,20 @@ export function formatDueDate(iso: string | null, now: Date = new Date()): strin
   return TH_DATE.format(date);
 }
 
-function startOfDay(date: Date): Date {
-  const copy = new Date(date);
-  copy.setHours(0, 0, 0, 0);
-  return copy;
-}
-
-export function isOverdueDate(iso: string | null, status: string, now: Date = new Date()): boolean {
-  if (!iso || status === 'done' || status === 'cancelled') return false;
-  return new Date(iso).getTime() < now.getTime();
+/**
+ * กฎเดียวกับ isEntryOverdue() ฝั่ง API:
+ * งานทั้งวัน = เลยเมื่อวันกำหนดจบแล้ว · งานมีเวลา = เลยเมื่อเลยเวลา
+ */
+export function isOverdueDate(
+  iso: string | null,
+  status: string,
+  isAllDay = true,
+  now: Date = new Date(),
+  timeZone = DEFAULT_TIME_ZONE,
+): boolean {
+  if (!iso || status === 'done' || status === 'cancelled' || status === 'skipped') return false;
+  const date = new Date(iso);
+  return isAllDay ? dayDiff(date, now, timeZone) < 0 : date.getTime() < now.getTime();
 }
 
 export const PRIORITY_LABEL: Record<Priority, string> = {

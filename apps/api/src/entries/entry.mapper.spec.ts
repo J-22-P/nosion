@@ -31,21 +31,35 @@ describe('parseSort', () => {
 });
 
 describe('resolveDeferTarget', () => {
+  const TZ = 'Asia/Bangkok';
   const base = new Date('2026-09-18T03:00:00Z');
 
   it('tomorrow = +1 วันจากกำหนดเดิม', () => {
-    expect(resolveDeferTarget('tomorrow', base).toISOString()).toBe('2026-09-19T03:00:00.000Z');
+    expect(resolveDeferTarget('tomorrow', base, TZ).toISOString()).toBe('2026-09-19T03:00:00.000Z');
   });
 
   it('next-week = +7 วัน', () => {
-    expect(resolveDeferTarget('next-week', base).toISOString()).toBe('2026-09-25T03:00:00.000Z');
+    expect(resolveDeferTarget('next-week', base, TZ).toISOString()).toBe(
+      '2026-09-25T03:00:00.000Z',
+    );
   });
 
-  it('รับ ISO date ตรง ๆ ได้', () => {
-    expect(resolveDeferTarget('2026-12-31', base).toISOString()).toBe('2026-12-31T00:00:00.000Z');
+  it('date ล้วน = 00:00 ตามโซนผู้ใช้ (เดิมได้ 00:00 UTC = 07:00 เวลาไทย)', () => {
+    expect(resolveDeferTarget('2026-12-31', base, TZ).toISOString()).toBe(
+      '2026-12-30T17:00:00.000Z',
+    );
+    expect(resolveDeferTarget('2026-12-31', base, 'America/New_York').toISOString()).toBe(
+      '2026-12-31T05:00:00.000Z',
+    );
+  });
+
+  it('ISO datetime ที่มี offset ใช้ตามนั้น', () => {
+    expect(resolveDeferTarget('2026-12-31T09:00:00+07:00', base, TZ).toISOString()).toBe(
+      '2026-12-31T02:00:00.000Z',
+    );
   });
 
   it('วันที่มั่ว → 400 ไม่ใช่ Invalid Date ที่หลุดลง DB', () => {
-    expect(() => resolveDeferTarget('พรุ่งนี้มั้ง', base)).toThrow();
+    expect(() => resolveDeferTarget('พรุ่งนี้มั้ง', base, TZ)).toThrow();
   });
 });

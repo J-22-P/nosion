@@ -2,9 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   dayBoundsInTimeZone,
   formatInTimeZone,
-  isOverdue,
+  isEntryOverdue,
   monthBoundsInTimeZone,
   periodBounds,
+  resolveDateInput,
   timeZoneOffsetMs,
   zonedTimeToUtc,
 } from './time';
@@ -56,16 +57,52 @@ describe('timeZoneOffsetMs', () => {
   });
 });
 
-describe('isOverdue', () => {
-  const now = new Date('2026-09-18T10:00:00Z');
-  it('เลยกำหนดและยังไม่เสร็จ = true', () => {
-    expect(isOverdue(new Date('2026-09-17T10:00:00Z'), now, false)).toBe(true);
+describe('resolveDateInput', () => {
+  it('date ล้วน = 00:00 ตามโซนผู้ใช้ ไม่ใช่ 00:00 UTC', () => {
+    expect(resolveDateInput('2026-10-01', 'Asia/Bangkok').toISOString()).toBe(
+      '2026-09-30T17:00:00.000Z',
+    );
+    // New York: วันที่ 1 ต.ค. ยังเป็นวันที่ 1 (new Date('2026-10-01') จะได้ 30 ก.ย. 20:00 ตามเวลาท้องถิ่น)
+    expect(resolveDateInput('2026-10-01', 'America/New_York').toISOString()).toBe(
+      '2026-10-01T04:00:00.000Z',
+    );
   });
-  it('เสร็จแล้วไม่นับว่าเลยกำหนด', () => {
-    expect(isOverdue(new Date('2026-09-17T10:00:00Z'), now, true)).toBe(false);
+
+  it('Date ที่มีเวลาจริงอยู่แล้วคงเดิม · รูปแบบผิด → RangeError', () => {
+    const at = new Date('2026-10-01T10:30:00Z');
+    expect(resolveDateInput(at, 'Asia/Bangkok')).toBe(at);
+    expect(() => resolveDateInput('1/10/2026', 'Asia/Bangkok')).toThrow(RangeError);
   });
-  it('ไม่มีกำหนดส่ง = ไม่เลยกำหนด', () => {
-    expect(isOverdue(null, now, false)).toBe(false);
+});
+
+describe('isEntryOverdue', () => {
+  const TZ = 'Asia/Bangkok';
+  const dueToday = resolveDateInput('2026-09-18', TZ); // 18 ก.ย. 00:00 เวลาไทย
+  const at = (iso: string) => new Date(iso);
+
+  it('งานทั้งวัน: กำหนดวันนี้ยังไม่เลยตลอดทั้งวัน · เลยเมื่อขึ้นวันใหม่ (บั๊กเดิม: เลยตั้งแต่ 07:00)', () => {
+    const task = { occurredAt: dueToday, isAllDay: true, status: 'pending' };
+    expect(isEntryOverdue(task, at('2026-09-18T00:30:00Z'), TZ)).toBe(false); // 07:30 วันนั้น
+    expect(isEntryOverdue(task, at('2026-09-18T16:59:59Z'), TZ)).toBe(false); // 23:59:59
+    expect(isEntryOverdue(task, at('2026-09-18T17:00:00Z'), TZ)).toBe(true); // 00:00 วันถัดไป
+  });
+
+  it('งานมีเวลา: เลยเมื่อเลยเวลานั้น', () => {
+    const task = { occurredAt: at('2026-09-18T07:00:00Z'), isAllDay: false, status: 'active' };
+    expect(isEntryOverdue(task, at('2026-09-18T06:59:00Z'), TZ)).toBe(false);
+    expect(isEntryOverdue(task, at('2026-09-18T07:01:00Z'), TZ)).toBe(true);
+  });
+
+  it('เสร็จ / ยกเลิก / ข้าม / ไม่มีกำหนด = ไม่เลยกำหนด', () => {
+    const late = at('2026-09-30T00:00:00Z');
+    for (const status of ['done', 'cancelled', 'skipped']) {
+      expect(isEntryOverdue({ occurredAt: dueToday, isAllDay: true, status }, late, TZ)).toBe(
+        false,
+      );
+    }
+    expect(isEntryOverdue({ occurredAt: null, isAllDay: true, status: 'pending' }, late, TZ)).toBe(
+      false,
+    );
   });
 });
 

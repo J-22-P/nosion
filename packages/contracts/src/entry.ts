@@ -2,10 +2,22 @@ import { z } from 'zod';
 import { entryStatusSchema, moduleKeySchema, prioritySchema, reminderChannelSchema } from './enums';
 import { cursorPaginationSchema } from './pagination';
 
-/** รับได้ทั้ง ISO string และ Date — คืนเป็น Date เสมอ */
-const isoDate = z
-  .union([z.string().datetime({ offset: true }), z.string().date(), z.date()])
-  .transform((v) => new Date(v));
+/**
+ * วันเวลาที่ client ส่งมา มีสองความหมายที่ต่างกัน:
+ *  - ISO datetime ที่มี offset ("2026-09-18T10:00:00+07:00") = จุดเวลาจริง → แปลงเป็น Date ได้เลย
+ *  - date ล้วน ("2026-09-18") = "วันที่ตามปฏิทินของผู้ใช้" → **ยังแปลงไม่ได้** เพราะต้องรู้ timezone ของผู้ใช้
+ *    ถ้า `new Date("2026-09-18")` จะได้ 00:00 UTC = 07:00 เวลาไทย (และเป็นวันก่อนหน้าสำหรับคนในอเมริกา)
+ *    → เก็บเป็น string แล้วให้ service แปลงด้วย `resolveDateInput(value, timezone)` ของ @nosion/core
+ */
+export type DateInput = Date | string;
+const dateInput = z.union([
+  z
+    .string()
+    .datetime({ offset: true })
+    .transform((v) => new Date(v)),
+  z.date(),
+  z.string().date(),
+]);
 
 export const reminderInputSchema = z.object({
   channel: reminderChannelSchema.default('push'),
@@ -20,7 +32,7 @@ export const createEntrySchema = z.object({
   description: z.string().max(20_000).nullish(),
   status: entryStatusSchema.default('pending'),
   priority: prioritySchema.default('none'),
-  occurredAt: isoDate.nullish(),
+  occurredAt: dateInput.nullish(),
   isAllDay: z.boolean().default(true),
   /** validate จริงด้วย payloadSchemaByModule[module] ที่ service layer */
   payload: z.record(z.unknown()).default({}),
@@ -66,8 +78,10 @@ export const listEntriesQuerySchema = cursorPaginationSchema.extend({
   priority: csv(prioritySchema),
   projectId: z.string().optional(),
   tagIds: csv(z.string()),
-  from: isoDate.optional(),
-  to: isoDate.optional(),
+  /** date ล้วน = ต้นวันตามโซนผู้ใช้ */
+  from: dateInput.optional(),
+  /** date ล้วน = รวมทั้งวันนั้น (ถึงต้นวันถัดไป แบบ exclusive) */
+  to: dateInput.optional(),
   q: z.string().trim().min(1).max(100).optional(),
   overdue: queryBool,
   /** ไม่มีโปรเจกต์และไม่มีวันกำหนด (smart list "Inbox" ของหน้า Tasks) */

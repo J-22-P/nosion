@@ -68,7 +68,7 @@ export const TaskCard = memo(function TaskCard({
   onToggleTimer,
 }: TaskCardProps) {
   const done = entry.status === 'done';
-  const overdue = isOverdueDate(entry.occurredAt, entry.status);
+  const overdue = isOverdueDate(entry.occurredAt, entry.status, entry.isAllDay);
   const due = formatDueDate(entry.occurredAt);
   const payload = readPayload(entry);
   const checklist = payload?.checklist ?? [];

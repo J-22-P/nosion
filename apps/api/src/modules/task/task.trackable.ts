@@ -1,6 +1,6 @@
 import { taskPayloadSchema, type TaskPayload } from '@nosion/contracts';
 import {
-  isOverdue,
+  isEntryOverdue,
   type CalendarEvent,
   type Entry,
   type ModuleMeta,
@@ -58,7 +58,7 @@ export class TaskTrackableModule implements TrackableModule<TaskPayload> {
   summarizeToday(entries: Entry[], ctx: UserContext): TodayWidget {
     const now = ctx.now ?? new Date();
     const done = entries.filter((e) => e.status === 'done').length;
-    const overdue = entries.filter((e) => isOverdue(e.occurredAt, now, e.status === 'done'));
+    const overdue = entries.filter((e) => isEntryOverdue(e, now, ctx.timezone));
     const open = entries.filter((e) => e.status !== 'done' && e.status !== 'cancelled');
 
     return {
@@ -78,7 +78,7 @@ export class TaskTrackableModule implements TrackableModule<TaskPayload> {
         status: e.status,
         priority: e.priority,
         occurredAt: e.occurredAt,
-        detail: isOverdue(e.occurredAt, now, false) ? 'เลยกำหนด' : undefined,
+        detail: isEntryOverdue(e, now, ctx.timezone) ? 'เลยกำหนด' : undefined,
       })),
       isEmpty: entries.length === 0,
       emptyCta: { label: 'เพิ่มงานแรก', href: '/tasks?new=1' },

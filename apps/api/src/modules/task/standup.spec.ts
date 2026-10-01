@@ -11,6 +11,7 @@ const task = (over: Partial<StandupTask>): StandupTask => ({
   title: `งาน ${seq}`,
   status: 'pending',
   occurredAt: new Date('2026-09-18T05:00:00Z'),
+  isAllDay: false,
   completedAt: null,
   projectName: null,
   tags: [],
@@ -19,7 +20,14 @@ const task = (over: Partial<StandupTask>): StandupTask => ({
 });
 
 const build = (tasks: StandupTask[]) =>
-  buildStandup({ date: '2026-09-18', todayStart, todayEnd, tasks });
+  buildStandup({
+    date: '2026-09-18',
+    now: new Date('2026-09-18T03:00:00Z'), // 10:00 เวลาไทย
+    timeZone: 'Asia/Bangkok',
+    todayStart,
+    todayEnd,
+    tasks,
+  });
 
 describe('buildStandup', () => {
   it('Done = เสร็จวันนี้เท่านั้น (เสร็จเมื่อวานไม่นับ)', () => {
@@ -60,6 +68,21 @@ describe('buildStandup', () => {
       { id: expect.any(String), title: 'วันนี้', note: 'NOSION Core' },
       { id: expect.any(String), title: 'เลยกำหนด', note: 'เลยกำหนด' },
       { id: expect.any(String), title: 'กำลังทำ ไม่มีกำหนด' },
+    ]);
+  });
+
+  it('งานทั้งวันที่กำหนดวันนี้ (00:00 เวลาไทย) ไม่ถูกเขียนว่า "เลยกำหนด" · กำหนดเมื่อวานถูกเขียน', () => {
+    const s = build([
+      task({ title: 'ทั้งวันวันนี้', isAllDay: true, occurredAt: todayStart }),
+      task({
+        title: 'ทั้งวันเมื่อวาน',
+        isAllDay: true,
+        occurredAt: new Date('2026-09-16T17:00:00Z'),
+      }),
+    ]);
+    expect(s.doing).toEqual([
+      { id: expect.any(String), title: 'ทั้งวันวันนี้' },
+      { id: expect.any(String), title: 'ทั้งวันเมื่อวาน', note: 'เลยกำหนด' },
     ]);
   });
 

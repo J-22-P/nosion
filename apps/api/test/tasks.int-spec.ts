@@ -207,4 +207,57 @@ describe('Task module endpoints', () => {
       await api().post(`/api/v1/tasks/${mine.id}/timer/start`).set(as(bob)).expect(404);
     });
   });
+
+  describe('วันกำหนดแบบ date ล้วน ("YYYY-MM-DD") ตีความตามโซนผู้ใช้', () => {
+    /** 'YYYY-MM-DD' ตามเวลาไทย เลื่อนได้ทีละวัน */
+    const bkkDate = (offsetDays = 0) =>
+      new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(
+        new Date(Date.now() + offsetDays * 24 * 60 * 60 * 1000),
+      );
+
+    it('เก็บเป็น 00:00 เวลาไทย · กำหนดวันนี้ไม่เลยกำหนด · เมื่อวานเลย — sidebar, ?overdue, from/to, /today ตรงกัน', async () => {
+      const erin = await registerAndLogin(app, 'erin-dates');
+      const today = await createTask(erin, { title: 'ทั้งวันวันนี้', occurredAt: bkkDate(0) });
+      const yesterday = await createTask(erin, {
+        title: 'ทั้งวันเมื่อวาน',
+        occurredAt: bkkDate(-1),
+      });
+
+      const saved = await api().get(`/api/v1/entries/${today.id}`).set(as(erin)).expect(200);
+      // เดิม: `${date}T00:00:00.000Z` (= 07:00 เวลาไทย)
+      expect(saved.body.occurredAt).toBe(new Date(`${bkkDate(0)}T00:00:00+07:00`).toISOString());
+      expect(saved.body.isAllDay).toBe(true);
+
+      const sidebar = await api().get('/api/v1/tasks/sidebar').set(as(erin)).expect(200);
+      expect(sidebar.body.smartLists).toMatchObject({ today: 2, overdue: 1 });
+
+      const overdue = await api()
+        .get('/api/v1/entries?module=task&overdue=true')
+        .set(as(erin))
+        .expect(200);
+      expect(overdue.body.data.map((e: { id: string }) => e.id)).toEqual([yesterday.id]);
+
+      // to แบบ date ล้วน = รวมทั้งวันนั้น (เดิม lte 00:00Z ตัดงานของวันนั้นทิ้ง)
+      const ranged = await api()
+        .get(`/api/v1/entries?module=task&from=${bkkDate(0)}&to=${bkkDate(0)}`)
+        .set(as(erin))
+        .expect(200);
+      expect(ranged.body.data.map((e: { id: string }) => e.id)).toEqual([today.id]);
+
+      const todayPage = await api().get('/api/v1/today').set(as(erin)).expect(200);
+      const widget = todayPage.body.widgets.find((w: { module: string }) => w.module === 'task');
+      expect(widget.headline).toBe('งานวันนี้ 2 ชิ้น · เลยกำหนด 1');
+    });
+
+    it('defer ไปวันที่ (date ล้วน) ได้ 00:00 เวลาไทย', async () => {
+      const finn = await registerAndLogin(app, 'finn-dates');
+      const t = await createTask(finn, { title: 'เลื่อน', occurredAt: bkkDate(0) });
+      const target = bkkDate(3);
+      const res = await api()
+        .post(`/api/v1/entries/${t.id}/defer?to=${target}`)
+        .set(as(finn))
+        .expect(201);
+      expect(res.body.occurredAt).toBe(new Date(`${target}T00:00:00+07:00`).toISOString());
+    });
+  });
 });

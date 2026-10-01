@@ -1,4 +1,5 @@
 import type { EntryStatus, StandupDto, StandupItemDto } from '@nosion/contracts';
+import { isEntryOverdue } from '@nosion/core';
 
 /** แท็กที่ถือว่า "ติดอยู่" (ไม่สนตัวพิมพ์) — สเปก 7.3 */
 const BLOCKED_TAG = 'blocked';
@@ -9,6 +10,7 @@ export interface StandupTask {
   title: string;
   status: EntryStatus;
   occurredAt: Date | null;
+  isAllDay: boolean;
   completedAt: Date | null;
   projectName: string | null;
   tags: string[];
@@ -25,11 +27,13 @@ export interface StandupTask {
  */
 export function buildStandup(input: {
   date: string;
+  now: Date;
+  timeZone: string;
   todayStart: Date;
   todayEnd: Date;
   tasks: StandupTask[];
 }): StandupDto {
-  const { todayStart, todayEnd } = input;
+  const { now, timeZone, todayStart, todayEnd } = input;
   const done: StandupItemDto[] = [];
   const doing: StandupItemDto[] = [];
   const blocked: StandupItemDto[] = [];
@@ -53,7 +57,7 @@ export function buildStandup(input: {
     // งานในอนาคตที่ยังไม่ได้เริ่ม ไม่ใช่เรื่องของ standup วันนี้
     const relevant = t.status === 'active' || (t.occurredAt !== null && t.occurredAt < todayEnd);
     if (!relevant) continue;
-    const overdue = t.occurredAt !== null && t.occurredAt < todayStart;
+    const overdue = isEntryOverdue(t, now, timeZone);
     doing.push(item(t, overdue ? 'เลยกำหนด' : undefined));
   }
 

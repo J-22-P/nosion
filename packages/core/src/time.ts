@@ -107,8 +107,29 @@ export function isSameDayInTimeZone(a: Date, b: Date, timeZone: string): boolean
   return formatInTimeZone(a, timeZone) === formatInTimeZone(b, timeZone);
 }
 
-/** เลยกำหนดหรือยัง — งานที่ทำเสร็จแล้วไม่นับว่าเลยกำหนด */
-export function isOverdue(occurredAt: Date | null, now: Date, isDone: boolean): boolean {
-  if (isDone || !occurredAt) return false;
-  return occurredAt.getTime() < now.getTime();
+/**
+ * วันเวลาที่ client ส่งมา → Date จริง
+ * Date (มี offset แล้ว) คงเดิม · 'YYYY-MM-DD' = 00:00 ของวันนั้น **ตามโซนผู้ใช้** (ไม่ใช่ 00:00 UTC)
+ */
+export function resolveDateInput(value: Date | string, timeZone: string): Date {
+  if (value instanceof Date) return value;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new RangeError(`วันที่ไม่ถูกต้อง: ${value}`);
+  return zonedTimeToUtc(`${value}T00:00:00`, timeZone);
+}
+
+/**
+ * เลยกำหนดหรือยัง
+ *  - งานทั้งวัน (isAllDay) = เลยเมื่อ **วันนั้นจบแล้ว** ตามโซนผู้ใช้ — กำหนดวันนี้ยังไม่เลยจนถึงเที่ยงคืน
+ *  - งานมีเวลา = เลยเมื่อเลยเวลานั้น
+ *  - เสร็จ / ยกเลิก / ข้าม = ไม่เลยกำหนด
+ * ฝั่ง SQL ใช้เงื่อนไขเดียวกันใน apps/api/src/common/overdue-where.ts
+ */
+export function isEntryOverdue(
+  entry: { occurredAt: Date | null; isAllDay: boolean; status: string },
+  now: Date,
+  timeZone: string,
+): boolean {
+  if (!entry.occurredAt || ['done', 'cancelled', 'skipped'].includes(entry.status)) return false;
+  if (!entry.isAllDay) return entry.occurredAt.getTime() < now.getTime();
+  return dayBoundsInTimeZone(entry.occurredAt, timeZone).end.getTime() <= now.getTime();
 }
