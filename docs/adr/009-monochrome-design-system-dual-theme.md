@@ -29,6 +29,7 @@ Mockup ชุด v1.1 (Stitch · Apple-inspired) เปลี่ยนภาษ�
    | FAB บนมือถือ                                                                                                                       | ไม่มี                                                             | บังการ์ดล่างสุด — quick-add อยู่ใน hero/การ์ดแทน                                                                      |
    | งานเสร็จ / เมนูที่ยังไม่พร้อม ใช้ `--text-tertiary`                                                                                | `--text-secondary` (+ ขีดฆ่า / ไอคอนจาง + ป้าย "เร็ว ๆ นี้")      | tertiary ได้ 3.3–3.6 : 1 ไม่ผ่าน AA สำหรับข้อความ 14–15px (พบตอนเพิ่ม axe)                                            |
    | สเปก: accent `#0071e3`, danger `#d70015`, warning `#b25000`, success `#248a3d` (light) · accent `#2997ff`, danger `#ff453a` (dark) | `#0062c5`, `#cf0014`, `#ac4d00`, `#1f7835` · `#2e9aff`, `#ff5950` | ปรับน้อยที่สุดจนผ่าน 4.5 : 1 บนทุกพื้น รวม badge (`*-soft` ทับแถว) — ตรวจอัตโนมัติใน `packages/ui/src/tokens.test.ts` |
+   | สเปก: text-secondary `#6e6e73` (light) · `#86868b` (dark)                                                                          | `#6a6a6f` · `#909095`                                             | ข้อความรองบน hover-wash (kbd, status pill, input วันที่) ได้ 4.0–4.3 : 1 — axe จับได้ตอนรันจริงครั้งแรก               |
 
 ## ผลที่ตามมา
 

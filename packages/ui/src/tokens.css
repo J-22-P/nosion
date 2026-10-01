@@ -25,7 +25,7 @@
   --active-wash: rgba(0, 0, 0, 0.08);
 
   --text-primary: #1d1d1f;
-  --text-secondary: #6e6e73; /* ⚠ mockup ใช้ #86868b แต่บนขาวได้แค่ 3.6:1 */
+  --text-secondary: #6a6a6f; /* ⚠ mockup #86868b บนขาวได้แค่ 3.6:1 · สเปก #6e6e73 บน hover-wash 4.31:1 */
   --text-tertiary: #86868b; /* ตกแต่ง/placeholder เท่านั้น */
 
   --primary: #1d1d1f; /* ปุ่มหลัก = obsidian */
@@ -95,7 +95,7 @@
   --active-wash: rgba(255, 255, 255, 0.12);
 
   --text-primary: #ffffff;
-  --text-secondary: #86868b; /* 4.7:1 บน #1c1c1e */
+  --text-secondary: #909095; /* ⚠ สเปก #86868b บน hover-wash ทับ #1c1c1e ได้แค่ 3.97:1 */
   --text-tertiary: #636366; /* 2.8:1 — ตกแต่งเท่านั้น */
 
   --primary: #ffffff; /* ปุ่มหลัก = ขาวทึบ ตัวอักษรดำ */

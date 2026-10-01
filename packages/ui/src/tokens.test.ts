@@ -27,6 +27,15 @@ const light = readBlock(':root');
 const THEMES = { light, dark: { ...light, ...readBlock('.dark') } };
 
 const AA = 4.5;
+
+/**
+ * สีโปร่งทับพื้น แล้วปัดเป็น 8 บิตต่อช่อง — แบบเดียวกับที่เบราว์เซอร์วาดลงจอและที่ axe วัด
+ * (ไม่ปัด = ได้ 4.51 แต่ axe วัดได้ 4.49 แล้วล้ม)
+ */
+const onScreen = (top: Rgba, ground: Rgba): Rgba => {
+  const c = composite(top, ground);
+  return { r: Math.round(c.r), g: Math.round(c.g), b: Math.round(c.b), a: 1 };
+};
 const AA_LARGE = 3;
 
 for (const [theme, tokens] of Object.entries(THEMES)) {
@@ -62,8 +71,19 @@ for (const [theme, tokens] of Object.entries(THEMES)) {
     for (const tone of ['accent', 'danger', 'warning', 'success']) {
       for (const [groundName, ground] of Object.entries(grounds)) {
         it(`${tone} บน ${tone}-soft (ทับ ${groundName}) ≥ ${AA}`, () => {
-          const background = composite(color(`${tone}-soft`), ground);
+          const background = onScreen(color(`${tone}-soft`), ground);
           expect(contrastRatio(color(tone), background)).toBeGreaterThanOrEqual(AA);
+        });
+      }
+    }
+
+    // kbd, status pill, input วันที่ และแถวที่ hover: ข้อความรองบน hover-wash ที่ทับพื้นทุกชั้น
+    // (hover-wash โปร่ง → ต้อง composite ก่อน · เคยตกที่ 4.0–4.3 แล้ว axe จับได้ใน e2e)
+    for (const text of ['text-primary', 'text-secondary']) {
+      for (const [groundName, ground] of Object.entries(grounds)) {
+        it(`${text} บน hover-wash (ทับ ${groundName}) ≥ ${AA}`, () => {
+          const background = onScreen(color('hover-wash'), ground);
+          expect(contrastRatio(color(text), background)).toBeGreaterThanOrEqual(AA);
         });
       }
     }
