@@ -7,18 +7,18 @@
 
 ## แผน (ปรับได้ระหว่างทาง)
 
-| #   | ขั้น                                                                          | Commit              | สถานะ |
-| --- | ----------------------------------------------------------------------------- | ------------------- | ----- |
-| 1   | API: ExpenseModule + NL parser + helper เงิน/เดือน                            | `6cc6284`           | ✅    |
-| 2   | API: Budget CRUD + `GET /budgets/status` (กฎสี 85% / 100%)                    | `048ad51` `8c0d1c1` | ✅    |
-| 3   | API: `/expenses/summary`, `/forecast`, `/trends`, `/bills/upcoming`           | `b1a9493`           | ✅    |
-| 4   | API: `GET /today` + `GET /tasks/standup/today?format=markdown`                | `cae92c7` `5f7a4e1` | ✅    |
-| 4b  | แก้บั๊ก: วันกำหนดแบบ date ล้วน / เลยกำหนดของงานทั้งวัน                        | `17192f0`           | ✅    |
-| 5   | Web: หน้า Expenses (quick capture, KPI 3 การ์ด, บิล, หมวด, transactions, CSV) |                     | ⏳    |
-| 6   | Web: หน้า Today (hero, widget registry, Developer Quick Actions, standup)     |                     | ⏳    |
-| 7   | Web: Analytics (donut, trend, fixed vs variable) + empty/error/skeleton       |                     | ⏳    |
-| 8   | Seed demo account ชุดเดียวกับ mockup · visual + axe ของหน้าใหม่               |                     | ⏳    |
-| 9   | Deploy staging (deploy-staging.yml)                                           |                     | ⏳    |
+| #   | ขั้น                                                                          | Commit                        | สถานะ                   |
+| --- | ----------------------------------------------------------------------------- | ----------------------------- | ----------------------- |
+| 1   | API: ExpenseModule + NL parser + helper เงิน/เดือน                            | `6cc6284`                     | ✅                      |
+| 2   | API: Budget CRUD + `GET /budgets/status` (กฎสี 85% / 100%)                    | `048ad51` `8c0d1c1`           | ✅                      |
+| 3   | API: `/expenses/summary`, `/forecast`, `/trends`, `/bills/upcoming`           | `b1a9493`                     | ✅                      |
+| 4   | API: `GET /today` + `GET /tasks/standup/today?format=markdown`                | `cae92c7` `5f7a4e1`           | ✅                      |
+| 4b  | แก้บั๊ก: วันกำหนดแบบ date ล้วน / เลยกำหนดของงานทั้งวัน                        | `17192f0`                     | ✅                      |
+| 5   | Web: หน้า Expenses (quick capture, KPI 3 การ์ด, บิล, หมวด, transactions, CSV) | `caefba4` `6140d9a` `41e7122` | ✅ (รออนุมัติ baseline) |
+| 6   | Web: หน้า Today (hero, widget registry, Developer Quick Actions, standup)     |                               | ⏳                      |
+| 7   | Web: Analytics (donut, trend, fixed vs variable) + empty/error/skeleton       |                               | ⏳                      |
+| 8   | Seed demo account ชุดเดียวกับ mockup · visual + axe ของหน้าใหม่               |                               | ⏳                      |
+| 9   | Deploy staging (deploy-staging.yml)                                           |                               | ⏳                      |
 
 **Phase 2a ปิดแล้ว:** baseline อนุมัติ (`5e38508`) · CI เขียวทั้ง 8 job — ทุกขั้นของ 2b push แล้วรอ CI เขียวก่อนไปขั้นถัดไป
 
@@ -311,3 +311,63 @@ unique `("userId", "category", "period")` จาก migration แรกกัน
 
 - web ยังไม่อ่าน timezone จาก `/me` (ใช้ `Asia/Bangkok`)
 - QuickCapture ยังส่งวันที่อย่างเดียว ไม่มีช่องเวลา — งานมีเวลาสร้างได้ผ่าน API เท่านั้น
+
+---
+
+## ขั้น 5 · Web: หน้า Expenses — `caefba4` `6140d9a` `41e7122`
+
+📚 **ความรู้พื้นฐาน:** กราฟ SVG ที่เข้าถึงได้, สถานะที่ไม่สื่อด้วยสีอย่างเดียว, debounce + preview ที่ล้าสมัย,
+CSV (RFC 4180, BOM, CSV injection), mock data ที่ตัวเลขสอดคล้องกัน, flaky test จากโหลดแรก → บท [15](../learn/15-phase2b-money-months-and-second-module.md) หัวข้อ 9
+
+**เป้าหมาย:** หน้า `/expenses` ตามสเปก 8.11.3 — "ตอบคำถาม 80% ได้ในหน้าเดียว"
+
+**สิ่งที่เปลี่ยน**
+
+- 📁 `apps/api/src/modules/expense/expenses.controller.ts` — `POST /expenses/parse` (preview ไม่บันทึก, `caefba4`)
+- 📁 `apps/web/src/features/expenses/`
+  | ไฟล์                                                                                  | หน้าที่                                                                                                         |
+  | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+  | `expense-capture.tsx`                                                                 | บันทึกด่วน · preview หน่วง 250ms เฉพาะข้อความที่มีตัวเลข · ↵ ใช้ preview ถ้ายังตรงกับข้อความ ไม่งั้น parse ใหม่ |
+  | `kpi-cards.tsx`                                                                       | รายจ่ายเดือนนี้ (+ ฟอร์มตั้งงบรวมเมื่อยังไม่มีงบ) · คาดการณ์ + sparkline · บิลประจำ · `ToneBadge`               |
+  | `bills-card.tsx`                                                                      | บิลเดือนนี้ + ค้างจ่าย · ปุ่มสถานะ = จ่ายแล้ว · "ตัดบัตรแล้ว" เมื่อ paymentMethod = card                        |
+  | `category-card.tsx`                                                                   | segmented งบประมาณ / แนวโน้ม · bar ตามกฎสีงบ · แนวโน้มโหลดเมื่อเปิดแท็บ                                         |
+  | `transactions-card.tsx`                                                               | 8 รายการล่าสุด · ตาราง (desktop) / list 2 บรรทัด (มือถือ) · CSV ทั้งเดือนไล่ทุกหน้า                             |
+  | `charts.tsx`                                                                          | `Sparkline`, `ColumnChart` (SVG เขียนเอง)                                                                       |
+  | `api.ts`, `use-expense-queries.ts`, `categories.ts`, `format.ts`, `expenses-view.tsx` | ข้อมูล / ป้าย / รูปแบบเงิน / layout                                                                             |
+- 📁 `apps/web/src/lib/csv.ts` (+ เทสต์ 3) · 📁 `lib/progress.ts` ใช้ `budgetTone` จาก contracts (ปิดสิ่งที่ค้างจากขั้น 2)
+- 📁 `apps/web/package.json` + `next.config.ts` — ใช้ `@nosion/core` (formatMoney, parseAmountToMinor) แบบเดียวกับ contracts
+- 📁 `components/shell/nav.ts` — เมนู "การเงิน" เปิดใช้ · 📁 `features/entries/use-entries.ts` — `useCreateEntry` รับข้อความ toast
+- 📁 `apps/web/e2e/` — mock การเงิน, visual Expenses 4 ภาพ, axe `/expenses` 2 ธีม, รอหน้าพร้อม 15 s
+
+**การตัดสินใจ**
+
+- parser อยู่ฝั่ง server ที่เดียว → เพิ่ม `POST /expenses/parse` (เฉพาะโมดูล) แทนการ copy regex มาไว้ในเว็บ · ตัวกลาง `/parse` ยังเป็น Phase 5
+- รายจ่ายจาก quick capture = `done` (เกิดขึ้นแล้ว) · บิล = `pending` (ยังไม่จ่าย)
+- ตั้ง **งบรวม** ได้ในการ์ด KPI 1 เมื่อยังไม่มีงบ (empty state ที่ทำอะไรได้) · งบรายหมวดยังไม่มี UI (ใช้ API ได้)
+- แท็บ "แนวโน้ม" ใช้ **column chart SVG** ไม่ใช่ line chart + lazy chart lib ตามสเปก — 6 จุดรายเดือนเทียบขนาดอ่านง่ายกว่าเป็นแท่ง
+  และไม่ต้องเพิ่ม bundle · เดือนปัจจุบัน (ยังไม่จบ) จางลง **พร้อมคำอธิบายใต้กราฟ** ไม่ใช่สีอย่างเดียว
+- กราฟ: series เดียวใช้ `--track-fill` ไม่มี legend · ป้ายตัวเลขเฉพาะแท่งที่เลือก (ค่าเริ่มต้น = เดือนล่าสุดที่จบแล้ว) ·
+  hover มี tooltip · **ไม่ใส่ปุ่มที่ focus ได้ใน `<svg role="img">`** (ลูกของ img เป็น presentational) — ผู้ใช้คีย์บอร์ด/
+  screen reader อ่านตาราง sr-only ที่ `aria-describedby` ชี้ไปแทน
+- สถานะงบ/คาดการณ์ (`ปลอดภัย / ใกล้เกิน / เกินงบ`) = ไอคอน + ข้อความ + สี เสมอ
+- CSV: จำนวนเงินเป็นตัวเลขล้วน (ไม่มี ฿/ลูกน้ำ) ให้ Excel คำนวณต่อได้ · BOM · ช่องที่ขึ้นต้นด้วย `= + - @` ใส่ `'` (ยกเว้นตัวเลขติดลบ)
+- มือถือ: ตัวสลับของการ์ดหมวดหมู่ย้ายลงใต้หัวการ์ด — รอบแรกวางข้างหัวแล้วชื่อการ์ดถูกบีบเหลือคำละบรรทัด (เห็นจากภาพ baseline)
+
+**วิธีตรวจ**
+
+- `next build`: `/expenses` **169 kB** (< 180 kB) · lint/typecheck/unit ทั้ง monorepo 20/20 · integration 36/36 (+ parse)
+- axe `/expenses` light + dark: **0 violation** (ทุกระดับ)
+- ภาพ: ดูเองทั้ง desktop dark และ mobile light/dark — ตัวเลขตรงกัน (฿8,420 / ฿15,000 = 56.1%, เดินทาง 87% = ใกล้เกิน)
+- Docker `--update-snapshots=none --retries=0` สองรอบ: 24/24
+- ภาพ Tasks 4 ภาพเปลี่ยน **เฉพาะเมนู "การเงิน"** (sidebar y 167–184 / tab bar x 186–204) เพราะไม่ใช่ "เร็ว ๆ นี้" แล้ว — ตรวจด้วยการ diff พิกเซล
+
+**Flaky ที่เจอ:** Docker รอบแรก visual Expenses (light desktop) รอ "Craft Specialty Coffee" เกิน 5 s แล้ว retry ผ่าน ·
+ทำซ้ำบน Mac 20 รอบไม่เจอ → เป็นโหลดแรกของหน้า (API 5 ตัวพร้อมกัน) ใน container ที่รันหลาย worker ·
+เพิ่มเวลารอ "หน้าพร้อม" เป็น 15 s ทุกหน้า (ไม่แตะการเทียบภาพ) · ไม่ปล่อยให้ retry ซ่อนไว้
+
+**สิ่งที่ค้าง**
+
+- [ ] **ภาพ baseline 8 ภาพรออนุมัติ** (Expenses ใหม่ 4 + Tasks ที่เปลี่ยนเมนู 4) — ยังไม่ commit · ยังไม่ push เพราะ job UI จะแดงจนกว่าจะมี baseline
+- ปุ่มไมค์ (Web Speech) และอัปโหลดสลิป 🧾 (สเปก 8.11.3) ยังไม่ทำ — สลิปต้องมี attachment API ก่อน
+- "เพิ่มรอบบิลใหม่" (rrule builder) รอ Phase 3 · UI ตั้งงบรายหมวด · หน้า `/expenses/analytics`, `/expenses/bills` (ขั้น 7)
+- แก้ไข/ลบรายการจากตาราง transactions ยังไม่มี (ทำผ่าน API ได้)
