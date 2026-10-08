@@ -6,7 +6,21 @@
   "buildCommand": "cd ../.. && pnpm turbo run build --filter=@nosion/api && mkdir -p apps/api/public && echo ok > apps/api/public/health.txt",
   "outputDirectory": "public",
   "functions": {
-    "api/index.js": { "maxDuration": 10, "includeFiles": "dist/**" }
+    "api/index.js": {
+      "maxDuration": 10,
+      "includeFiles": "dist/**"
+    }
   },
-  "rewrites": [{ "source": "/(.*)", "destination": "/api" }]
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/v1/internal/cron/recurrence",
+      "schedule": "0 3 * * *"
+    }
+  ]
 }

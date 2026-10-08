@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { ProblemDetailsFilter } from './common/problem.filter';
 import { TraceMiddleware } from './common/trace.middleware';
+import { RecurrenceModule } from './recurrence/recurrence.module';
 import { RegistryModule } from './core/registry/registry.module';
 import { TodayModule } from './entries/today/today.module';
 import { EntriesModule } from './entries/entries.module';
@@ -35,6 +36,7 @@ import { UsersModule } from './users/users.module';
     // ── โมดูลโดเมน: เพิ่มบรรทัดเดียวต่อโมดูลใหม่ ──
     TaskModule,
     ExpenseModule,
+    RecurrenceModule,
 
     HealthModule,
   ],

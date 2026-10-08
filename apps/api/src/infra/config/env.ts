@@ -34,6 +34,8 @@ export const envSchema = z.object({
 
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   SENTRY_DSN: z.string().optional(),
+  /** Vercel Cron ส่งมาใน Authorization: Bearer — ไม่ตั้ง = ปิด endpoint cron (404) */
+  CRON_SECRET: z.string().min(32, 'CRON_SECRET ต้องยาวอย่างน้อย 32 ตัว').optional(),
 
   ENABLE_DEMO_ACCOUNT: z
     .string()
