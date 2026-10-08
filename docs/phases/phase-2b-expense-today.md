@@ -7,19 +7,19 @@
 
 ## แผน (ปรับได้ระหว่างทาง)
 
-| #   | ขั้น                                                                          | Commit                                  | สถานะ                   |
-| --- | ----------------------------------------------------------------------------- | --------------------------------------- | ----------------------- |
-| 1   | API: ExpenseModule + NL parser + helper เงิน/เดือน                            | `6cc6284`                               | ✅                      |
-| 2   | API: Budget CRUD + `GET /budgets/status` (กฎสี 85% / 100%)                    | `048ad51` `8c0d1c1`                     | ✅                      |
-| 3   | API: `/expenses/summary`, `/forecast`, `/trends`, `/bills/upcoming`           | `b1a9493`                               | ✅                      |
-| 4   | API: `GET /today` + `GET /tasks/standup/today?format=markdown`                | `cae92c7` `5f7a4e1`                     | ✅                      |
-| 4b  | แก้บั๊ก: วันกำหนดแบบ date ล้วน / เลยกำหนดของงานทั้งวัน                        | `17192f0`                               | ✅                      |
-| 5   | Web: หน้า Expenses (quick capture, KPI 3 การ์ด, บิล, หมวด, transactions, CSV) | `caefba4` `6140d9a` `41e7122`           | ✅                      |
-| 6   | Web: หน้า Today (hero, widget registry, Developer Quick Actions, standup)     | `4bb17f5` `70b3890`                     | ✅                      |
-| 7   | Web: Analytics (สัดส่วน, trend, fixed vs variable) + empty/error/skeleton     | `638c33b` `0582b25` `55a0fc0` `cf46e48` | ✅                      |
-| 7b  | ปรับดีไซน์ Today/Expenses ให้ใกล้ mockup · ลดสี                               | `cc4f8e9` `5118186` `fb94b0f` `f481f21` | ✅ (รออนุมัติ baseline) |
-| 8   | Seed demo account ชุดเดียวกับ mockup · visual + axe ของหน้าใหม่               |                                         | ⏳                      |
-| 9   | Deploy staging (deploy-staging.yml)                                           |                                         | ⏳                      |
+| #   | ขั้น                                                                          | Commit                                            | สถานะ |
+| --- | ----------------------------------------------------------------------------- | ------------------------------------------------- | ----- |
+| 1   | API: ExpenseModule + NL parser + helper เงิน/เดือน                            | `6cc6284`                                         | ✅    |
+| 2   | API: Budget CRUD + `GET /budgets/status` (กฎสี 85% / 100%)                    | `048ad51` `8c0d1c1`                               | ✅    |
+| 3   | API: `/expenses/summary`, `/forecast`, `/trends`, `/bills/upcoming`           | `b1a9493`                                         | ✅    |
+| 4   | API: `GET /today` + `GET /tasks/standup/today?format=markdown`                | `cae92c7` `5f7a4e1`                               | ✅    |
+| 4b  | แก้บั๊ก: วันกำหนดแบบ date ล้วน / เลยกำหนดของงานทั้งวัน                        | `17192f0`                                         | ✅    |
+| 5   | Web: หน้า Expenses (quick capture, KPI 3 การ์ด, บิล, หมวด, transactions, CSV) | `caefba4` `6140d9a` `41e7122`                     | ✅    |
+| 6   | Web: หน้า Today (hero, widget registry, Developer Quick Actions, standup)     | `4bb17f5` `70b3890`                               | ✅    |
+| 7   | Web: Analytics (สัดส่วน, trend, fixed vs variable) + empty/error/skeleton     | `638c33b` `0582b25` `55a0fc0` `cf46e48`           | ✅    |
+| 7b  | ปรับดีไซน์ Today/Expenses ให้ใกล้ mockup · ลดสี                               | `cc4f8e9` `5118186` `fb94b0f` `f481f21` `42825b0` | ✅    |
+| 8   | Seed demo account ชุดเดียวกับ mockup · visual + axe ของหน้าใหม่               | `2a73c97`                                         | ✅    |
+| 9   | Deploy staging (deploy-staging.yml)                                           |                                                   | ⏳    |
 
 **Phase 2a ปิดแล้ว:** baseline อนุมัติ (`5e38508`) · CI เขียวทั้ง 8 job — ทุกขั้นของ 2b push แล้วรอ CI เขียวก่อนไปขั้นถัดไป
 
@@ -473,7 +473,7 @@ tinypool (critical ×2, ผ่าน vitest 3), braces, source-map-js, sharp (hi
 
 **สิ่งที่ค้าง**
 
-- [ ] ภาพ baseline ของขั้น 7 รวมเข้ากับรอบปรับดีไซน์ (ขั้น 7b) — อนุมัติพร้อมกัน
+- [x] ภาพ baseline ของขั้น 7 อนุมัติพร้อมขั้น 7b (`42825b0`)
 - หน้า `/expenses/bills` (รายละเอียดบิล) ยังไม่ทำ — การ์ดบิลในหน้า Expenses ครอบคลุมแล้วสำหรับ DoD
 - กราฟยังไม่มี texture fill สำหรับพิมพ์ขาวดำ / forced-colors
 
@@ -513,4 +513,53 @@ tinypool (critical ×2, ผ่าน vitest 3), braces, source-map-js, sharp (hi
 
 **สิ่งที่ค้าง**
 
-- [ ] **ภาพ baseline รออนุมัติ:** today 4 · expenses 4 · analytics 4 (ใหม่) — ยังไม่ commit · ยังไม่ push
+- [x] ภาพ baseline today 4 · expenses 4 · analytics 4 — อนุมัติแล้ว `42825b0` · CI `37783800870` เขียวทั้ง 8 job
+
+---
+
+## ขั้น 8 · ข้อมูลบัญชีทดลองชุดเดียวกับ mockup — `2a73c97`
+
+📚 **ความรู้พื้นฐาน:** ข้อมูลตัวอย่างที่สัมพันธ์กับ "ตอนนี้", property-based test แบบง่าย (หลายช่วงเวลา), แหล่งความจริงเดียว →
+บท [15](../learn/15-phase2b-money-months-and-second-module.md) หัวข้อ 12
+
+**เป้าหมาย:** กด "ลองใช้ทันที" แล้วเห็นหน้า Today / Tasks / Expenses / Analytics มีข้อมูลเหมือน mockup ทันที (DoD Phase 2b)
+
+**สิ่งที่เปลี่ยน**
+
+- 📁 `apps/api/src/auth/demo/demo-dataset.ts` — `buildDemoDataset(now, timeZone)` pure function
+- 📁 `apps/api/src/auth/demo/seed-demo.ts` — `seedDemo(prisma, userId, data)` เขียนทั้งหมดใน transaction เดียว
+- 📁 `auth.service.ts` — `POST /auth/demo` ใช้ชุดนี้ (เดิมมีแค่งาน 10 รายการ)
+- 📁 `apps/api/prisma/seed.ts` — `pnpm db:seed` ใช้ชุดเดียวกัน (เดิมเป็นข้อมูลอีกชุด เขียนซ้ำ 2 ที่) · ชื่อผู้ใช้ "Jay"
+
+**ข้อมูล**
+
+| ส่วน            | รายละเอียด                                                                                                                                                                                                                                                                |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| งาน 10          | Re-architect Auth (active, checklist 4/5, PR #104) · Safari redirect (เลยกำหนดเมื่อคืน 23:59) · Merge PR #108 (`#blocked` → Blocked ใน standup) · Sync ทีม Platform 16:30 · SQLite (พรุ่งนี้, 1/4) · Tailwind · Sprint Review · Inbox 1 · เสร็จวันนี้ 1 · เสร็จเมื่อวาน 1 |
+| โปรเจกต์ / แท็ก | NOSION Core, Mobile Web App, API Gateway Service · dev bug refactor ui blocked                                                                                                                                                                                            |
+| การเงินเดือนนี้ | วันนี้ 2 รายการ (กาแฟ ฿145, Grab ฿189) · ย้อนหลังในเดือน 10 · รายรับ 1 · บิลจ่ายแล้ว 4 (AIS ฿799, Copilot ฿350, AWS ฿1,250, ส่วนกลาง ฿2,280) · ค้าง 2 (ค่าไฟพรุ่งนี้, ค่าน้ำอีก 5 วัน)                                                                                    |
+| ประวัติ         | 5 เดือนก่อน เดือนละ 8 รายการ (รวมเงินเดือน) ตัวคูณคงที่ — กราฟ 6 เดือนไม่ว่าง                                                                                                                                                                                             |
+| งบ              | รวม ฿15,000 · อาหาร 5,000 · ที่พัก 3,000 · เดินทาง 2,000 · สาธารณูปโภค 1,500 · สมาชิก 2,000 · ช้อปปิ้ง 2,500                                                                                                                                                              |
+| โฟกัส           | 3 รอบรวม 2h 45m ย้อนจากตอนนี้ · `actualMinutes` ของงานตรงกัน                                                                                                                                                                                                              |
+
+**การตัดสินใจ**
+
+- **pure function + writer แยกกัน** — ทดสอบความถูกต้องของข้อมูลได้โดยไม่มีฐานข้อมูล และ Nest/CLI ใช้ writer ตัวเดียว
+- **วันเวลา = หน้าปัดของผู้ใช้** (`zonedTimeToUtc`) — seed เดิมใช้ `setUTCHours(0)` = 07:00 เวลาไทย (บั๊กเดียวกับขั้น 4b)
+- ไม่มีสิ่งที่ "เกิดแล้ว" อยู่ในอนาคต: รายจ่าย/งานเสร็จวันนี้ถอยจาก now (ไม่ก่อนต้นวัน) · รอบโฟกัสจบก่อน now · เปิดตอน 00:30 ไม่มีรอบโฟกัส
+- รายการเดือนนี้ถูกตรึงไว้ในเดือนนี้ — ไม่งั้นวันที่ 1 รายการ "3 วันก่อน" จะไปซ้อนกับประวัติเดือนก่อน (บิล AIS 2 ใบในเดือนเดียว)
+  ผลคือยอดเดือนนี้ช่วงต้นเดือนรวมอยู่วันแรก ๆ — ยอมรับสำหรับ demo
+- deterministic (ไม่มี `Math.random`) — ภาพที่ผู้เข้าชมเห็นคาดเดาได้ และเทสต์เทียบผลได้
+- ไม่ seed workout/habit — โมดูลยังไม่มี (Phase 6)
+
+**วิธีตรวจ**
+
+- unit `demo-dataset.spec.ts` 17: deterministic · payload ผ่าน schema · 4 ช่วงเวลา (สิ้นเดือนบ่าย, ต้นเดือน 00:30, วันที่ 2, กลางเดือน) ×
+  {ไม่มีอนาคต, บิลค้างอยู่ในเดือน, บิลไม่ซ้ำในเดือน, การ์ด Today มีของ} · ประวัติครบ 6 เดือน · โฟกัส 2h 45m · เวลาเป็นหน้าปัด
+- integration (`auth.int-spec.ts`): demo → `/today` ทุกการ์ดไม่ว่าง · งบ ฿15,000 · standup Blocked มี PR #108 · trends 6 เดือน > 0
+- `pnpm db:seed` บน `nosion_test` รัน 2 รอบได้ งาน 10 · เงิน 58 · งบ 7 ทั้งสองรอบ (ไม่ได้รันบนฐาน dev — จะล้างข้อมูลของ demo@nosion.dev)
+- integration 36/36 · lint/typecheck/unit 20/20
+
+**สิ่งที่ค้าง**
+
+- บัญชี demo ที่สร้างไปแล้วก่อนหน้านี้ยังมีข้อมูลชุดเก่า (หมดอายุเองใน 24 ชม.) · ถ้าต้องการข้อมูลใหม่ในฐาน dev ให้รัน `pnpm db:seed`

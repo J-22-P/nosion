@@ -26,4 +26,4 @@
 | ----- | ---------------------------------------------------------- | ----------------------------- |
 | 0–1   | [phase-0-1-foundation.md](./phase-0-1-foundation.md)       | ✅ เสร็จ                      |
 | 2a    | [phase-2a-design-refresh.md](./phase-2a-design-refresh.md) | ✅ เสร็จ · CI เขียว (ขั้น 13) |
-| 2b    | [phase-2b-expense-today.md](./phase-2b-expense-today.md)   | ▶ กำลังทำ (ขั้น 7/9)          |
+| 2b    | [phase-2b-expense-today.md](./phase-2b-expense-today.md)   | ▶ กำลังทำ (ขั้น 8/9)          |
