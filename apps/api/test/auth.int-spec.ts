@@ -104,6 +104,23 @@ describe('Auth flow', () => {
       .set('Authorization', `Bearer ${res.body.accessToken}`)
       .expect(200);
     expect(entries.body.data.length).toBeGreaterThan(0);
+
+    // ข้อมูลชุด mockup (src/auth/demo): ทุกการ์ดของหน้า Today ไม่ว่าง · งบรวม ฿15,000 · standup มีครบ 3 กลุ่ม
+    const as = { Authorization: `Bearer ${res.body.accessToken}` };
+    const today = await api().get('/api/v1/today').set(as).expect(200);
+    expect(today.body.failedModules).toEqual([]);
+    expect(today.body.widgets.every((w: { isEmpty: boolean }) => !w.isEmpty)).toBe(true);
+    const status = await api().get('/api/v1/budgets/status').set(as).expect(200);
+    expect(status.body.total).toMatchObject({ budgetMinor: 1500000, budgetSource: 'total' });
+    expect(status.body.total.spentMinor).toBeGreaterThan(0);
+    const standup = await api().get('/api/v1/tasks/standup/today').set(as).expect(200);
+    expect(standup.body.blocked.map((t: { title: string }) => t.title)).toContain(
+      'Merge Pull Request #108: IndexedDB Outbox Engine',
+    );
+    const trends = await api().get('/api/v1/expenses/trends?months=6').set(as).expect(200);
+    expect(trends.body.points.every((p: { expenseMinor: number }) => p.expenseMinor > 0)).toBe(
+      true,
+    );
   });
 
   it('endpoint ที่ต้องล็อกอิน ปฏิเสธคำขอที่ไม่มี token', async () => {

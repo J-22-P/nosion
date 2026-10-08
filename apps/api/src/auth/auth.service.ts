@@ -13,12 +13,14 @@ import {
   type RegisterInput,
   type SessionDto,
 } from '@nosion/contracts';
-import { EntryStatus, ModuleKey, Priority, TokenPurpose, type User } from '@prisma/client';
+import { TokenPurpose, type User } from '@prisma/client';
 import { APP_CONFIG, type AppConfig } from '../infra/config/env';
 import { MailService } from '../infra/mail/mail.service';
 import { PrismaService } from '../infra/prisma/prisma.service';
 import { deviceLabelFrom, type IssuedTokens, type RequestMeta } from './auth.types';
 import { PasswordService } from './password.service';
+import { buildDemoDataset } from './demo/demo-dataset';
+import { seedDemo } from './demo/seed-demo';
 import { TokenService } from './token.service';
 
 const EMAIL_VERIFY_TTL_MS = 24 * 60 * 60 * 1000;
@@ -120,118 +122,12 @@ export class AuthService {
   }
 
   /**
-   * ข้อมูลตัวอย่างสำหรับบัญชีทดลอง — Phase 1 มีเฉพาะโมดูล task
-   * (Phase 2 ขึ้นไปจะย้ายไปใช้ seeder ต่อโมดูลผ่าน registry)
+   * ข้อมูลตัวอย่างชุดเดียวกับ mockup (งาน · การเงิน · งบ · รอบโฟกัส) — วันเวลาสัมพันธ์กับตอนนี้ตามโซนของผู้ใช้
+   * ชุดเดียวกับ `pnpm db:seed` (📁 auth/demo/)
    */
   private async seedDemoData(userId: string): Promise<void> {
-    const startOfToday = new Date();
-    startOfToday.setUTCHours(0, 0, 0, 0);
-    const day = (offset: number) => new Date(startOfToday.getTime() + offset * 24 * 60 * 60 * 1000);
-
-    const project = await this.prisma.project.create({
-      data: { userId, name: 'งานส่วนตัว', color: '#6366f1', sortOrder: 0 },
-    });
-
-    const samples: {
-      title: string;
-      status: EntryStatus;
-      priority: Priority;
-      occurredAt: Date | null;
-      estimateMinutes: number | null;
-    }[] = [
-      {
-        title: 'อ่านสเปก NOSION ให้จบ',
-        status: EntryStatus.done,
-        priority: Priority.medium,
-        occurredAt: day(-2),
-        estimateMinutes: 60,
-      },
-      {
-        title: 'ต่ออายุประกันรถ',
-        status: EntryStatus.pending,
-        priority: Priority.urgent,
-        occurredAt: day(-1),
-        estimateMinutes: 30,
-      },
-      {
-        title: 'เขียน ADR-001 เรื่องแยก NestJS ออกจาก Next.js',
-        status: EntryStatus.active,
-        priority: Priority.high,
-        occurredAt: day(0),
-        estimateMinutes: 45,
-      },
-      {
-        title: 'ตอบอีเมลลูกค้า',
-        status: EntryStatus.pending,
-        priority: Priority.medium,
-        occurredAt: day(0),
-        estimateMinutes: 20,
-      },
-      {
-        title: 'ซื้อของเข้าบ้าน',
-        status: EntryStatus.pending,
-        priority: Priority.low,
-        occurredAt: day(0),
-        estimateMinutes: null,
-      },
-      {
-        title: 'รีวิว PR ของทีม',
-        status: EntryStatus.pending,
-        priority: Priority.high,
-        occurredAt: day(1),
-        estimateMinutes: 40,
-      },
-      {
-        title: 'เตรียมสไลด์ประชุมรายสัปดาห์',
-        status: EntryStatus.pending,
-        priority: Priority.medium,
-        occurredAt: day(2),
-        estimateMinutes: 90,
-      },
-      {
-        title: 'จองตั๋วกลับบ้าน',
-        status: EntryStatus.pending,
-        priority: Priority.none,
-        occurredAt: day(5),
-        estimateMinutes: null,
-      },
-      {
-        title: 'ออกกำลังกาย 3 ครั้งสัปดาห์นี้',
-        status: EntryStatus.pending,
-        priority: Priority.low,
-        occurredAt: day(3),
-        estimateMinutes: null,
-      },
-      {
-        title: 'สรุปค่าใช้จ่ายเดือนที่แล้ว',
-        status: EntryStatus.done,
-        priority: Priority.medium,
-        occurredAt: day(-4),
-        estimateMinutes: 30,
-      },
-    ];
-
-    await this.prisma.entry.createMany({
-      data: samples.map((s, index) => ({
-        userId,
-        module: ModuleKey.task,
-        title: s.title,
-        status: s.status,
-        priority: s.priority,
-        occurredAt: s.occurredAt,
-        completedAt: s.status === EntryStatus.done ? s.occurredAt : null,
-        projectId: project.id,
-        sortOrder: index,
-        payload: {
-          estimateMinutes: s.estimateMinutes,
-          actualMinutes: 0,
-          checklist: [],
-          github: null,
-          branchName: null,
-          deferCount: 0,
-        },
-      })),
-    });
+    const settings = await this.prisma.userSettings.findUniqueOrThrow({ where: { userId } });
+    await seedDemo(this.prisma, userId, buildDemoDataset(new Date(), settings.timezone));
   }
 
   // ── Refresh rotation + reuse detection (สเปกหัวข้อ 9.2) ──
