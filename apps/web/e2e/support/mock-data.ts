@@ -370,14 +370,24 @@ export const TODAY: TodayDto = {
       actions: [{ label: 'สร้าง standup', href: '/today?standup=1' }],
       data: { overdueCount: 1 },
       isEmpty: false,
-      items: ACTIVE_TASKS.slice(0, 2).map((t, i) => ({
-        entryId: t.id,
-        title: t.title,
-        status: t.status,
-        priority: t.priority,
-        occurredAt: t.occurredAt,
-        ...(i === 0 ? { detail: 'เลยกำหนด' } : {}),
-      })),
+      // ค้างอยู่ก่อน แล้วตามด้วยที่เสร็จวันนี้ (API ส่งแบบนี้ — task.trackable.ts)
+      items: [
+        ...ACTIVE_TASKS.slice(0, 2).map((t, i) => ({
+          entryId: t.id,
+          title: t.title,
+          status: t.status,
+          priority: t.priority,
+          occurredAt: t.occurredAt,
+          ...(i === 0 ? { detail: 'เลยกำหนด' } : {}),
+        })),
+        {
+          entryId: DONE_TASKS[0]!.id,
+          title: DONE_TASKS[0]!.title,
+          status: 'done' as const,
+          priority: DONE_TASKS[0]!.priority,
+          occurredAt: DONE_TASKS[0]!.occurredAt,
+        },
+      ],
     },
     {
       module: 'expense',
@@ -391,7 +401,14 @@ export const TODAY: TodayDto = {
         { level: 'info', message: 'ค่าไฟ ฿1,050.00 ครบกำหนดวันนี้' },
       ],
       isEmpty: false,
-      items: [],
+      // รายการวันนี้ = x1 + x2 ชุดเดียวกับยอด TODAY_SPENT
+      items: EXPENSES.filter((e) => ['x1', 'x2'].includes(e.id)).map((e) => ({
+        entryId: e.id,
+        title: e.title,
+        status: e.status,
+        occurredAt: e.occurredAt,
+        detail: `−฿${((e.payload as { amountMinor: number }).amountMinor / 100).toFixed(2)}`,
+      })),
       data: {
         currency: 'THB',
         todaySpentMinor: TODAY_SPENT,
