@@ -12,6 +12,7 @@ import { settle, test, expect, type Theme } from './support/ui-test';
 const PAGES = [
   { path: '/login', ready: 'เข้าสู่ระบบ' },
   { path: '/register', ready: 'สร้างบัญชีใหม่' },
+  { path: '/today', ready: 'สวัสดีตอนบ่าย Jay' },
   { path: '/tasks', ready: 'Re-architect Auth Token refresh flow' },
   { path: '/expenses', ready: 'AIS Fibre' },
   { path: '/hub', ready: 'Workouts' },
@@ -54,3 +55,32 @@ for (const theme of THEMES) {
     }
   });
 }
+
+test.describe('Today · standup sheet', () => {
+  test('กด s เปิด sheet (dialog) ที่มีชื่อ · โฟกัสอยู่ใน dialog · axe ผ่าน · Esc ปิดแล้ว URL กลับ', async ({
+    page,
+  }) => {
+    await page.goto('/today');
+    await expect(page.getByRole('heading', { name: 'สวัสดีตอนบ่าย Jay' })).toBeVisible({
+      timeout: 15_000,
+    });
+    await page.keyboard.press('s');
+    const dialog = page.getByRole('dialog', { name: 'Standup วันนี้' });
+    await expect(dialog).toBeVisible();
+    await expect(page).toHaveURL(/standup=1/);
+    await expect(dialog.getByRole('textbox', { name: 'Standup markdown' })).toHaveValue(
+      /\*\*Blocked\*\*\n- ไม่มี/,
+    );
+    // showModal() ย้ายโฟกัสเข้า dialog เอง
+    expect(await dialog.evaluate((d) => d.contains(document.activeElement))).toBe(true);
+
+    const results = await new AxeBuilder({ page }).include('dialog').analyze();
+    expect(
+      results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical'),
+    ).toEqual([]);
+
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+    await expect(page).not.toHaveURL(/standup=1/);
+  });
+});

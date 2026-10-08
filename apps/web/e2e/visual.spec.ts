@@ -36,6 +36,13 @@ for (const theme of THEMES) {
         await expect(page).toHaveScreenshot(`tasks-${theme}-${device}.png`, { fullPage: true });
       });
 
+      test('Today', async ({ page }) => {
+        await page.goto('/today');
+        await expect(page.getByRole('heading', { name: 'สวัสดีตอนบ่าย Jay' })).toBeVisible(READY);
+        await settle(page);
+        await expect(page).toHaveScreenshot(`today-${theme}-${device}.png`, { fullPage: true });
+      });
+
       test('Expenses', async ({ page }) => {
         await page.goto('/expenses');
         await expect(

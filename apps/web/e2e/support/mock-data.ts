@@ -7,6 +7,8 @@ import type {
   ExpensePayload,
   ExpenseTrendsDto,
   FocusTodayDto,
+  StandupDto,
+  TodayDto,
   ProjectDto,
   TagDto,
   TaskSidebarDto,
@@ -343,3 +345,75 @@ export const EXPENSES: EntryDto[] = [
   }),
   expense('x6', 'BTS', 54, { amountMinor: 4700, category: 'transport' }),
 ];
+
+// ── หน้า Today ──────────────────────────────────────
+// ตัวเลขผูกกับชุดด้านบน: ใช้วันนี้ = x1 + x2 (฿145 + ฿189) · เดือน/งบ = BUDGET_STATUS · บิลถัดไป = ค่าไฟ (BILLS)
+const TODAY_SPENT = EXPENSES.filter((e) => ['x1', 'x2'].includes(e.id)).reduce(
+  (sum, e) => sum + (e.payload as { amountMinor: number }).amountMinor,
+  0,
+);
+
+export const TODAY: TodayDto = {
+  date: '2026-09-30',
+  timezone: 'Asia/Bangkok',
+  greeting: 'สวัสดีตอนบ่าย Jay',
+  widgets: [
+    {
+      module: 'task',
+      title: 'งานวันนี้',
+      order: 10,
+      headline: 'งานวันนี้ 3 ชิ้น · เลยกำหนด 1',
+      subline: 'เสร็จแล้ว 1/3',
+      progress: { done: 1, total: 3 },
+      actions: [{ label: 'สร้าง standup', href: '/today?standup=1' }],
+      data: { overdueCount: 1 },
+      isEmpty: false,
+      items: ACTIVE_TASKS.slice(0, 2).map((t, i) => ({
+        entryId: t.id,
+        title: t.title,
+        status: t.status,
+        priority: t.priority,
+        occurredAt: t.occurredAt,
+        ...(i === 0 ? { detail: 'เลยกำหนด' } : {}),
+      })),
+    },
+    {
+      module: 'expense',
+      title: 'การเงินและงบประมาณ',
+      order: 20,
+      headline: 'วันนี้ใช้ ฿334 · เดือนนี้ ฿8,420 / ฿15,000',
+      subline: 'ค่าไฟ ครบกำหนดวันนี้',
+      progress: { done: BUDGET_STATUS.total.spentMinor, total: BUDGET_STATUS.total.budgetMinor },
+      alerts: [
+        { level: 'warning', message: 'หมวดเดินทางใช้ไป 87% ของงบแล้ว' },
+        { level: 'info', message: 'ค่าไฟ ฿1,050.00 ครบกำหนดวันนี้' },
+      ],
+      isEmpty: false,
+      items: [],
+      data: {
+        currency: 'THB',
+        todaySpentMinor: TODAY_SPENT,
+        monthSpentMinor: BUDGET_STATUS.total.spentMinor,
+        budgetMinor: BUDGET_STATUS.total.budgetMinor,
+        budgetTone: BUDGET_STATUS.total.tone,
+        nextBill: BILLS.bills.find((b) => !b.paid) ?? null,
+      },
+    },
+  ],
+  failedModules: [],
+};
+
+export const STANDUP: StandupDto = {
+  date: '2026-09-30',
+  done: [{ id: DONE_TASKS[0]!.id, title: DONE_TASKS[0]!.title }],
+  doing: ACTIVE_TASKS.slice(0, 2).map((t) => ({ id: t.id, title: t.title })),
+  blocked: [],
+  markdown: [
+    '## Standup · 2026-09-30',
+    `**Done**\n- ${DONE_TASKS[0]!.title}`,
+    `**Doing**\n${ACTIVE_TASKS.slice(0, 2)
+      .map((t) => `- ${t.title}`)
+      .join('\n')}`,
+    '**Blocked**\n- ไม่มี',
+  ].join('\n\n'),
+};
