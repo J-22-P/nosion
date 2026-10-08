@@ -72,7 +72,8 @@ export class TaskTrackableModule implements TrackableModule<TaskPayload> {
       progress: { done, total: entries.length },
       actions: [{ label: 'สร้าง standup', href: '/today?standup=1' }],
       data: { overdueCount: overdue.length },
-      items: open.slice(0, 8).map((e) => ({
+      // ค้างอยู่ก่อน แล้วตามด้วยที่เสร็จวันนี้ (การ์ดแสดงแบบขีดฆ่า — mockup 8.11.1) · รวมไม่เกิน 8
+      items: [...open, ...entries.filter((e) => e.status === 'done')].slice(0, 8).map((e) => ({
         entryId: e.id,
         title: e.title,
         status: e.status,

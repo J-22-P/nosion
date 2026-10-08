@@ -77,6 +77,12 @@ describe('TaskTrackableModule', () => {
       expect(widget.subline).toBe('เสร็จแล้ว 1/3');
       expect(widget.progress).toEqual({ done: 1, total: 3 });
       expect(widget.actions?.[0]?.label).toBe('สร้าง standup');
+      // mockup 8.11.1: งานที่เสร็จวันนี้ยังอยู่ในการ์ด (ขีดฆ่า) แต่อยู่ท้ายสุด
+      expect(widget.items.map((i) => [i.entryId, i.status])).toEqual([
+        ['b', 'pending'],
+        ['c', 'pending'],
+        ['a', 'done'],
+      ]);
       expect(widget.isEmpty).toBe(false);
     });
 
