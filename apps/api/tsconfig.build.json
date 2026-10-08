@@ -1,4 +1,9 @@
 {
   "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // buildinfo อยู่ใน dist — nest build ลบ dist (deleteOutDir) แล้ว buildinfo หายตาม
+    // ถ้าอยู่นอก dist tsc จะเชื่อว่าไฟล์ที่ไม่เปลี่ยนถูก emit แล้ว → dist ขาดไฟล์ (บั๊กเดียวกับ b7c26f2)
+    "tsBuildInfoFile": "dist/.tsbuildinfo"
+  },
   "exclude": ["node_modules", "dist", "test", "prisma", "**/*.spec.ts", "**/*.test.ts"]
 }
