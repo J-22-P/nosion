@@ -7,19 +7,19 @@
 
 ## แผน (ปรับได้ระหว่างทาง)
 
-| #   | ขั้น                                                                          | Commit                                            | สถานะ                                 |
-| --- | ----------------------------------------------------------------------------- | ------------------------------------------------- | ------------------------------------- |
-| 1   | API: ExpenseModule + NL parser + helper เงิน/เดือน                            | `6cc6284`                                         | ✅                                    |
-| 2   | API: Budget CRUD + `GET /budgets/status` (กฎสี 85% / 100%)                    | `048ad51` `8c0d1c1`                               | ✅                                    |
-| 3   | API: `/expenses/summary`, `/forecast`, `/trends`, `/bills/upcoming`           | `b1a9493`                                         | ✅                                    |
-| 4   | API: `GET /today` + `GET /tasks/standup/today?format=markdown`                | `cae92c7` `5f7a4e1`                               | ✅                                    |
-| 4b  | แก้บั๊ก: วันกำหนดแบบ date ล้วน / เลยกำหนดของงานทั้งวัน                        | `17192f0`                                         | ✅                                    |
-| 5   | Web: หน้า Expenses (quick capture, KPI 3 การ์ด, บิล, หมวด, transactions, CSV) | `caefba4` `6140d9a` `41e7122`                     | ✅                                    |
-| 6   | Web: หน้า Today (hero, widget registry, Developer Quick Actions, standup)     | `4bb17f5` `70b3890`                               | ✅                                    |
-| 7   | Web: Analytics (สัดส่วน, trend, fixed vs variable) + empty/error/skeleton     | `638c33b` `0582b25` `55a0fc0` `cf46e48`           | ✅                                    |
-| 7b  | ปรับดีไซน์ Today/Expenses ให้ใกล้ mockup · ลดสี                               | `cc4f8e9` `5118186` `fb94b0f` `f481f21` `42825b0` | ✅                                    |
-| 8   | Seed demo account ชุดเดียวกับ mockup · visual + axe ของหน้าใหม่               | `2a73c97`                                         | ✅                                    |
-| 9   | Deploy staging (deploy-staging.yml)                                           | `85594fa` `88bc7b4`                               | 🟡 พร้อม · รอเจ้าของตั้งบัญชี/secrets |
+| #   | ขั้น                                                                          | Commit                                            | สถานะ                      |
+| --- | ----------------------------------------------------------------------------- | ------------------------------------------------- | -------------------------- |
+| 1   | API: ExpenseModule + NL parser + helper เงิน/เดือน                            | `6cc6284`                                         | ✅                         |
+| 2   | API: Budget CRUD + `GET /budgets/status` (กฎสี 85% / 100%)                    | `048ad51` `8c0d1c1`                               | ✅                         |
+| 3   | API: `/expenses/summary`, `/forecast`, `/trends`, `/bills/upcoming`           | `b1a9493`                                         | ✅                         |
+| 4   | API: `GET /today` + `GET /tasks/standup/today?format=markdown`                | `cae92c7` `5f7a4e1`                               | ✅                         |
+| 4b  | แก้บั๊ก: วันกำหนดแบบ date ล้วน / เลยกำหนดของงานทั้งวัน                        | `17192f0`                                         | ✅                         |
+| 5   | Web: หน้า Expenses (quick capture, KPI 3 การ์ด, บิล, หมวด, transactions, CSV) | `caefba4` `6140d9a` `41e7122`                     | ✅                         |
+| 6   | Web: หน้า Today (hero, widget registry, Developer Quick Actions, standup)     | `4bb17f5` `70b3890`                               | ✅                         |
+| 7   | Web: Analytics (สัดส่วน, trend, fixed vs variable) + empty/error/skeleton     | `638c33b` `0582b25` `55a0fc0` `cf46e48`           | ✅                         |
+| 7b  | ปรับดีไซน์ Today/Expenses ให้ใกล้ mockup · ลดสี                               | `cc4f8e9` `5118186` `fb94b0f` `f481f21` `42825b0` | ✅                         |
+| 8   | Seed demo account ชุดเดียวกับ mockup · visual + axe ของหน้าใหม่               | `2a73c97`                                         | ✅                         |
+| 9   | Deploy staging (deploy-staging.yml)                                           | `85594fa` `88bc7b4` `ea43592` `57da34c` `31a7bb8` | ✅ Deploy staging #4 เขียว |
 
 **Phase 2a ปิดแล้ว:** baseline อนุมัติ (`5e38508`) · CI เขียวทั้ง 8 job — ทุกขั้นของ 2b push แล้วรอ CI เขียวก่อนไปขั้นถัดไป
 
