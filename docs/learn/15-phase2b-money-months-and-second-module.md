@@ -3,9 +3,9 @@
 > Phase 2b เริ่มจากโมดูลการเงิน — โมดูลที่สองของระบบ
 > คำถามของบทนี้: **(1) ทำไมโปรแกรมเมอร์ไม่เก็บเงินเป็นทศนิยม (2) "เดือนนี้" เริ่มตอนไหนกันแน่
 > (3) เพิ่มโมดูลใหม่ทั้งโมดูลโดยแก้โค้ดเดิม 2 บรรทัดได้อย่างไร (4) แปลง "กาแฟ 65" เป็นข้อมูลโดยไม่ใช้ AI
-> (5) ทำไม unique constraint ปล่อยให้งบรวมซ้ำได้ (6) คาดการณ์สิ้นเดือนอย่างไรให้อธิบายได้ (7) หน้า Today รวมทุกโมดูลโดยไม่รู้จักโมดูลไหน (8) ทำไม "2026-10-01" ไม่ใช่จุดเวลา (9) กราฟ/CSV/preview ของหน้า Expenses (10) หน้า Today ที่ไม่รู้ว่ามีโมดูลอะไร (11) เลือกกราฟและตรวจสีด้วยเครื่อง (12) ข้อมูลตัวอย่างที่สัมพันธ์กับวันนี้**
+> (5) ทำไม unique constraint ปล่อยให้งบรวมซ้ำได้ (6) คาดการณ์สิ้นเดือนอย่างไรให้อธิบายได้ (7) หน้า Today รวมทุกโมดูลโดยไม่รู้จักโมดูลไหน (8) ทำไม "2026-10-01" ไม่ใช่จุดเวลา (9) กราฟ/CSV/preview ของหน้า Expenses (10) หน้า Today ที่ไม่รู้ว่ามีโมดูลอะไร (11) เลือกกราฟและตรวจสีด้วยเครื่อง (12) ข้อมูลตัวอย่างที่สัมพันธ์กับวันนี้ (13) staging แบบ serverless**
 
-อ่านคู่กับ: 📁 `docs/phases/phase-2b-expense-today.md` ขั้น 1–8 · บท [05](./05-phase1-plugin-architecture-and-di.md) (plugin architecture) ·
+อ่านคู่กับ: 📁 `docs/phases/phase-2b-expense-today.md` ขั้น 1–9 · บท [05](./05-phase1-plugin-architecture-and-di.md) (plugin architecture) ·
 บท [13](./13-phase2a-task-api-sidebar-and-focus-timer.md) หัวข้อ 1–2 (instant / หน้าปัด / DST)
 
 ---
@@ -625,6 +625,38 @@ for (const [name, now] of Object.entries(MOMENTS)) {
 
 ก่อนหน้านี้ข้อมูลตัวอย่างมีสองชุด (`prisma/seed.ts` สำหรับ dev, `seedDemoData` ใน auth สำหรับผู้เข้าชม) — ต่างกันและบั๊กไม่เหมือนกัน
 ตอนนี้ทั้งคู่เรียก `seedDemo(prisma, userId, buildDemoDataset(...))` — writer รับ `PrismaClient` ตรง ๆ จึงใช้ได้ทั้งใน Nest (PrismaService สืบทอดจาก PrismaClient) และสคริปต์ CLI
+
+---
+
+## 13. Staging แบบฟรี: serverless, pooler และ cookie ข้ามโดเมน
+
+### 13.1 Server ปกติ vs serverless
+
+|                               | `main.ts` (Docker/VM)      | Vercel Function                        |
+| ----------------------------- | -------------------------- | -------------------------------------- |
+| ชีวิตของ process              | เปิดค้าง รับคำขอไปเรื่อย ๆ | ถูกปลุกเมื่อมีคำขอ อาจถูกทิ้งเมื่อว่าง |
+| เริ่มทำงาน                    | `app.listen(3001)`         | export `handler(req, res)`             |
+| งานเบื้องหลัง (BullMQ worker) | ได้                        | **ไม่ได้** — ไม่มี process ค้างรอคิว   |
+
+📁 `serverless.ts` สร้างแอป Nest **ครั้งเดียวต่อ instance** แล้วเก็บ Promise ไว้ — คำขอถัดไปที่ instance เดิม (warm) ไม่ต้อง bootstrap ใหม่
+ถ้า bootstrap ล้มให้ล้าง cache ทิ้ง ไม่งั้น instance นั้นจะคืน error เดิมตลอดอายุ
+
+### 13.2 ทำไมต้องมี connection pooler
+
+serverless เปิดได้หลายสิบ instance พร้อมกัน แต่ละตัวมี connection ของตัวเอง → Postgres (free tier รับได้ไม่กี่สิบ) เต็ม
+pgbouncer (Supavisor ของ Supabase) อยู่ตรงกลาง แบ่ง connection จริงไม่กี่เส้นให้คำขอจำนวนมาก
+แลกกับข้อจำกัดของโหมด transaction: ไม่มี prepared statement ข้าม transaction (`pgbouncer=true`) และไม่มี advisory lock (migration ต้องใช้ session pooler)
+
+### 13.3 cookie กับ "site"
+
+`SameSite=Strict` ส่ง cookie เฉพาะคำขอจาก site เดียวกัน · `vercel.app` อยู่ใน **Public Suffix List** →
+`nosion-staging-web.vercel.app` กับ `nosion-staging-api.vercel.app` นับเป็น **คนละ site** (เหมือน `a.github.io` กับ `b.github.io`)
+ทางแก้ที่ไม่ลดความปลอดภัย: ให้ web proxy `/api/v1/*` ไป API → เบราว์เซอร์คุยกับโดเมนเดียว cookie เป็น first-party
+
+### 13.4 build cache ซ่อนบั๊ก
+
+`dist` ไม่ครบเพราะ `tsbuildinfo` อยู่นอก `dist` — CI ไม่เห็นเพราะ build จากศูนย์ทุกครั้ง แต่ Vercel คืน cache ระหว่าง deploy
+บทเรียน: เมื่อแก้บั๊กแบบหนึ่ง ให้ค้นทั้ง repo ว่ามีรูปแบบเดียวกันที่อื่นไหม (`b7c26f2` แก้ contracts/core แต่ไม่ได้ดู apps/api)
 
 ---
 

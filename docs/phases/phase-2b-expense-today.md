@@ -7,19 +7,19 @@
 
 ## แผน (ปรับได้ระหว่างทาง)
 
-| #   | ขั้น                                                                          | Commit                                            | สถานะ |
-| --- | ----------------------------------------------------------------------------- | ------------------------------------------------- | ----- |
-| 1   | API: ExpenseModule + NL parser + helper เงิน/เดือน                            | `6cc6284`                                         | ✅    |
-| 2   | API: Budget CRUD + `GET /budgets/status` (กฎสี 85% / 100%)                    | `048ad51` `8c0d1c1`                               | ✅    |
-| 3   | API: `/expenses/summary`, `/forecast`, `/trends`, `/bills/upcoming`           | `b1a9493`                                         | ✅    |
-| 4   | API: `GET /today` + `GET /tasks/standup/today?format=markdown`                | `cae92c7` `5f7a4e1`                               | ✅    |
-| 4b  | แก้บั๊ก: วันกำหนดแบบ date ล้วน / เลยกำหนดของงานทั้งวัน                        | `17192f0`                                         | ✅    |
-| 5   | Web: หน้า Expenses (quick capture, KPI 3 การ์ด, บิล, หมวด, transactions, CSV) | `caefba4` `6140d9a` `41e7122`                     | ✅    |
-| 6   | Web: หน้า Today (hero, widget registry, Developer Quick Actions, standup)     | `4bb17f5` `70b3890`                               | ✅    |
-| 7   | Web: Analytics (สัดส่วน, trend, fixed vs variable) + empty/error/skeleton     | `638c33b` `0582b25` `55a0fc0` `cf46e48`           | ✅    |
-| 7b  | ปรับดีไซน์ Today/Expenses ให้ใกล้ mockup · ลดสี                               | `cc4f8e9` `5118186` `fb94b0f` `f481f21` `42825b0` | ✅    |
-| 8   | Seed demo account ชุดเดียวกับ mockup · visual + axe ของหน้าใหม่               | `2a73c97`                                         | ✅    |
-| 9   | Deploy staging (deploy-staging.yml)                                           |                                                   | ⏳    |
+| #   | ขั้น                                                                          | Commit                                            | สถานะ                                 |
+| --- | ----------------------------------------------------------------------------- | ------------------------------------------------- | ------------------------------------- |
+| 1   | API: ExpenseModule + NL parser + helper เงิน/เดือน                            | `6cc6284`                                         | ✅                                    |
+| 2   | API: Budget CRUD + `GET /budgets/status` (กฎสี 85% / 100%)                    | `048ad51` `8c0d1c1`                               | ✅                                    |
+| 3   | API: `/expenses/summary`, `/forecast`, `/trends`, `/bills/upcoming`           | `b1a9493`                                         | ✅                                    |
+| 4   | API: `GET /today` + `GET /tasks/standup/today?format=markdown`                | `cae92c7` `5f7a4e1`                               | ✅                                    |
+| 4b  | แก้บั๊ก: วันกำหนดแบบ date ล้วน / เลยกำหนดของงานทั้งวัน                        | `17192f0`                                         | ✅                                    |
+| 5   | Web: หน้า Expenses (quick capture, KPI 3 การ์ด, บิล, หมวด, transactions, CSV) | `caefba4` `6140d9a` `41e7122`                     | ✅                                    |
+| 6   | Web: หน้า Today (hero, widget registry, Developer Quick Actions, standup)     | `4bb17f5` `70b3890`                               | ✅                                    |
+| 7   | Web: Analytics (สัดส่วน, trend, fixed vs variable) + empty/error/skeleton     | `638c33b` `0582b25` `55a0fc0` `cf46e48`           | ✅                                    |
+| 7b  | ปรับดีไซน์ Today/Expenses ให้ใกล้ mockup · ลดสี                               | `cc4f8e9` `5118186` `fb94b0f` `f481f21` `42825b0` | ✅                                    |
+| 8   | Seed demo account ชุดเดียวกับ mockup · visual + axe ของหน้าใหม่               | `2a73c97`                                         | ✅                                    |
+| 9   | Deploy staging (deploy-staging.yml)                                           | `85594fa` `88bc7b4`                               | 🟡 พร้อม · รอเจ้าของตั้งบัญชี/secrets |
 
 **Phase 2a ปิดแล้ว:** baseline อนุมัติ (`5e38508`) · CI เขียวทั้ง 8 job — ทุกขั้นของ 2b push แล้วรอ CI เขียวก่อนไปขั้นถัดไป
 
@@ -563,3 +563,53 @@ tinypool (critical ×2, ผ่าน vitest 3), braces, source-map-js, sharp (hi
 **สิ่งที่ค้าง**
 
 - บัญชี demo ที่สร้างไปแล้วก่อนหน้านี้ยังมีข้อมูลชุดเก่า (หมดอายุเองใน 24 ชม.) · ถ้าต้องการข้อมูลใหม่ในฐาน dev ให้รัน `pnpm db:seed`
+
+---
+
+## ขั้น 9 · Deploy staging (Vercel + Supabase + Upstash) — `85594fa` `88bc7b4`
+
+📚 **ความรู้พื้นฐาน:** serverless vs process ค้าง, connection pooler (pgbouncer transaction mode), same-origin proxy กับ cookie,
+build cache กับ incremental build → บท [15](../learn/15-phase2b-money-months-and-second-module.md) หัวข้อ 13 · คู่มือ 📁 [`docs/deploy/staging-vercel-supabase.md`](../deploy/staging-vercel-supabase.md)
+
+**เป้าหมาย:** staging ฟรีทั้งหมดตามที่เจ้าของเลือก (Vercel + Supabase · Redis = Upstash ฟรี)
+
+**สิ่งที่เปลี่ยน**
+
+| ไฟล์                                                             | ทำอะไร                                                                                        |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| 📁 `apps/api/src/serverless.ts` + `api/index.js` + `vercel.json` | API เป็น Vercel Function — rewrite ทุก path มาที่ handler · สร้าง Nest ครั้งเดียวต่อ instance |
+| 📁 `apps/api/src/app.setup.ts`                                   | prefix / helmet / cookie / body limit / CORS ชุดเดียว ใช้ทั้ง `main.ts` และ serverless        |
+| 📁 `apps/api/prisma/schema.prisma`                               | `binaryTargets` + `rhel-openssl-3.0.x` (Vercel Functions = Amazon Linux 2023)                 |
+| 📁 `apps/web/next.config.ts` + `vercel.json`                     | `API_PROXY_TARGET` → rewrite `/api/v1/*` ไป API                                               |
+| 📁 `turbo.json`                                                  | ประกาศ `API_PROXY_TARGET` ใน env ของ build                                                    |
+| 📁 `.github/workflows/deploy-staging.yml`                        | CI เขียว → check secrets → migrate → deploy api+web → smoke                                   |
+| 📁 `docs/deploy/staging-vercel-supabase.md`                      | คู่มือทีละขั้นสำหรับส่วนที่ต้องใช้บัญชี                                                       |
+
+**การตัดสินใจ**
+
+- **web proxy API แทนการเรียกข้ามโดเมน** — refresh cookie เป็น `SameSite=Strict` · ถ้าเรียก `*.vercel.app` อีกโดเมนตรง ๆ
+  cookie จะไม่ถูกส่ง (`vercel.app` อยู่ใน Public Suffix List = คนละ site) · proxy ทำให้ไม่ต้องลดเป็น `SameSite=None`
+- **deploy จาก GitHub Actions ไม่ใช่ Vercel Git integration** — deploy เฉพาะ commit ที่ CI เขียว และ migration ก่อนโค้ดเสมอ
+- **pooler สองแบบ:** runtime = transaction pooler :6543 (`pgbouncer=true&connection_limit=1`) · migrate = session pooler :5432
+  (direct connection ของ free tier เป็น IPv6 อย่างเดียว runner ของ GitHub ต่อไม่ได้)
+- ไม่มี secrets → workflow ข้ามเงียบ ๆ (notice) แทนที่จะแดงทุก push
+- **worker ไม่ deploy** — Vercel Functions ไม่รัน process ค้าง · Phase 4 (reminder) ต้องหาที่รัน worker (Fly.io/Railway free หรือ cron)
+- ไม่ได้รัน `vercel` จริง: CLI ไม่ได้ติดตั้งและไม่ได้ล็อกอินในเครื่องนี้ (ตรวจแล้ว) — เจ้าของล็อกอินเองตามคู่มือ
+
+**บั๊กที่เจอระหว่างทาง (`85594fa`)** — รัน `dist/serverless.js` แล้ว `Cannot find module '../infra/config/env'`:
+`apps/api` มีบั๊กเดียวกับ `b7c26f2` (tsbuildinfo อยู่นอก dist + `deleteOutDir`) ที่ตอนนั้นแก้แค่ contracts/core ·
+CI/Docker build จากศูนย์จึงไม่เคยเจอ แต่ Vercel คืน build cache → จะพังบน staging ครั้งที่สอง
+
+**วิธีตรวจ (ในเครื่อง — จำลองสิ่งที่ Vercel ทำ)**
+
+- เรียก `api/index.js` ผ่าน `http.createServer` (ฐาน `nosion_test`, `NODE_ENV=production`): `/healthz` 200 ·
+  `POST /api/v1/auth/demo` 200 + `Set-Cookie: …HttpOnly; Secure; SameSite=Strict` · `/today` ได้การ์ดข้อมูล demo
+- build web ด้วย `API_PROXY_TARGET` แล้ว `next start`: demo ผ่าน proxy 200 · `refresh` ด้วย cookie ผ่าน proxy 200 · หน้า `/today` 200
+- build API ซ้ำ 2 รอบ: dist 75 ไฟล์เท่ากัน · lint/typecheck/unit 20/20 · integration 36/36 (3 รอบติด; รอบแรกก่อนหน้านั้น timeout 4 เคส
+  จากการเชื่อมต่อ Docker บน Mac แบบเดียวกับขั้น 4 — รันซ้ำไม่เกิด)
+
+**สิ่งที่ค้าง (ต้องให้เจ้าของทำ)**
+
+- [ ] สร้าง Supabase project / Upstash Redis / Vercel 2 project + env ตามคู่มือ
+- [ ] ใส่ secrets ใน GitHub environment `staging` แล้วรัน **Actions → Deploy staging**
+- [ ] ยืนยันบน Vercel จริง: cold start, ขนาด function, การรัน `vercel build` จากรากของ repo (ทดสอบในเครื่องได้แค่ส่วน handler/proxy)
