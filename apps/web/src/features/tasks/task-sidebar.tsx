@@ -91,6 +91,23 @@ export function TaskSidebar({
             </div>
           </>
         ) : null}
+
+        {/* โหลดไม่สำเร็จ: smart list ยังกดได้ (เป็นรายการคงที่) แต่โปรเจกต์/แท็ก/ตัวเลขหาย — บอกตรง ๆ ไม่ปล่อยเงียบ */}
+        {sidebar.isError && !data ? (
+          <p
+            role="status"
+            className="mt-2 flex items-center justify-between gap-2 px-2 text-xs text-fg-secondary"
+          >
+            โหลดโปรเจกต์และตัวเลขไม่สำเร็จ
+            <button
+              type="button"
+              onClick={() => void sidebar.refetch()}
+              className="rounded-[4px] font-medium text-accent hover:underline focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
+            >
+              ลองใหม่
+            </button>
+          </p>
+        ) : null}
       </nav>
     </Card>
   );
