@@ -7,18 +7,18 @@
 
 ## แผน (ปรับได้ระหว่างทาง)
 
-| #   | ขั้น                                                                          | Commit                        | สถานะ                   |
-| --- | ----------------------------------------------------------------------------- | ----------------------------- | ----------------------- |
-| 1   | API: ExpenseModule + NL parser + helper เงิน/เดือน                            | `6cc6284`                     | ✅                      |
-| 2   | API: Budget CRUD + `GET /budgets/status` (กฎสี 85% / 100%)                    | `048ad51` `8c0d1c1`           | ✅                      |
-| 3   | API: `/expenses/summary`, `/forecast`, `/trends`, `/bills/upcoming`           | `b1a9493`                     | ✅                      |
-| 4   | API: `GET /today` + `GET /tasks/standup/today?format=markdown`                | `cae92c7` `5f7a4e1`           | ✅                      |
-| 4b  | แก้บั๊ก: วันกำหนดแบบ date ล้วน / เลยกำหนดของงานทั้งวัน                        | `17192f0`                     | ✅                      |
-| 5   | Web: หน้า Expenses (quick capture, KPI 3 การ์ด, บิล, หมวด, transactions, CSV) | `caefba4` `6140d9a` `41e7122` | ✅ (รออนุมัติ baseline) |
-| 6   | Web: หน้า Today (hero, widget registry, Developer Quick Actions, standup)     | `4bb17f5` `70b3890`           | ✅ (รออนุมัติ baseline) |
-| 7   | Web: Analytics (donut, trend, fixed vs variable) + empty/error/skeleton       |                               | ⏳                      |
-| 8   | Seed demo account ชุดเดียวกับ mockup · visual + axe ของหน้าใหม่               |                               | ⏳                      |
-| 9   | Deploy staging (deploy-staging.yml)                                           |                               | ⏳                      |
+| #   | ขั้น                                                                          | Commit                                  | สถานะ                   |
+| --- | ----------------------------------------------------------------------------- | --------------------------------------- | ----------------------- |
+| 1   | API: ExpenseModule + NL parser + helper เงิน/เดือน                            | `6cc6284`                               | ✅                      |
+| 2   | API: Budget CRUD + `GET /budgets/status` (กฎสี 85% / 100%)                    | `048ad51` `8c0d1c1`                     | ✅                      |
+| 3   | API: `/expenses/summary`, `/forecast`, `/trends`, `/bills/upcoming`           | `b1a9493`                               | ✅                      |
+| 4   | API: `GET /today` + `GET /tasks/standup/today?format=markdown`                | `cae92c7` `5f7a4e1`                     | ✅                      |
+| 4b  | แก้บั๊ก: วันกำหนดแบบ date ล้วน / เลยกำหนดของงานทั้งวัน                        | `17192f0`                               | ✅                      |
+| 5   | Web: หน้า Expenses (quick capture, KPI 3 การ์ด, บิล, หมวด, transactions, CSV) | `caefba4` `6140d9a` `41e7122`           | ✅                      |
+| 6   | Web: หน้า Today (hero, widget registry, Developer Quick Actions, standup)     | `4bb17f5` `70b3890`                     | ✅                      |
+| 7   | Web: Analytics (สัดส่วน, trend, fixed vs variable) + empty/error/skeleton     | `638c33b` `0582b25` `55a0fc0` `cf46e48` | ✅ (รออนุมัติ baseline) |
+| 8   | Seed demo account ชุดเดียวกับ mockup · visual + axe ของหน้าใหม่               |                                         | ⏳                      |
+| 9   | Deploy staging (deploy-staging.yml)                                           |                                         | ⏳                      |
 
 **Phase 2a ปิดแล้ว:** baseline อนุมัติ (`5e38508`) · CI เขียวทั้ง 8 job — ทุกขั้นของ 2b push แล้วรอ CI เขียวก่อนไปขั้นถัดไป
 
@@ -367,7 +367,7 @@ CSV (RFC 4180, BOM, CSV injection), mock data ที่ตัวเลขสอ�
 
 **สิ่งที่ค้าง**
 
-- [ ] **ภาพ baseline รออนุมัติ** (Expenses ใหม่ 4 + Tasks ที่เปลี่ยนเมนู 4 · รวมกับ Today อีก 4 ในขั้น 6) — ยังไม่ commit · ยังไม่ push เพราะ job UI จะแดงจนกว่าจะมี baseline
+- [x] ภาพ baseline — อนุมัติพร้อมขั้น 6 (`0a2d92f`)
 - ปุ่มไมค์ (Web Speech) และอัปโหลดสลิป 🧾 (สเปก 8.11.3) ยังไม่ทำ — สลิปต้องมี attachment API ก่อน
 - "เพิ่มรอบบิลใหม่" (rrule builder) รอ Phase 3 · UI ตั้งงบรายหมวด · หน้า `/expenses/analytics`, `/expenses/bills` (ขั้น 7)
 - แก้ไข/ลบรายการจากตาราง transactions ยังไม่มี (ทำผ่าน API ได้)
@@ -422,7 +422,56 @@ keyboard shortcut ที่ไม่แย่งการพิมพ์, grid i
 
 **สิ่งที่ค้าง**
 
-- [ ] **ภาพ baseline รวม 12 ภาพรออนุมัติ** (Today 4 + Expenses 4 + Tasks 4) — ยังไม่ commit · ยังไม่ push
+- [x] ภาพ baseline 12 ภาพ (Today 4 + Expenses 4 + Tasks 4) — อนุมัติแล้ว `0a2d92f` · CI รอบนั้น Security scan แดง (ดูหมายเหตุใต้ขั้น 7)
 - การ์ดออกกำลังกาย/นิสัย รอ Phase 6 · hero ยังไม่มี "Sync ล่าสุด" และ "MUT: 0" (มาพร้อม sync store ใน Phase 7)
 - ตั้งค่า `showDevTools` (ซ่อนแถวคำสั่งด่วน) ยังไม่มี · การ์ดงานยังไม่มีช่อง quick-add แบบย่อ (light mockup)
 - ระหว่างทำ Docker Desktop หยุดไปเอง — เปิดใหม่ด้วย `open -a Docker` แล้ว `docker compose up -d` อีกรอบ
+
+---
+
+### หมายเหตุระหว่างขั้น 6 → 7 · Security scan แดงจาก advisory ใหม่ — `0a66643`
+
+push baseline ที่อนุมัติ (`0a2d92f`) แล้ว CI แดงที่ **Security scan** อย่างเดียว — `pnpm audit` เจอ advisory ที่ประกาศหลัง run ก่อนหน้า (ไม่ได้มาจากโค้ดที่เปลี่ยน):
+tinypool (critical ×2, ผ่าน vitest 3), braces, source-map-js, sharp (high)
+· แก้ด้วยการอัปเดต/override 3 ตัว และยกเว้น braces ที่ยังไม่มีเวอร์ชันที่แก้ — รายละเอียดและวันทบทวนอยู่ใน 📁 `docs/security/audit-exceptions.md`
+(ไฟล์ใหม่ บันทึกเหตุผลของ GHSA-ggr8 ที่ยกเว้นไว้ตั้งแต่ `6fa6a5f` แต่ไม่เคยเขียนไว้ด้วย) · CI `37773436161` เขียวทั้ง 8 job
+
+---
+
+## ขั้น 7 · Web: หน้าวิเคราะห์ + สถานะว่าง/ผิดพลาด — `638c33b` `0582b25` `55a0fc0` `cf46e48`
+
+📚 **ความรู้พื้นฐาน:** เลือกรูปแบบกราฟจากงานของข้อมูล, categorical palette ที่ตรวจด้วยเครื่อง (CVD ΔE), ไม่วนสี, viewBox กับขนาดตัวอักษร →
+บท [15](../learn/15-phase2b-money-months-and-second-module.md) หัวข้อ 11
+
+**สิ่งที่เปลี่ยน**
+
+- 📁 `packages/ui/src/tokens.css` — `--chart-1..6` ทั้งสองธีม (+ เทสต์: ครบ 6 ช่อง, dark ≥ 3:1) · 📁 `globals.css` map เป็น `fill-chart-*`/`bg-chart-*`
+- 📁 `apps/web/src/features/expenses/` — `analytics-view.tsx`, `analytics-charts.tsx` (`ShareBar`, `LineChart`, `StackedColumns`, `Legend`),
+  `analytics-data.ts` (`foldCategories`, `niceMax` + เทสต์) · ปุ่ม "วิเคราะห์" ในหน้า Expenses · `useSummary`
+- 📁 `app/(app)/expenses/analytics/page.tsx`
+- 📁 `features/tasks/task-sidebar.tsx` — สถานะโหลดไม่สำเร็จ (สิ่งเดียวที่ขาดจากการไล่ตรวจทุก component)
+
+**การตัดสินใจ**
+
+- **สัดส่วนหมวด = แท่งซ้อนแนวนอน ไม่ใช่ donut** _(ต่างจากสเปก — ADR-009 +1 แถว)_ — คนเทียบความยาวได้แม่นกว่ามุม/พื้นที่
+  ตัวอย่างจริงในข้อมูล: ที่พัก 27% กับเดินทาง 21% บน donut ดูเกือบเท่ากัน · มีตารางยอด/% คู่เสมอ
+- 12 หมวดแต่สีมี 6 ช่อง → 5 อันดับแรก + "อื่น ๆ" (บอกว่าพับหมวดไหนไว้) — ห้ามสร้างสีที่ 7 หรือวนสีซ้ำ
+- palette: ใช้ค่าอ้างอิงของ dataviz skill แล้ว **รัน validator กับพื้นจริงของเรา** (#ffffff / #141416) ทั้งสองธีม — ไม่เลือกด้วยตา
+- รายรับ vs รายจ่าย ใช้แกนเดียว (หน่วยเดียวกัน) — ไม่มีแกน y คู่ · fixed vs variable เป็นแท่งซ้อน (ส่วนของทั้งเดือน)
+- กราฟวัดความกว้างจริงด้วย ResizeObserver แล้วใช้เป็น viewBox — ป้ายแกน 11px เป็น 11px จริงทุกจอ
+- empty/error/skeleton: ไล่ทุก component ที่โหลดข้อมูล (grep isPending / EmptyState / ErrorState) — ขาดแค่ sidebar หน้า Tasks
+
+**บั๊กที่เจอระหว่างทาง:** ภาพ mobile รอบแรก ป้ายแกนกราฟเหลือ ~6px (viewBox 600 ถูกย่อเป็น ~320px) — แก้ด้วยการวัดความกว้างจริง
+
+**วิธีตรวจ**
+
+- validator: light ผ่านทุกข้อ (contrast WARN ช่อง 3/4/5 → มีตาราง) · dark ผ่านทุกข้อรวม contrast
+- unit: ui 86 · web analytics-data 7 · axe `/expenses/analytics` 2 ธีม: 0 violation
+- Docker `--retries=0` สองรอบ: 37/37 · `/expenses/analytics` 148 kB · lint/typecheck/unit 20/20
+- ภาพ: ดูเองทั้ง desktop light และ mobile dark/light หลังแก้ขนาดตัวอักษร
+
+**สิ่งที่ค้าง**
+
+- [ ] **ภาพ baseline รออนุมัติ 8 ภาพ:** Analytics ใหม่ 4 + Expenses 4 (มีปุ่ม "วิเคราะห์" เพิ่ม) — ยังไม่ commit · ยังไม่ push
+- หน้า `/expenses/bills` (รายละเอียดบิล) ยังไม่ทำ — การ์ดบิลในหน้า Expenses ครอบคลุมแล้วสำหรับ DoD
+- กราฟยังไม่มี texture fill สำหรับพิมพ์ขาวดำ / forced-colors
