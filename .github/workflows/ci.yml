@@ -20,9 +20,9 @@ jobs:
   # ── งานเบา รันขนานกันทั้งหมด ────────────────────────────
   lint:
     name: Lint · Format · Typecheck
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/setup
       - run: pnpm lint
       - run: pnpm format:check
@@ -30,15 +30,15 @@ jobs:
 
   unit:
     name: Unit tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/setup
       - run: pnpm test:unit
 
   integration:
     name: Integration tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: postgres:17-alpine
@@ -57,7 +57,7 @@ jobs:
           --health-timeout 3s --health-retries 20
         ports: ['6379:6379']
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/setup
       - run: pnpm db:migrate:deploy
       - run: pnpm test:int
@@ -66,9 +66,9 @@ jobs:
 
   security:
     name: Security scan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with: { fetch-depth: 0 }
       # secret ที่หลุดเข้า git history — สแกนทุก commit ไม่ใช่แค่ diff ล่าสุด
       - name: Gitleaks
@@ -101,13 +101,13 @@ jobs:
   ui:
     name: UI · visual + a11y
     needs: [lint, unit]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # image เดียวกับ scripts/playwright-docker.sh → ฟอนต์/การ render ตรงกับภาพ baseline
     container:
       image: mcr.microsoft.com/playwright:v1.63.0-noble
       options: --ipc=host
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/setup
       - run: pnpm turbo run build --filter=@nosion/web
       # --update-snapshots=missing: ภาพที่ยังไม่มี baseline ถูก "เขียน" ลงโฟลเดอร์ (อัปโหลดเป็น artifact ด้านล่าง)
@@ -118,14 +118,14 @@ jobs:
           HOME: /root # ตามคำแนะนำของ Playwright เมื่อรันใน container ด้วย user root
       - name: อัปโหลดภาพ baseline ที่สร้างใหม่
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ui-screenshots
           path: apps/web/e2e/__screenshots__
           if-no-files-found: ignore
       - name: อัปโหลดรายงาน Playwright (มี diff ของภาพ + ผล axe)
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: playwright-report
           path: apps/web/playwright-report
@@ -133,12 +133,12 @@ jobs:
   build:
     name: Build ${{ matrix.app }}
     needs: [lint, unit]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
         app: [web, api, worker]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/setup
       - run: pnpm turbo run build --filter=@nosion/${{ matrix.app }}

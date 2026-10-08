@@ -4,9 +4,9 @@ description: ติดตั้ง toolchain และคืนค่า cache �
 runs:
   using: composite
   steps:
-    - uses: pnpm/action-setup@v4
+    - uses: pnpm/action-setup@v5
 
-    - uses: actions/setup-node@v4
+    - uses: actions/setup-node@v5
       with:
         node-version: 22
         cache: pnpm
@@ -21,7 +21,7 @@ runs:
 
     # Turborepo cache ทำให้ job ที่ไม่มีอะไรเปลี่ยนจบในไม่กี่วินาที
     - name: คืนค่า Turborepo cache
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: .turbo
         key: turbo-${{ runner.os }}-${{ github.sha }}

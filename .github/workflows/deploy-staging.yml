@@ -22,7 +22,7 @@ jobs:
   # ยังไม่ได้ใส่ secrets (เช่น fork หรือยังไม่ตั้งค่า) → ข้ามทั้ง workflow อย่างเงียบ ไม่ทำให้ CI แดง
   check:
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: staging # secrets อยู่ใน environment — ไม่ระบุจะอ่านไม่เห็นและข้ามเงียบ
     outputs:
       ready: ${{ steps.secrets.outputs.ready }}
@@ -43,10 +43,10 @@ jobs:
   migrate:
     needs: check
     if: needs.check.outputs.ready == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: staging
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
       - uses: ./.github/actions/setup
@@ -57,7 +57,7 @@ jobs:
 
   deploy:
     needs: migrate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: staging
     strategy:
       fail-fast: true
@@ -72,7 +72,7 @@ jobs:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets[matrix.project] }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
       - uses: ./.github/actions/setup
@@ -90,7 +90,7 @@ jobs:
   # smoke test หลัง deploy: API ตอบ และ demo login ผ่าน proxy ของ web ได้จริง
   smoke:
     needs: deploy
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: staging
     steps:
       - env:
