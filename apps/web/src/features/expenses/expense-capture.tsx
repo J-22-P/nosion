@@ -1,12 +1,11 @@
 'use client';
 
 import type { ExpenseParseDto } from '@nosion/contracts';
-import { Sparkles, Wallet } from 'lucide-react';
+import { Plus, Zap } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Kbd } from '@/components/ui/kbd';
 import { useCreateEntry } from '@/features/entries/use-entries';
 import { ApiError } from '@/lib/api-client';
 import { expensesApi } from './api';
@@ -95,47 +94,56 @@ export function ExpenseCapture() {
   return (
     <form
       onSubmit={submit}
-      className="rounded-card border border-hairline bg-surface p-2 shadow-card transition-shadow focus-within:shadow-[var(--focus-ring)]"
+      className="rounded-card border border-hairline bg-surface p-3 shadow-card md:p-4"
     >
-      <div className="flex items-center gap-2">
-        <Wallet
-          size={20}
-          strokeWidth={1.75}
-          className="ml-2 shrink-0 text-fg-secondary"
+      <div className="flex items-center gap-3">
+        {/* ไอคอน ⚡ ในกล่อง + ช่องพิมพ์บนพื้น sunken + ปุ่มหลัก (mockup nosion_expenses_budget) */}
+        <span
           aria-hidden="true"
-        />
-        <input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') setText('');
-          }}
-          placeholder="บันทึกด่วน เช่น ‘กาแฟ 65’, ‘ค่าเน็ต 799 ทุกวันที่ 5’"
-          aria-label="บันทึกรายจ่ายด้วยข้อความ"
-          aria-describedby={hintId}
-          maxLength={200}
-          className="h-11 min-w-0 flex-1 bg-transparent text-[15px] text-fg outline-none placeholder:text-fg-tertiary"
-        />
+          className="hidden size-11 shrink-0 items-center justify-center rounded-control bg-sunken text-fg sm:flex"
+        >
+          <Zap size={18} />
+        </span>
+        <div className="flex h-11 min-w-0 flex-1 items-center gap-2 rounded-control bg-sunken px-4 transition-shadow focus-within:shadow-[var(--focus-ring)]">
+          <input
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setText('');
+            }}
+            placeholder="บันทึกด่วนด้วยภาษาธรรมชาติ เช่น ‘กาแฟ 65’, ‘ค่าเน็ต 799’"
+            aria-label="บันทึกรายจ่ายด้วยข้อความ"
+            aria-describedby={hintId}
+            maxLength={200}
+            className="h-full min-w-0 flex-1 bg-transparent text-[15px] text-fg outline-none placeholder:text-fg-tertiary"
+          />
+          <span
+            aria-hidden="true"
+            className="hidden shrink-0 items-center gap-1 rounded-[6px] border border-hairline px-2 py-0.5 font-mono text-[11px] text-fg-secondary md:inline-flex"
+            lang="en"
+          >
+            Auto-Detect ↵
+          </span>
+        </div>
         <Button
           type="submit"
+          shape="pill"
           disabled={!trimmed || create.isPending || checking}
-          className="shrink-0 gap-2"
+          className="h-11 shrink-0 gap-2"
         >
+          <Plus size={16} aria-hidden="true" />
           <span className="hidden sm:inline">บันทึกรายจ่าย</span>
           <span className="sm:hidden">บันทึก</span>
-          <Kbd className="hidden border-transparent bg-current/15 text-current sm:inline-flex">
-            ↵
-          </Kbd>
         </Button>
       </div>
-      <div id={hintId} aria-live="polite" className="flex min-h-0 flex-wrap gap-1.5 px-2">
+      <div id={hintId} aria-live="polite" className="flex min-h-0 flex-wrap gap-1.5">
         {shown ? (
-          <div className="flex flex-wrap items-center gap-1.5 pb-1 pt-2">
-            <Badge tone="accent">
-              <Sparkles aria-hidden="true" /> Auto-Detect
-            </Badge>
+          <div className="flex flex-wrap items-center gap-1.5 pt-3">
+            <span className="font-mono text-[11px] uppercase tracking-wider text-fg-secondary">
+              Parsed:
+            </span>
             <Badge tone="neutral">{CATEGORY[shown.payload.category].label}</Badge>
-            <Badge tone={shown.payload.direction === 'income' ? 'success' : 'neutral'} mono>
+            <Badge tone="neutral" mono>
               {shown.payload.direction === 'income' ? '+' : '−'}
               {bahtExact(shown.payload.amountMinor, shown.payload.currency)}
             </Badge>

@@ -1,6 +1,5 @@
 'use client';
 
-import { PieChart } from 'lucide-react';
 import { useState } from 'react';
 import { EmptyState, ErrorState } from '@/components/shared/states';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -33,9 +32,8 @@ export function CategoryCard({ className }: { className?: string }) {
     <Card className={className}>
       {/* มือถือ: ตัวสลับอยู่ใต้หัวการ์ด — วางข้างหัวแล้วชื่อการ์ดถูกบีบจนตัดเป็นคำละบรรทัด */}
       <CardHeader
-        icon={<PieChart />}
-        title="สัดส่วนตามหมวดหมู่"
-        description="คำนวณจากหมวดของแต่ละรายการ"
+        title={<span className="text-xl">สัดส่วนตามหมวดหมู่</span>}
+        description="การกระจายค่าใช้จ่ายเทียบกับงบที่จัดสรร"
         aside={<div className="hidden sm:block">{control}</div>}
       />
       <CardContent>
@@ -66,35 +64,41 @@ function BudgetBars() {
     );
   }
   return (
-    <ul className="space-y-4">
-      {categories.map((c) => {
-        const meta = CATEGORY[c.category];
-        const pct = c.ratio === null ? null : Math.round(c.ratio * 100);
-        return (
-          <li key={c.category} className="space-y-1.5">
-            <div className="flex items-center gap-2 text-sm">
-              <meta.icon size={16} className="shrink-0 text-fg-secondary" aria-hidden="true" />
-              <span className="min-w-0 flex-1 truncate font-medium">{meta.label}</span>
-              <span className="nums font-mono text-xs text-fg-secondary">
-                {baht(c.spentMinor, currency)}
-                {c.budgetMinor !== null ? ` / ${baht(c.budgetMinor, currency)} (${pct}%)` : ''}
-              </span>
-              {c.tone !== 'safe' ? <ToneBadge tone={c.tone} /> : null}
-            </div>
-            {c.budgetMinor !== null ? (
-              <Progress
-                value={c.spentMinor}
-                max={c.budgetMinor}
-                budget
-                label={`งบหมวด${meta.label}`}
-              />
-            ) : (
-              <p className="text-xs text-fg-secondary">ยังไม่ได้ตั้งงบหมวดนี้</p>
-            )}
-          </li>
-        );
-      })}
-    </ul>
+    <>
+      <ul className="space-y-4">
+        {categories.map((c) => {
+          const meta = CATEGORY[c.category];
+          const pct = c.ratio === null ? null : Math.round(c.ratio * 100);
+          return (
+            <li key={c.category} className="space-y-1.5">
+              <div className="flex items-center gap-2 text-sm">
+                <meta.icon size={16} className="shrink-0 text-fg-secondary" aria-hidden="true" />
+                <span className="min-w-0 flex-1 truncate font-medium">{meta.label}</span>
+                <span className="nums font-mono text-xs text-fg-secondary">
+                  <span className="font-semibold text-fg">{baht(c.spentMinor, currency)}</span>
+                  {c.budgetMinor !== null ? ` / ${baht(c.budgetMinor, currency)} (${pct}%)` : ''}
+                </span>
+                {c.tone !== 'safe' ? <ToneBadge tone={c.tone} /> : null}
+              </div>
+              {c.budgetMinor !== null ? (
+                <Progress
+                  value={c.spentMinor}
+                  max={c.budgetMinor}
+                  budget
+                  label={`งบหมวด${meta.label}`}
+                />
+              ) : (
+                <p className="text-xs text-fg-secondary">ยังไม่ได้ตั้งงบหมวดนี้</p>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      <p className="mt-5 flex justify-between border-t border-hairline pt-4 text-xs text-fg-secondary">
+        <span>คำนวณอัตโนมัติจากหมวดของแต่ละรายการ</span>
+        <span className="nums">{categories.length} หมวดหมู่ที่มีข้อมูล</span>
+      </p>
+    </>
   );
 }
 

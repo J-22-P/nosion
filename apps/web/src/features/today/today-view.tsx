@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { cn } from '@nosion/ui';
 import { ErrorState } from '@/components/shared/states';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Kbd } from '@/components/ui/kbd';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusPill } from '@/components/ui/status-pill';
@@ -76,7 +76,7 @@ export function TodayView() {
 
   return (
     <div className="space-y-6">
-      {/* Hero */}
+      {/* Hero (mockup: ชิปสถานะ → คำทักทายตัวใหญ่ → วันที่ + สรุป · ขวา: quick keys + ปุ่ม Standup) */}
       <Card hero className="p-5 md:p-8">
         <div className="flex flex-wrap items-center gap-2">
           {data ? (
@@ -87,31 +87,37 @@ export function TodayView() {
           ) : null}
           <StatusPill
             status={online ? 'online' : 'offline'}
-            label={online ? 'เชื่อมต่อแล้ว' : 'ออฟไลน์'}
+            label={online ? 'ระบบเชื่อมต่อสมบูรณ์' : 'ออฟไลน์'}
           />
         </div>
-        <div className="mt-5 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div className="space-y-1.5">
+        <div className="mt-6 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0 space-y-2">
             {data ? (
               <>
-                <h1 className="text-[28px] font-semibold leading-tight md:text-[36px]">
+                <h1 className="text-[32px] font-semibold leading-[1.15] md:text-[44px]">
                   {data.greeting}
                 </h1>
-                <p className="text-sm text-fg-secondary">{longDate(data.date)}</p>
+                <p className="text-sm text-fg-secondary md:text-base">
+                  {longDate(data.date)} · สรุปสถานะการทำงาน กิจวัตร และแผนวันนี้
+                </p>
               </>
             ) : (
               <>
                 <h1 className="sr-only">วันนี้</h1>
-                <Skeleton className="h-9 w-64" />
-                <Skeleton className="h-4 w-48" />
+                <Skeleton className="h-11 w-72" />
+                <Skeleton className="h-4 w-64" />
               </>
             )}
           </div>
-          <div className="flex items-center gap-3">
-            <p className="hidden items-center gap-1.5 text-xs text-fg-secondary lg:flex" lang="en">
+          <div className="flex shrink-0 items-center gap-3">
+            <p
+              className="hidden h-10 items-center gap-2 rounded-chip border border-hairline px-4 text-xs text-fg-secondary xl:flex"
+              lang="en"
+            >
+              <span className="font-mono uppercase tracking-wider">Quick keys</span>
               <Kbd>⌘K</Kbd> ค้นหา <Kbd>s</Kbd> standup
             </p>
-            <Button shape="pill" className="gap-2" onClick={() => setStandup(true)}>
+            <Button shape="pill" size="lg" className="gap-2" onClick={() => setStandup(true)}>
               <Sparkles size={16} aria-hidden="true" /> สร้าง Standup
             </Button>
           </div>
@@ -160,34 +166,46 @@ export function TodayView() {
         </div>
       )}
 
-      {/* Developer Quick Actions */}
-      <section aria-labelledby="quick-actions" className="space-y-3">
-        <h2 id="quick-actions" className="text-sm font-semibold">
-          คำสั่งด่วนและทางลัด
-        </h2>
-        <div className="grid gap-3 md:grid-cols-3">
-          <QuickAction
-            icon={<Copy size={18} />}
-            title="คัดลอก Standup Markdown"
-            description="Done / Doing / Blocked ของวันนี้"
-            onClick={copyStandup}
-          />
-          <QuickAction
-            icon={<RefreshCw size={18} />}
-            title="Materialize Recurrence"
-            description="ใช้ได้ใน Phase 3 (Recurrence Engine)"
-            disabled
-          />
-          <QuickAction
-            icon={<Inbox size={18} />}
-            title="Offline Outbox: 0"
-            description={
-              online ? 'ออนไลน์ — ไม่มีรายการรอส่ง' : 'ออฟไลน์ — รายการใหม่จะรอส่งใน Phase 7'
-            }
-            disabled
-          />
-        </div>
-      </section>
+      {/* Developer Quick Actions — การ์ดเดียว หัวข้อ + สถานะ และ 3 ช่องข้างใน (mockup) */}
+      <Card>
+        <CardHeader
+          title={
+            <span id="quick-actions" className="text-lg">
+              คำสั่งด่วนและทางลัด{' '}
+              <span className="text-fg-secondary">(Developer Quick Actions)</span>
+            </span>
+          }
+          description="เครื่องมือช่วยงานแบบ Local-First และการสรุป Standup"
+          aside={
+            <span className="hidden items-center gap-2 font-mono text-xs text-fg-secondary sm:inline-flex">
+              <span aria-hidden="true" className="size-1.5 rounded-full bg-track-fill" />
+              {online ? 'Online · Outbox 0' : 'Offline'}
+            </span>
+          }
+        />
+        <CardContent>
+          <div role="group" aria-labelledby="quick-actions" className="grid gap-3 md:grid-cols-3">
+            <QuickAction
+              icon={<Copy size={18} />}
+              title="คัดลอก Standup Markdown"
+              description="จัดกลุ่ม Done, Doing, Blocked"
+              onClick={copyStandup}
+            />
+            <QuickAction
+              icon={<RefreshCw size={18} />}
+              title="Materialize Recurrence"
+              description="ใช้ได้ใน Phase 3 (Recurrence Engine)"
+              disabled
+            />
+            <QuickAction
+              icon={<Inbox size={18} />}
+              title="Offline Outbox Status"
+              description={online ? '0 pending muts · Synced' : 'ออฟไลน์ — รอส่งใน Phase 7'}
+              disabled
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       <StandupSheet open={standupOpen} onClose={() => setStandup(false)} />
     </div>
@@ -212,11 +230,11 @@ function QuickAction({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="flex items-center gap-3 rounded-card border border-hairline bg-surface p-4 text-left shadow-card transition-colors hover:bg-wash focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] disabled:cursor-not-allowed disabled:hover:bg-surface"
+      className="flex items-center gap-3 rounded-row bg-sunken p-4 text-left transition-colors hover:bg-wash-active focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] disabled:cursor-not-allowed disabled:hover:bg-sunken"
     >
       <span
         aria-hidden="true"
-        className="flex size-10 shrink-0 items-center justify-center rounded-control bg-sunken text-fg"
+        className="flex size-10 shrink-0 items-center justify-center rounded-control bg-surface text-fg"
       >
         {icon}
       </span>

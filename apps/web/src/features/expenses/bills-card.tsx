@@ -2,7 +2,7 @@
 
 import type { BillDto } from '@nosion/contracts';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Check, Receipt } from 'lucide-react';
+import { Check, PlusCircle, Receipt } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@nosion/ui';
 import { EmptyState, ErrorState } from '@/components/shared/states';
@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, ListRow } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { entriesApi } from '@/features/entries/api';
 import { ApiError } from '@/lib/api-client';
+import { PAYMENT_LABEL } from './categories';
 import { bahtExact, shortDate } from './format';
 import { useBills } from './use-expense-queries';
 
@@ -37,10 +38,10 @@ export function BillsCard({ className }: { className?: string }) {
 
   return (
     <Card className={className}>
+      {/* หัวการ์ดตาม mockup: ชื่อใหญ่ ไม่มีกล่องไอคอน */}
       <CardHeader
-        icon={<Receipt />}
-        title="บิลและค่าใช้จ่ายประจำ"
-        description="เดือนนี้ + ที่ยังค้างจ่าย"
+        title={<span className="text-xl">บิลและค่าใช้จ่ายประจำ</span>}
+        description="รอบการชำระเดือนนี้ + ที่ยังค้างจ่าย"
       />
       <CardContent>
         {query.isPending ? (
@@ -59,43 +60,65 @@ export function BillsCard({ className }: { className?: string }) {
         ) : (
           <ul className="space-y-2">
             {query.data.bills.map((b) => (
+              // บิลที่จ่ายแล้ว: ขีดฆ่า + ชิป "ชำระแล้ว" — ไม่ใช้ opacity แบบ mockup เพราะทำ contrast ตก AA (axe จับได้)
               <ListRow key={b.id} className="p-3.5">
+                <span
+                  aria-hidden="true"
+                  className="flex size-10 shrink-0 items-center justify-center rounded-control bg-surface text-fg-secondary"
+                >
+                  <Receipt size={18} />
+                </span>
                 <div className="min-w-0 flex-1">
                   <p
                     className={cn(
-                      'truncate text-sm font-medium',
+                      'truncate text-[15px] font-medium',
                       b.paid && 'text-fg-secondary line-through',
                     )}
                   >
                     {b.title}
                   </p>
-                  <p className="nums font-mono text-xs text-fg-secondary">
-                    {bahtExact(b.amountMinor, b.currency)}
+                  <p className="truncate font-mono text-xs text-fg-secondary">
+                    ครบกำหนด {shortDate(b.dueDate)} · {PAYMENT_LABEL[b.paymentMethod]}
                   </p>
                 </div>
-                {b.paid ? (
-                  <span className="inline-flex items-center gap-1 text-xs font-medium text-success">
-                    <Check size={14} aria-hidden="true" />
-                    {b.paymentMethod === 'card' ? 'ตัดบัตรแล้ว' : 'ชำระแล้ว'}
+                <div className="flex shrink-0 flex-col items-end gap-1.5">
+                  <span className="nums font-mono text-[15px] font-semibold">
+                    {bahtExact(b.amountMinor, b.currency)}
                   </span>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => pay.mutate(b.id)}
-                    disabled={pay.isPending}
-                    aria-label={`ทำเครื่องหมายว่าจ่าย ${b.title} แล้ว (${dueText(b)})`}
-                    className={cn(
-                      'h-8 shrink-0 rounded-chip px-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]',
-                      (b.daysUntilDue ?? 0) < 0
-                        ? 'bg-danger-soft text-danger hover:bg-danger/20'
-                        : 'border border-hairline-strong text-fg hover:bg-wash',
-                    )}
-                  >
-                    {dueText(b)}
-                  </button>
-                )}
+                  {b.paid ? (
+                    <span className="inline-flex h-6 items-center gap-1 rounded-chip bg-surface px-2.5 text-[11px] font-medium text-fg">
+                      <Check size={12} aria-hidden="true" />
+                      {b.paymentMethod === 'card' ? 'ตัดบัตรแล้ว' : 'ชำระแล้ว'}
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => pay.mutate(b.id)}
+                      disabled={pay.isPending}
+                      aria-label={`ทำเครื่องหมายว่าจ่าย ${b.title} แล้ว (${dueText(b)})`}
+                      className={cn(
+                        'h-6 rounded-chip px-2.5 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]',
+                        (b.daysUntilDue ?? 0) < 0
+                          ? 'bg-danger-soft text-danger hover:bg-danger/20'
+                          : 'border border-hairline-strong text-fg hover:bg-wash',
+                      )}
+                    >
+                      {dueText(b)}
+                    </button>
+                  )}
+                </div>
               </ListRow>
             ))}
+            {/* rrule builder มาใน Phase 3 — แสดงไว้ตาม mockup แต่กดไม่ได้ พร้อมบอกเหตุผล */}
+            <li>
+              <button
+                type="button"
+                disabled
+                className="flex h-11 w-full cursor-not-allowed items-center justify-center gap-2 rounded-row border border-dashed border-hairline-strong text-[13px] text-fg-secondary"
+              >
+                <PlusCircle size={16} aria-hidden="true" /> เพิ่มรอบบิลใหม่ (Phase 3)
+              </button>
+            </li>
           </ul>
         )}
       </CardContent>

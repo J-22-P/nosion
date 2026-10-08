@@ -1,6 +1,8 @@
 'use client';
 
 import { BarChart3 } from 'lucide-react';
+import { shortDate } from './format';
+import { useBudgetStatus } from './use-expense-queries';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { BillsCard } from './bills-card';
@@ -16,20 +18,15 @@ import { TransactionsCard } from './transactions-card';
 export function ExpensesView() {
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div className="space-y-2">
-          <p className="font-mono text-[11px] uppercase tracking-wider text-fg-secondary" lang="en">
-            Workspace / Finance
-          </p>
-          <h1 className="text-[30px] font-semibold leading-tight md:text-[40px]">
-            การเงิน{' '}
-            <span className="text-fg-tertiary tracking-display" lang="en">
-              (Finance)
-            </span>
-          </h1>
-        </div>
+      {/* mockup ไม่มีหัวข้อใหญ่ — เริ่มด้วยแถบบันทึกด่วน · h1 คงไว้ให้ screen reader + บรรทัดสถานะเล็ก (mockup มือถือ) */}
+      <header className="flex items-center justify-between gap-3">
+        <h1 className="sr-only">การเงิน</h1>
+        <p className="flex items-center gap-2 text-xs text-fg-secondary">
+          <span aria-hidden="true" className="size-1.5 rounded-full bg-track-fill" />
+          <MonthLabel />
+        </p>
         <Link href="/expenses/analytics">
-          <Button variant="secondary" size="sm" className="gap-1.5">
+          <Button variant="secondary" size="sm" shape="pill" className="gap-1.5">
             <BarChart3 size={14} aria-hidden="true" /> วิเคราะห์
           </Button>
         </Link>
@@ -50,5 +47,16 @@ export function ExpensesView() {
 
       <TransactionsCard />
     </div>
+  );
+}
+
+/** "งบประมาณ 1 ก.ย. – 30 ก.ย." จาก /budgets/status (ใช้ cache เดียวกับ KPI 1) */
+function MonthLabel() {
+  const status = useBudgetStatus();
+  if (!status.data) return <span>งบประมาณเดือนนี้</span>;
+  return (
+    <span>
+      งบประมาณ {shortDate(status.data.firstDay)} – {shortDate(status.data.lastDay)}
+    </span>
   );
 }

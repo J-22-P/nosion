@@ -1,10 +1,9 @@
 'use client';
 
 import type { EntryDto, ExpensePayload } from '@nosion/contracts';
-import { Download, List } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { cn } from '@nosion/ui';
 import { EmptyState, ErrorState } from '@/components/shared/states';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -31,7 +30,8 @@ function Amount({ e }: { e: EntryDto }) {
   const p = payloadOf(e);
   const income = p.direction === 'income';
   return (
-    <span className={cn('nums font-mono text-sm', income ? 'text-success' : 'text-fg')}>
+    // monochrome ตาม mockup — รายรับบอกด้วยเครื่องหมาย + ไม่ใช่สีเขียว
+    <span className="nums font-mono text-[15px] font-semibold text-fg">
       {income ? '+' : '−'}
       {bahtExact(Math.abs(p.amountMinor), p.currency)}
     </span>
@@ -106,19 +106,22 @@ export function TransactionsCard({ className }: { className?: string }) {
   return (
     <Card className={className}>
       <CardHeader
-        icon={<List />}
-        title="รายการใช้จ่ายล่าสุด"
-        description="Transactions"
+        title={
+          <span className="text-xl">
+            รายการใช้จ่ายล่าสุด <span className="text-fg-secondary">(Transactions)</span>
+          </span>
+        }
+        description="บันทึกธุรกรรมล่าสุดของเดือนนี้"
         aside={
           <Button
             variant="secondary"
-            size="sm"
+            size="icon"
+            shape="circle"
             onClick={() => void exportMonth()}
             disabled={exporting || !status.data}
             aria-label="ส่งออกรายการของเดือนนี้เป็น CSV"
           >
-            <Download size={14} aria-hidden="true" />
-            <span className="hidden sm:inline">CSV</span>
+            <Download size={16} aria-hidden="true" />
           </Button>
         }
       />
@@ -162,24 +165,31 @@ export function TransactionsCard({ className }: { className?: string }) {
                     const p = payloadOf(e);
                     return (
                       <tr key={e.id} className="border-b border-hairline last:border-0">
-                        <td className="whitespace-nowrap py-3 pr-4 font-mono text-xs text-fg-secondary">
+                        <td className="whitespace-nowrap py-3.5 pr-4 font-mono text-xs text-fg-secondary">
                           {whenLabel(e)}
                         </td>
-                        <td className="py-3 pr-4">
-                          <p className="font-medium">{e.title}</p>
-                          <p className="text-xs text-fg-secondary">
-                            {[p.merchant, PAYMENT_LABEL[p.paymentMethod], p.note]
-                              .filter(Boolean)
-                              .join(' · ')}
-                          </p>
+                        <td className="py-3.5 pr-4">
+                          <div className="flex items-center gap-3">
+                            <CategoryIcon category={p.category} />
+                            <div className="min-w-0">
+                              <p className="font-medium">{e.title}</p>
+                              <p className="font-mono text-xs text-fg-secondary">
+                                {[p.merchant, PAYMENT_LABEL[p.paymentMethod], p.note]
+                                  .filter(Boolean)
+                                  .join(' · ')}
+                              </p>
+                            </div>
+                          </div>
                         </td>
-                        <td className="py-3 pr-4 text-fg-secondary">
-                          {CATEGORY[p.category].label}
+                        <td className="py-3.5 pr-4">
+                          <span className="inline-flex h-6 items-center rounded-chip bg-wash-active px-2.5 text-xs font-medium">
+                            {CATEGORY[p.category].label}
+                          </span>
                         </td>
-                        <td className="py-3 pr-4 text-fg-secondary">
-                          {p.costType === 'fixed' ? 'คงที่' : 'ผันแปร'}
+                        <td className="py-3.5 pr-4 text-xs text-fg-secondary">
+                          {p.costType === 'fixed' ? 'คงที่ (FIXED)' : 'ผันแปร (VARIABLE)'}
                         </td>
-                        <td className="py-3 text-right">
+                        <td className="py-3.5 text-right">
                           <Amount e={e} />
                         </td>
                       </tr>
@@ -192,10 +202,9 @@ export function TransactionsCard({ className }: { className?: string }) {
             <ul className="divide-y divide-hairline md:hidden">
               {rows.map((e) => {
                 const p = payloadOf(e);
-                const Icon = CATEGORY[p.category].icon;
                 return (
                   <li key={e.id} className="flex items-center gap-3 py-3">
-                    <Icon size={18} className="shrink-0 text-fg-secondary" aria-hidden="true" />
+                    <CategoryIcon category={p.category} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">{e.title}</p>
                       <p className="truncate text-xs text-fg-secondary">
@@ -207,9 +216,25 @@ export function TransactionsCard({ className }: { className?: string }) {
                 );
               })}
             </ul>
+            <p className="mt-3 border-t border-hairline pt-3 text-xs text-fg-secondary">
+              แสดง {rows.length} รายการล่าสุด · ส่งออกทั้งเดือนด้วยปุ่ม CSV
+            </p>
           </>
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/** ไอคอนหมวดในกล่อง 40px (mockup) — ไอคอนบอกหมวด ไม่ใช่สี */
+function CategoryIcon({ category }: { category: keyof typeof CATEGORY }) {
+  const Icon = CATEGORY[category].icon;
+  return (
+    <span
+      aria-hidden="true"
+      className="flex size-10 shrink-0 items-center justify-center rounded-control bg-sunken text-fg"
+    >
+      <Icon size={18} />
+    </span>
   );
 }
