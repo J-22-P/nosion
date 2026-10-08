@@ -53,6 +53,13 @@ for (const theme of THEMES) {
         await expect(page).toHaveScreenshot(`expenses-${theme}-${device}.png`, { fullPage: true });
       });
 
+      test('Analytics', async ({ page }) => {
+        await page.goto('/expenses/analytics');
+        await expect(page.getByRole('cell', { name: '฿3,820' })).toBeVisible(READY);
+        await settle(page);
+        await expect(page).toHaveScreenshot(`analytics-${theme}-${device}.png`, { fullPage: true });
+      });
+
       test('Login', async ({ page }) => {
         await page.goto('/login');
         await expect(page.getByRole('heading', { name: 'เข้าสู่ระบบ' })).toBeVisible(READY);

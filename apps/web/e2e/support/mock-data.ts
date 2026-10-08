@@ -4,6 +4,7 @@ import type {
   BudgetStatusDto,
   EntryDto,
   ExpenseForecastDto,
+  ExpenseSummaryDto,
   ExpensePayload,
   ExpenseTrendsDto,
   FocusTodayDto,
@@ -284,10 +285,11 @@ export const TRENDS: ExpenseTrendsDto = {
     ['2026-07', 1340000],
     ['2026-08', 1050000],
     ['2026-09', 842000],
-  ].map(([period, expenseMinor]) => ({
+  ].map(([period, expenseMinor], i) => ({
     period: period as string,
     expenseMinor: expenseMinor as number,
-    incomeMinor: 4500000,
+    // เงินเดือนคงที่ + รายได้เสริมบางเดือน — เส้นรายรับไม่แบนเรียบจนดูปลอม
+    incomeMinor: 4500000 + [0, 120000, 0, 350000, 80000, 120000][i]!,
     fixedMinor: 344900,
     variableMinor: (expenseMinor as number) - 344900,
     byCategory: {},
@@ -416,4 +418,22 @@ export const STANDUP: StandupDto = {
       .join('\n')}`,
     '**Blocked**\n- ไม่มี',
   ].join('\n\n'),
+};
+
+/** สรุปเดือน ก.ย. — หมวดชุดเดียวกับ BUDGET_STATUS (รวม = ฿8,420) · fixed/variable ตรงกับจุดสุดท้ายของ TRENDS */
+export const SUMMARY: ExpenseSummaryDto = {
+  period: '2026-09',
+  currency: 'THB',
+  expenseMinor: BUDGET_STATUS.total.spentMinor,
+  incomeMinor: TRENDS.points.at(-1)!.incomeMinor,
+  netMinor: TRENDS.points.at(-1)!.incomeMinor - BUDGET_STATUS.total.spentMinor,
+  fixedMinor: TRENDS.points.at(-1)!.fixedMinor,
+  variableMinor: TRENDS.points.at(-1)!.variableMinor,
+  count: 46,
+  byCategory: BUDGET_STATUS.categories.map((c) => ({
+    category: c.category,
+    amountMinor: c.spentMinor,
+    count: 1,
+    share: c.spentMinor / BUDGET_STATUS.total.spentMinor,
+  })),
 };

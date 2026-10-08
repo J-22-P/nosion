@@ -11,6 +11,7 @@ import {
   SETTINGS,
   SIDEBAR,
   STANDUP,
+  SUMMARY,
   TAGS,
   TODAY,
   TRENDS,
@@ -50,6 +51,7 @@ export async function mockApi(page: Page, options: { authenticated?: boolean } =
     if (method === 'GET' && path === '/expenses/forecast') return json(FORECAST);
     if (method === 'GET' && path === '/expenses/bills/upcoming') return json(BILLS);
     if (method === 'GET' && path === '/expenses/trends') return json(TRENDS);
+    if (method === 'GET' && path === '/expenses/summary') return json(SUMMARY);
     if (method === 'GET' && path === '/entries' && url.searchParams.get('module') === 'expense') {
       return json({ data: EXPENSES, pageInfo: { hasMore: false, nextCursor: null } });
     }

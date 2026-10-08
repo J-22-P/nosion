@@ -15,6 +15,7 @@ const PAGES = [
   { path: '/today', ready: 'สวัสดีตอนบ่าย Jay' },
   { path: '/tasks', ready: 'Re-architect Auth Token refresh flow' },
   { path: '/expenses', ready: 'AIS Fibre' },
+  { path: '/expenses/analytics', ready: 'สัดส่วนตามหมวดหมู่' },
   { path: '/hub', ready: 'Workouts' },
   { path: '/settings', ready: 'การแสดงผล' },
 ] as const;
