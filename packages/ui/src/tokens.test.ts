@@ -102,6 +102,25 @@ for (const [theme, tokens] of Object.entries(THEMES)) {
   });
 }
 
+describe('สีกราฟ (--chart-1..6)', () => {
+  const dark = THEMES.dark;
+  it('ครบ 6 slot ทั้งสองธีม', () => {
+    for (const tokens of Object.values(THEMES)) {
+      for (let i = 1; i <= 6; i++) expect(tokens[`chart-${i}`]).toBeDefined();
+    }
+  });
+
+  // dataviz validate_palette.js: dark ผ่าน contrast ≥ 3:1 ทุกช่อง (non-text, WCAG 1.4.11)
+  // light ช่อง 3/4/5 ต่ำกว่า 3:1 โดยรู้ตัว → กราฟต้องมีป้าย/ตารางคู่เสมอ (บันทึกใน tokens.css)
+  for (let i = 1; i <= 6; i++) {
+    it(`dark chart-${i} บน surface ≥ 3`, () => {
+      expect(
+        contrastRatio(parseColor(dark[`chart-${i}`]!), parseColor(dark.surface!)),
+      ).toBeGreaterThanOrEqual(3);
+    });
+  }
+});
+
 describe('contrast helpers', () => {
   it('ดำบนขาว = 21 : 1 และสีเดียวกัน = 1 : 1', () => {
     expect(contrastRatio(parseColor('#000'), parseColor('#fff'))).toBeCloseTo(21, 5);

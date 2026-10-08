@@ -36,6 +36,12 @@
   --color-success-soft: var(--success-soft);
   --color-track: var(--track);
   --color-track-fill: var(--track-fill);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
 
   /*
    * radius/shadow ใช้ชื่อเดียวกับ token เพื่อให้ได้ rounded-card, shadow-float ฯลฯ
