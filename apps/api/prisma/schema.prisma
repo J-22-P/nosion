@@ -9,6 +9,8 @@
 generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["postgresqlExtensions"]
+  /// native = เครื่องที่ build · rhel-openssl-3.0.x = Vercel Functions (Amazon Linux 2023)
+  binaryTargets   = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {

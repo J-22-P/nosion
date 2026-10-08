@@ -6,9 +6,8 @@ import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import cookieParser from 'cookie-parser';
-import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { configureApp } from './app.setup';
 import { createLogger, PinoLoggerService } from './common/logger';
 import { loadConfig } from './infra/config/env';
 
@@ -22,20 +21,7 @@ async function bootstrap(): Promise<void> {
     bufferLogs: true,
   });
 
-  app.setGlobalPrefix('api/v1', { exclude: ['healthz', 'readyz', 'metrics'] });
-  app.use(helmet({ contentSecurityPolicy: !isDev }));
-  app.use(cookieParser());
-  app.getHttpAdapter().getInstance().disable('x-powered-by');
-
-  // จำกัดขนาด body ที่ 1 MB (สเปกหัวข้อ 9.3) — upload ใช้ presigned URL ไม่ผ่าน API
-  app.useBodyParser('json', { limit: '1mb' });
-  app.useBodyParser('urlencoded', { limit: '1mb', extended: true });
-
-  app.enableCors({
-    origin: config.CORS_ORIGINS,
-    credentials: true,
-    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
-  });
+  configureApp(app, config);
 
   app.enableShutdownHooks();
 

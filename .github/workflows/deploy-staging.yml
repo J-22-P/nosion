@@ -1,0 +1,103 @@
+name: Deploy staging
+
+# deploy เฉพาะ commit ที่ CI เขียวแล้วบน main (ไม่ deploy ของที่ยังไม่ผ่านเทสต์)
+# หรือกดเองจากแท็บ Actions · คู่มือตั้งค่า: docs/deploy/staging-vercel-supabase.md
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false # migration ห้ามถูกตัดกลางทาง
+
+env:
+  VERCEL_CLI: vercel@63.1.0
+  TURBO_TELEMETRY_DISABLED: 1
+  NEXT_TELEMETRY_DISABLED: 1
+
+jobs:
+  # ยังไม่ได้ใส่ secrets (เช่น fork หรือยังไม่ตั้งค่า) → ข้ามทั้ง workflow อย่างเงียบ ไม่ทำให้ CI แดง
+  check:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.secrets.outputs.ready }}
+    steps:
+      - id: secrets
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          STAGING_DIRECT_URL: ${{ secrets.STAGING_DIRECT_URL }}
+        run: |
+          if [ -n "$VERCEL_TOKEN" ] && [ -n "$STAGING_DIRECT_URL" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::ยังไม่ได้ตั้ง secrets ของ staging — ข้ามการ deploy (ดู docs/deploy/staging-vercel-supabase.md)"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # migration ก่อน deploy เสมอ — โค้ดใหม่ต้องเจอ schema ใหม่ (additive เท่านั้น สเปก 13.4)
+  migrate:
+    needs: check
+    if: needs.check.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: ./.github/actions/setup
+      # ใช้ direct connection (5432) ไม่ใช่ pooler (6543) — pgbouncer โหมด transaction ไม่รองรับ advisory lock ของ migrate
+      - run: pnpm db:migrate:deploy
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DIRECT_URL }}
+
+  deploy:
+    needs: migrate
+    runs-on: ubuntu-latest
+    environment: staging
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - app: api
+            project: VERCEL_PROJECT_ID_API
+          - app: web
+            project: VERCEL_PROJECT_ID_WEB
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets[matrix.project] }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: ./.github/actions/setup
+      # ดึง env ของ project (ตั้งไว้บน Vercel dashboard) → build บน runner → อัปโหลดผลที่ build แล้ว
+      # รันจากรากของ repo: project ตั้ง Root Directory = apps/<app> ไว้แล้ว CLI จะต่อ path ให้เอง
+      # (รันใน apps/<app> จะกลายเป็น apps/<app>/apps/<app>)
+      - run: npx ${{ env.VERCEL_CLI }} pull --yes --environment=production --token="$VERCEL_TOKEN"
+      - run: npx ${{ env.VERCEL_CLI }} build --prod --token="$VERCEL_TOKEN"
+      - id: deploy
+        run: |
+          url=$(npx ${{ env.VERCEL_CLI }} deploy --prebuilt --prod --token="$VERCEL_TOKEN")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "### ${{ matrix.app }} → $url" >> "$GITHUB_STEP_SUMMARY"
+
+  # smoke test หลัง deploy: API ตอบ และ demo login ผ่าน proxy ของ web ได้จริง
+  smoke:
+    needs: deploy
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - env:
+          WEB_URL: ${{ vars.STAGING_WEB_URL }}
+        run: |
+          set -euo pipefail
+          test -n "$WEB_URL" || { echo "::warning::ยังไม่ได้ตั้ง vars.STAGING_WEB_URL — ข้าม smoke test"; exit 0; }
+          curl -fsS --retry 5 --retry-delay 5 -o /dev/null "$WEB_URL/today"
+          status=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$WEB_URL/api/v1/auth/demo")
+          echo "POST /api/v1/auth/demo → $status"
+          test "$status" = 200

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
+  "buildCommand": "cd ../.. && pnpm turbo run build --filter=@nosion/api && mkdir -p apps/api/public",
+  "outputDirectory": "public",
+  "functions": {
+    "api/index.js": { "maxDuration": 10, "includeFiles": "dist/**" }
+  },
+  "rewrites": [{ "source": "/(.*)", "destination": "/api" }]
+}
