@@ -1,6 +1,6 @@
 import type { CategoryAmountDto, ExpenseCategory } from '@nosion/contracts';
 
-/** จำนวน slot สีของกราฟ (--chart-1..6) — เกินนี้พับเป็น "อื่น ๆ" ห้ามวนสี */
+/** จำนวนขั้นเทาของกราฟ (--chart-1..6 เข้ม → อ่อน) — เกินนี้พับเป็น "อื่น ๆ" ห้ามวน */
 export const CHART_SLOTS = 6;
 export const CHART_FILL = [
   'fill-chart-1',
@@ -18,7 +18,14 @@ export const CHART_BG = [
   'bg-chart-5',
   'bg-chart-6',
 ] as const;
-export const CHART_STROKE = ['stroke-chart-1', 'stroke-chart-2', 'stroke-chart-3'] as const;
+export const CHART_STROKE = [
+  'stroke-chart-1',
+  'stroke-chart-2',
+  'stroke-chart-3',
+  'stroke-chart-4',
+  'stroke-chart-5',
+  'stroke-chart-6',
+] as const;
 
 export interface ShareSlice {
   key: ExpenseCategory | 'rest';

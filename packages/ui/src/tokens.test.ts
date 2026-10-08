@@ -103,20 +103,21 @@ for (const [theme, tokens] of Object.entries(THEMES)) {
 }
 
 describe('สีกราฟ (--chart-1..6)', () => {
-  const dark = THEMES.dark;
   it('ครบ 6 slot ทั้งสองธีม', () => {
     for (const tokens of Object.values(THEMES)) {
       for (let i = 1; i <= 6; i++) expect(tokens[`chart-${i}`]).toBeDefined();
     }
   });
 
-  // dataviz validate_palette.js: dark ผ่าน contrast ≥ 3:1 ทุกช่อง (non-text, WCAG 1.4.11)
-  // light ช่อง 3/4/5 ต่ำกว่า 3:1 โดยรู้ตัว → กราฟต้องมีป้าย/ตารางคู่เสมอ (บันทึกใน tokens.css)
-  for (let i = 1; i <= 6; i++) {
-    it(`dark chart-${i} บน surface ≥ 3`, () => {
-      expect(
-        contrastRatio(parseColor(dark[`chart-${i}`]!), parseColor(dark.surface!)),
-      ).toBeGreaterThanOrEqual(3);
+  // ขั้นเทาต้องเรียงความเด่นจริง: ช่อง 1 ตัดกับพื้นมากสุด แล้วลดลงทีละขั้นทั้งสองธีม
+  // (ถ้าสลับลำดับ แท่งซ้อน/ตารางจะอ่านลำดับผิด)
+  for (const [theme, tokens] of Object.entries(THEMES)) {
+    it(`${theme}: contrast กับ surface ลดลงทีละช่อง 1 → 6 และช่อง 1 ≥ 4.5`, () => {
+      const ratios = [1, 2, 3, 4, 5, 6].map((i) =>
+        contrastRatio(parseColor(tokens[`chart-${i}`]!), parseColor(tokens.surface!)),
+      );
+      expect(ratios[0]).toBeGreaterThanOrEqual(4.5);
+      for (let i = 1; i < 6; i++) expect(ratios[i]).toBeLessThan(ratios[i - 1]!);
     });
   }
 });

@@ -14,9 +14,11 @@ export function progressRatio(value: number, max: number): number {
 /**
  * สีของเนื้อ progress — ใช้เกณฑ์งบเฉพาะเมื่อ `budget` เท่านั้น
  * (progress ของ subtask/focus ยิ่งเต็มยิ่งดี ไม่ควรแดง)
+ *
+ * ตาม mockup แท่งเป็นสีเดียว (ดำ/ขาว) — แดงเฉพาะ "เกินงบ" · "ใกล้เกิน" (≥85%) บอกด้วย ToneBadge ข้างแท่ง
+ * (ต่างจากสเปก 8.7.5 ที่ให้แท่งเป็นสีเตือน — ADR-009)
  */
 export function progressTone(value: number, max: number, budget: boolean): ProgressTone {
   if (!budget) return 'default';
-  const tone = budgetTone(value, max);
-  return tone === 'over' ? 'danger' : tone === 'warning' ? 'warning' : 'default';
+  return budgetTone(value, max) === 'over' ? 'danger' : 'default';
 }

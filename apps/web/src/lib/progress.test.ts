@@ -12,9 +12,10 @@ describe('progressRatio', () => {
 });
 
 describe('progressTone', () => {
-  it('งบ: ต่ำกว่า 85% ปกติ · 85% ขึ้นไปเตือน · 100% ขึ้นไปเกิน', () => {
+  it('งบ: สีเปลี่ยนเฉพาะเมื่อเกินงบ (≥100%) · ใกล้เกิน (85%) แท่งยังเป็นสีปกติ — บอกด้วยป้ายข้อความแทน (mockup monochrome)', () => {
     expect(progressTone(84, 100, true)).toBe('default');
-    expect(progressTone(85, 100, true)).toBe('warning');
+    expect(progressTone(85, 100, true)).toBe('default');
+    expect(progressTone(99, 100, true)).toBe('default');
     expect(progressTone(100, 100, true)).toBe('danger');
     expect(progressTone(130, 100, true)).toBe('danger');
   });

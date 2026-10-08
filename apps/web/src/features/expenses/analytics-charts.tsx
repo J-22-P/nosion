@@ -6,7 +6,7 @@ import { CHART_BG, CHART_FILL, CHART_STROKE, niceMax } from './analytics-data';
 
 /**
  * กราฟหลาย series ของหน้า Analytics — SVG เขียนเอง (ไม่มี chart lib)
- * ข้อกำหนดจาก dataviz: สีจาก --chart-1..6 ลำดับตายตัว · legend เสมอเมื่อ ≥ 2 series · ข้อความใช้สีข้อความ ไม่ใช่สี series ·
+ * ข้อกำหนดจาก dataviz: ขั้นเทา --chart-1..6 (monochrome ตาม mockup) ลำดับตายตัว · series ที่ 2 ของกราฟเส้นเป็นเส้นประ · legend เสมอเมื่อ ≥ 2 series · ข้อความใช้สีข้อความ ไม่ใช่สี series ·
  * เส้น 2px · end-dot r4 + วงแหวนสีพื้น · แท่ง ≤ 24px ปลายมน 4px · ช่องว่าง 2px สีพื้นระหว่าง segment ·
  * ไม่มีแกน y คู่ · ตาราง sr-only คู่ทุกกราฟ (สีช่อง 3–5 บนพื้นขาว contrast < 3:1 → ต้องมีป้าย/ตารางเสมอ)
  */
@@ -34,8 +34,10 @@ function useChartWidth(fallback = 600) {
 export interface Series {
   key: string;
   label: string;
-  /** ลำดับ slot สี 0..5 — ผูกกับ entity ไม่ใช่อันดับ */
+  /** ขั้นเทา 0..5 (0 เข้มสุด) — ผูกกับ entity ไม่ใช่อันดับ */
   slot: number;
+  /** เส้นประ — แยก series ด้วยรูปทรง ไม่ใช่สีอย่างเดียว (กราฟเส้นแบบ monochrome) */
+  dashed?: boolean;
 }
 
 export function Legend({ series }: { series: Series[] }) {
@@ -43,7 +45,21 @@ export function Legend({ series }: { series: Series[] }) {
     <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-fg-secondary">
       {series.map((s) => (
         <li key={s.key} className="flex items-center gap-1.5">
-          <span aria-hidden="true" className={cn('size-2.5 rounded-[3px]', CHART_BG[s.slot])} />
+          {s.dashed ? (
+            <svg aria-hidden="true" width="16" height="4" className="shrink-0">
+              <line
+                x1="0"
+                y1="2"
+                x2="16"
+                y2="2"
+                strokeWidth={2}
+                strokeDasharray="4 3"
+                className={CHART_STROKE[s.slot]}
+              />
+            </svg>
+          ) : (
+            <span aria-hidden="true" className={cn('size-2.5 rounded-[3px]', CHART_BG[s.slot])} />
+          )}
           {s.label}
         </li>
       ))}
@@ -201,6 +217,7 @@ export function LineChart({
                   strokeWidth={2}
                   strokeLinejoin="round"
                   strokeLinecap="round"
+                  strokeDasharray={s.dashed ? '6 4' : undefined}
                   className={CHART_STROKE[s.slot]}
                 />
                 {/* end-dot r4 + วงแหวนสีพื้น 2px ให้อ่านออกเมื่อเส้นตัดกัน */}

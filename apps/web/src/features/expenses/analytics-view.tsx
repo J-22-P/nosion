@@ -84,7 +84,7 @@ export function AnalyticsView() {
                 }))}
                 series={[
                   { key: 'expense', label: 'รายจ่าย', slot: 0 },
-                  { key: 'income', label: 'รายรับ', slot: 2 },
+                  { key: 'income', label: 'รายรับ', slot: 2, dashed: true },
                 ]}
                 values={[
                   trends.data.points.map((p) => p.expenseMinor),
@@ -117,7 +117,7 @@ export function AnalyticsView() {
                 }))}
                 series={[
                   { key: 'fixed', label: 'คงที่', slot: 0 },
-                  { key: 'variable', label: 'ผันแปร', slot: 1 },
+                  { key: 'variable', label: 'ผันแปร', slot: 4 },
                 ]}
                 values={[
                   trends.data.points.map((p) => p.fixedMinor),
