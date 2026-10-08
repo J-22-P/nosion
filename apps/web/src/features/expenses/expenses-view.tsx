@@ -1,5 +1,8 @@
 'use client';
 
+import { BarChart3 } from 'lucide-react';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 import { BillsCard } from './bills-card';
 import { CategoryCard } from './category-card';
 import { ExpenseCapture } from './expense-capture';
@@ -13,16 +16,23 @@ import { TransactionsCard } from './transactions-card';
 export function ExpensesView() {
   return (
     <div className="space-y-6">
-      <header className="space-y-2">
-        <p className="font-mono text-[11px] uppercase tracking-wider text-fg-secondary" lang="en">
-          Workspace / Finance
-        </p>
-        <h1 className="text-[30px] font-semibold leading-tight md:text-[40px]">
-          การเงิน{' '}
-          <span className="text-fg-tertiary tracking-display" lang="en">
-            (Finance)
-          </span>
-        </h1>
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div className="space-y-2">
+          <p className="font-mono text-[11px] uppercase tracking-wider text-fg-secondary" lang="en">
+            Workspace / Finance
+          </p>
+          <h1 className="text-[30px] font-semibold leading-tight md:text-[40px]">
+            การเงิน{' '}
+            <span className="text-fg-tertiary tracking-display" lang="en">
+              (Finance)
+            </span>
+          </h1>
+        </div>
+        <Link href="/expenses/analytics">
+          <Button variant="secondary" size="sm" className="gap-1.5">
+            <BarChart3 size={14} aria-hidden="true" /> วิเคราะห์
+          </Button>
+        </Link>
       </header>
 
       <ExpenseCapture />

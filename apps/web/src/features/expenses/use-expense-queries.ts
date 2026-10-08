@@ -14,6 +14,7 @@ export const EXPENSE_KEYS = {
   forecast: ['entries', 'expenses', 'forecast'] as const,
   bills: ['entries', 'expenses', 'bills'] as const,
   trends: ['entries', 'expenses', 'trends'] as const,
+  summary: (period: string) => ['entries', 'expenses', 'summary', period] as const,
   budgets: ['budgets'] as const,
 };
 
@@ -41,6 +42,15 @@ export const useTrends = (enabled: boolean) =>
     queryFn: () => expensesApi.trends(6),
     staleTime: 5 * 60_000,
     enabled,
+  });
+
+/** หน้า Analytics: สรุปของเดือนที่เลือก */
+export const useSummary = (period: string | undefined) =>
+  useQuery({
+    queryKey: EXPENSE_KEYS.summary(period ?? 'current'),
+    queryFn: () => expensesApi.summary(period),
+    staleTime: 60_000,
+    placeholderData: (previous) => previous, // เปลี่ยนเดือนแล้วไม่กระพริบ
   });
 
 /** ตั้ง/แก้ "งบรวม" ของเดือน — มีก้อนเดียว (partial unique index ฝั่ง DB) */
