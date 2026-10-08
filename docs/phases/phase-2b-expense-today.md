@@ -16,7 +16,8 @@
 | 4b  | แก้บั๊ก: วันกำหนดแบบ date ล้วน / เลยกำหนดของงานทั้งวัน                        | `17192f0`                               | ✅                      |
 | 5   | Web: หน้า Expenses (quick capture, KPI 3 การ์ด, บิล, หมวด, transactions, CSV) | `caefba4` `6140d9a` `41e7122`           | ✅                      |
 | 6   | Web: หน้า Today (hero, widget registry, Developer Quick Actions, standup)     | `4bb17f5` `70b3890`                     | ✅                      |
-| 7   | Web: Analytics (สัดส่วน, trend, fixed vs variable) + empty/error/skeleton     | `638c33b` `0582b25` `55a0fc0` `cf46e48` | ✅ (รออนุมัติ baseline) |
+| 7   | Web: Analytics (สัดส่วน, trend, fixed vs variable) + empty/error/skeleton     | `638c33b` `0582b25` `55a0fc0` `cf46e48` | ✅                      |
+| 7b  | ปรับดีไซน์ Today/Expenses ให้ใกล้ mockup · ลดสี                               | `cc4f8e9` `5118186` `fb94b0f` `f481f21` | ✅ (รออนุมัติ baseline) |
 | 8   | Seed demo account ชุดเดียวกับ mockup · visual + axe ของหน้าใหม่               |                                         | ⏳                      |
 | 9   | Deploy staging (deploy-staging.yml)                                           |                                         | ⏳                      |
 
@@ -472,6 +473,44 @@ tinypool (critical ×2, ผ่าน vitest 3), braces, source-map-js, sharp (hi
 
 **สิ่งที่ค้าง**
 
-- [ ] **ภาพ baseline รออนุมัติ 8 ภาพ:** Analytics ใหม่ 4 + Expenses 4 (มีปุ่ม "วิเคราะห์" เพิ่ม) — ยังไม่ commit · ยังไม่ push
+- [ ] ภาพ baseline ของขั้น 7 รวมเข้ากับรอบปรับดีไซน์ (ขั้น 7b) — อนุมัติพร้อมกัน
 - หน้า `/expenses/bills` (รายละเอียดบิล) ยังไม่ทำ — การ์ดบิลในหน้า Expenses ครอบคลุมแล้วสำหรับ DoD
 - กราฟยังไม่มี texture fill สำหรับพิมพ์ขาวดำ / forced-colors
+
+---
+
+## ขั้น 7b · ปรับดีไซน์ให้ใกล้ mockup และลดสี — `cc4f8e9` `5118186` `fb94b0f` `f481f21`
+
+**ที่มา:** เจ้าของขอ "ปรับ design ให้ใกล้เคียงกับ mockup ให้มากที่สุด ไม่ต้องเน้นสีสัน"
+เทียบภาพของเรากับ mockup ทั้ง 6 ภาพ (Today/Tasks/Expenses × dark desktop + light mobile/desktop) จาก
+📁 `~/Downloads/stitch_minimalist_apple_inspired_web_design 2/`
+
+**สิ่งที่ต่างและแก้**
+
+| จุด              | mockup                                                                                     | ก่อน                                                         | หลัง                                      |
+| ---------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------ | ----------------------------------------- |
+| สี               | เกือบทั้งหมดขาว/ดำ                                                                         | ชิปเขียว "ปลอดภัย", แท่งส้มที่ 87%, กราฟ 6 สี, รายรับสีเขียว | เทาทั้งหมด · แดงเฉพาะเกินงบ/เลยกำหนด      |
+| Today hero       | คำทักทายใหญ่ + quick keys เป็นกลุ่ม + ปุ่มใหญ่                                             | ตัวเล็กกว่า                                                  | 44px · กลุ่ม QUICK KEYS · ปุ่ม lg         |
+| Today งาน        | ป้ายเลยกำหนดข้างชื่อ · progress pill · `!urgent` ในแถว · งานเสร็จขีดฆ่า · "+ เพิ่มงานใหม่" | progress ใต้หัว · ไม่มีงานเสร็จ                              | ตาม mockup (API ส่งงานเสร็จวันนี้ต่อท้าย) |
+| Today เงิน       | แผงใน ซ้ายวันนี้ / ขวาสะสมเดือน                                                            | ตัวเลขเรียงลงมา                                              | แผงใน 2 ฝั่ง · แจ้งเตือนพื้นเทา           |
+| Quick actions    | การ์ดเดียวมีหัวข้อ + สถานะ                                                                 | 3 การ์ดลอย                                                   | การ์ดเดียว 3 ช่องใน                       |
+| Expenses หัวหน้า | ไม่มีหัวข้อใหญ่ เริ่มที่แถบบันทึก                                                          | หัวข้อ 40px                                                  | h1 sr-only + บรรทัดสถานะ                  |
+| KPI              | ป้ายเล็ก + ชิป · ไม่มีกล่องไอคอน · ตัวเลข 44px · เริ่ม/สิ้นสุด                             | มีกล่องไอคอน · 32px                                          | ตาม mockup                                |
+| บิล / รายการ     | ไอคอนในกล่อง · ชิปสถานะ · ชิปหมวด · ยอดตัวหนา                                              | ไม่มีไอคอน                                                   | ตาม mockup                                |
+
+**ที่ไม่ทำตาม mockup (โดยตั้งใจ)**
+
+- บิลที่จ่ายแล้วจางด้วย opacity ใน mockup → contrast ตก AA (axe จับได้ทันที) — ใช้ขีดฆ่า + ชิป "ชำระแล้ว" แทน
+- แท่งงบสีแดงยังเหลือที่ ≥ 100% และป้าย "เลยกำหนด" ยังแดง — เป็นสิ่งที่ผู้ใช้ต้องลงมือ (บันทึกใน ADR-009)
+- Tasks: ทำตาม mockup ไปแล้วใน Phase 2a — ไม่แตะ
+- mobile: forecast/บิล ยังเรียงเป็นแถวเดียว (mockup วาง 2 คอลัมน์) · ไม่มีปุ่มไมค์
+
+**วิธีตรวจ**
+
+- unit: ui 82 (ลำดับขั้นเทา) · web progress (85% ไม่เปลี่ยนสี) · api task widget (งานเสร็จต่อท้าย) · lint/typecheck/unit 20/20 · integration 36/36
+- axe ทุกหน้า 2 ธีม 0 serious (หลังเอา opacity ออก) · Docker `--retries=0` สองรอบ 37/37
+- ดูภาพเทียบ mockup: Expenses dark desktop, Today light/dark desktop, Expenses light mobile, Analytics dark
+
+**สิ่งที่ค้าง**
+
+- [ ] **ภาพ baseline รออนุมัติ:** today 4 · expenses 4 · analytics 4 (ใหม่) — ยังไม่ commit · ยังไม่ push
