@@ -15,7 +15,7 @@
 | 4   | API: `GET /today` + `GET /tasks/standup/today?format=markdown`                | `cae92c7` `5f7a4e1`           | ✅                      |
 | 4b  | แก้บั๊ก: วันกำหนดแบบ date ล้วน / เลยกำหนดของงานทั้งวัน                        | `17192f0`                     | ✅                      |
 | 5   | Web: หน้า Expenses (quick capture, KPI 3 การ์ด, บิล, หมวด, transactions, CSV) | `caefba4` `6140d9a` `41e7122` | ✅ (รออนุมัติ baseline) |
-| 6   | Web: หน้า Today (hero, widget registry, Developer Quick Actions, standup)     |                               | ⏳                      |
+| 6   | Web: หน้า Today (hero, widget registry, Developer Quick Actions, standup)     | `4bb17f5` `70b3890`           | ✅ (รออนุมัติ baseline) |
 | 7   | Web: Analytics (donut, trend, fixed vs variable) + empty/error/skeleton       |                               | ⏳                      |
 | 8   | Seed demo account ชุดเดียวกับ mockup · visual + axe ของหน้าใหม่               |                               | ⏳                      |
 | 9   | Deploy staging (deploy-staging.yml)                                           |                               | ⏳                      |
@@ -367,7 +367,62 @@ CSV (RFC 4180, BOM, CSV injection), mock data ที่ตัวเลขสอ�
 
 **สิ่งที่ค้าง**
 
-- [ ] **ภาพ baseline 8 ภาพรออนุมัติ** (Expenses ใหม่ 4 + Tasks ที่เปลี่ยนเมนู 4) — ยังไม่ commit · ยังไม่ push เพราะ job UI จะแดงจนกว่าจะมี baseline
+- [ ] **ภาพ baseline รออนุมัติ** (Expenses ใหม่ 4 + Tasks ที่เปลี่ยนเมนู 4 · รวมกับ Today อีก 4 ในขั้น 6) — ยังไม่ commit · ยังไม่ push เพราะ job UI จะแดงจนกว่าจะมี baseline
 - ปุ่มไมค์ (Web Speech) และอัปโหลดสลิป 🧾 (สเปก 8.11.3) ยังไม่ทำ — สลิปต้องมี attachment API ก่อน
 - "เพิ่มรอบบิลใหม่" (rrule builder) รอ Phase 3 · UI ตั้งงบรายหมวด · หน้า `/expenses/analytics`, `/expenses/bills` (ขั้น 7)
 - แก้ไข/ลบรายการจากตาราง transactions ยังไม่มี (ทำผ่าน API ได้)
+
+---
+
+## ขั้น 6 · Web: หน้า Today — `4bb17f5` `70b3890`
+
+📚 **ความรู้พื้นฐาน:** UI ที่ขับด้วยข้อมูลจาก registry, `<dialog>` + `showModal()`, URL เป็น state ของ modal,
+keyboard shortcut ที่ไม่แย่งการพิมพ์, grid item กับ `min-width: auto`, เทสต์ที่ภาพจับได้แต่ไม่แดง → บท [15](../learn/15-phase2b-money-months-and-second-module.md) หัวข้อ 10
+
+**เป้าหมาย:** หน้า `/today` ตามสเปก 8.11.1 จากข้อมูล `GET /today` (ขั้น 4) ในคำขอเดียว
+
+**สิ่งที่เปลี่ยน** — 📁 `apps/web/src/features/today/`
+
+| ไฟล์                     | หน้าที่                                                                                                                             |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `today-view.tsx`         | hero (โซนเวลา, สถานะเชื่อมต่อ, คำทักทาย, วันที่, ปุ่ม Standup) · grid การ์ด · Developer Quick Actions · shortcut `s` · `?standup=1` |
+| `widgets.tsx`            | `WidgetCard` + `WIDGET_VIEW` (task, expense) + `GenericBody` สำหรับโมดูลที่ยังไม่มีมุมมองเฉพาะ                                      |
+| `standup-sheet.tsx`      | `<dialog>` preview markdown + คัดลอก                                                                                                |
+| `layout.ts` (+ เทสต์)    | `desktopSpan` 7/5 สลับ 5/7 · `isTypingTarget`                                                                                       |
+| `api.ts`, `use-today.ts` | query key `['entries','today']` — ติ๊กงาน/บันทึกรายจ่ายที่ไหนก็สดเอง                                                                |
+
+📁 `app/(app)/today/page.tsx` แทนหน้า placeholder เดิม
+
+**การตัดสินใจ**
+
+- หน้า **ไม่รู้จำนวน/ลำดับโมดูล** — วน `widgets[]` จาก API · มุมมองเฉพาะลงทะเบียนใน `WIDGET_VIEW` · โมดูลที่ไม่มีมุมมองก็ยังแสดงด้วย `GenericBody`
+  (เปิด Workout ใน Phase 6 แล้วการ์ดขึ้นทันทีก่อนจะทำ UI เฉพาะ)
+- grid: แถวคู่ 7/5 แถวคี่ 5/7 · จำนวนคี่ → การ์ดสุดท้ายเต็มแถว (แทน `grid-auto-flow: dense` ในสเปก — dense เติมช่องแต่สลับลำดับการ์ดได้ ซึ่งลำดับมาจาก registry)
+- Standup ใช้ `<dialog>` + `showModal()` ของเบราว์เซอร์ — ได้ focus trap, Esc, `::backdrop`, inert ส่วนอื่นของหน้ามาเอง ไม่ต้องเพิ่ม library
+- สถานะเปิด sheet อยู่ใน URL (`?standup=1`) — ปุ่ม "สร้าง standup" ในการ์ดงาน (มาจาก API) ใช้ลิงก์เดียวกัน และ back ปิด sheet ได้
+- shortcut `s` ไม่ทำงานระหว่างพิมพ์ใน input/textarea/contenteditable หรือกดร่วม ⌘/Ctrl/Alt
+- คัดลอกไม่ได้ (clipboard ต้องเป็น secure context) → เปิด sheet ให้เลือกข้อความเอง ไม่ใช่ error เงียบ
+- Materialize (Phase 3) และ Outbox (Phase 7) แสดงเป็นปุ่ม disabled พร้อมบอกว่าใช้ได้เมื่อไร · ยังไม่มีตั้งค่า `showDevTools` ซ่อนแถวนี้
+
+**บั๊กที่เจอระหว่างทาง**
+
+1. **การ์ดล้นขวาบนมือถือ** (ภาพ baseline กว้าง 467px บนจอ 390px) — grid item มี `min-width: auto` จึงขยายตามชื่องานยาวแทนที่ `truncate` จะตัด →
+   `min-w-0` · และเพิ่มการตรวจ `scrollWidth ≤ ความกว้างจอ` ใน `settle()` ให้ **ทุกหน้า** (ภาพ fullPage บันทึกการล้นไว้เงียบ ๆ ไม่ได้ทำให้แดง)
+   — ยืนยันว่าเทสต์จับได้จริงโดยถอด `min-w-0` ออกชั่วคราว: แดง `452 > 390`
+2. **skeleton ค้างใน dialog ที่ปิดอยู่** — query ของ standup `enabled: false` ตอนปิด → `isPending` ตลอด → skeleton 3 ชิ้นอยู่ใน DOM ·
+   `settle()` จับได้ (รอ `.animate-pulse` = 0 ไม่ผ่าน) → render เนื้อหาเฉพาะตอนเปิด
+
+**วิธีตรวจ**
+
+- axe `/today` light + dark: 0 violation · **axe ใน dialog ที่เปิดอยู่** ผ่าน · เทสต์ sheet: `s` เปิด, ชื่อ dialog, โฟกัสอยู่ข้างใน, markdown ถูก, Esc ปิด + ล้าง URL
+- Docker: สร้างภาพ 31/31 · ตรวจซ้ำ `--update-snapshots=none --retries=0` สองรอบ 31/31 · ภาพเดิม 12 ภาพ **ไม่เปลี่ยนแม้แต่ไบต์เดียว**
+  (= ไม่มีหน้าไหนล้นแนวนอนด้วย)
+- ดูภาพเอง: desktop light (7/5, ตัวเลข ฿334 = x1+x2, ฿8,420/฿15,000 56.1%, เดินทาง 87% เตือน, ค่าไฟวันนี้) · mobile dark/light หลังแก้
+- `/today` 172 kB (< 180 kB) · lint/typecheck/unit 20/20 · integration 36/36
+
+**สิ่งที่ค้าง**
+
+- [ ] **ภาพ baseline รวม 12 ภาพรออนุมัติ** (Today 4 + Expenses 4 + Tasks 4) — ยังไม่ commit · ยังไม่ push
+- การ์ดออกกำลังกาย/นิสัย รอ Phase 6 · hero ยังไม่มี "Sync ล่าสุด" และ "MUT: 0" (มาพร้อม sync store ใน Phase 7)
+- ตั้งค่า `showDevTools` (ซ่อนแถวคำสั่งด่วน) ยังไม่มี · การ์ดงานยังไม่มีช่อง quick-add แบบย่อ (light mockup)
+- ระหว่างทำ Docker Desktop หยุดไปเอง — เปิดใหม่ด้วย `open -a Docker` แล้ว `docker compose up -d` อีกรอบ

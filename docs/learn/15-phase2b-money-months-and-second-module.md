@@ -3,9 +3,9 @@
 > Phase 2b เริ่มจากโมดูลการเงิน — โมดูลที่สองของระบบ
 > คำถามของบทนี้: **(1) ทำไมโปรแกรมเมอร์ไม่เก็บเงินเป็นทศนิยม (2) "เดือนนี้" เริ่มตอนไหนกันแน่
 > (3) เพิ่มโมดูลใหม่ทั้งโมดูลโดยแก้โค้ดเดิม 2 บรรทัดได้อย่างไร (4) แปลง "กาแฟ 65" เป็นข้อมูลโดยไม่ใช้ AI
-> (5) ทำไม unique constraint ปล่อยให้งบรวมซ้ำได้ (6) คาดการณ์สิ้นเดือนอย่างไรให้อธิบายได้ (7) หน้า Today รวมทุกโมดูลโดยไม่รู้จักโมดูลไหน (8) ทำไม "2026-10-01" ไม่ใช่จุดเวลา (9) กราฟ/CSV/preview ของหน้า Expenses**
+> (5) ทำไม unique constraint ปล่อยให้งบรวมซ้ำได้ (6) คาดการณ์สิ้นเดือนอย่างไรให้อธิบายได้ (7) หน้า Today รวมทุกโมดูลโดยไม่รู้จักโมดูลไหน (8) ทำไม "2026-10-01" ไม่ใช่จุดเวลา (9) กราฟ/CSV/preview ของหน้า Expenses (10) หน้า Today ที่ไม่รู้ว่ามีโมดูลอะไร**
 
-อ่านคู่กับ: 📁 `docs/phases/phase-2b-expense-today.md` ขั้น 1–5 · บท [05](./05-phase1-plugin-architecture-and-di.md) (plugin architecture) ·
+อ่านคู่กับ: 📁 `docs/phases/phase-2b-expense-today.md` ขั้น 1–6 · บท [05](./05-phase1-plugin-architecture-and-di.md) (plugin architecture) ·
 บท [13](./13-phase2a-task-api-sidebar-and-focus-timer.md) หัวข้อ 1–2 (instant / หน้าปัด / DST)
 
 ---
@@ -496,6 +496,68 @@ mock ของ visual test ถ้าตัวเลขไม่สอดคล�
 
 ---
 
+## 10. หน้า Today ฝั่งเว็บ: UI ที่ไม่รู้ว่ามีโมดูลอะไร
+
+### 10.1 Registry ฝั่งเว็บ
+
+ฝั่ง API มี registry ของโมดูล (หัวข้อ 7) — ฝั่งเว็บก็ทำแบบเดียวกันในขนาดเล็ก:
+
+```tsx
+const WIDGET_VIEW: Partial<Record<ModuleKey, WidgetView>> = {
+  task: { icon: CircleCheck, href: '/tasks', Body: TaskBody },
+  expense: { icon: Wallet, href: '/expenses', Body: ExpenseBody },
+};
+const Body = WIDGET_VIEW[widget.module]?.Body ?? GenericBody; // ไม่มีมุมมองเฉพาะก็ยังแสดงได้
+```
+
+หน้า `today-view.tsx` แค่ `widgets.map(...)` — เพิ่มโมดูลใหม่ฝั่ง API แล้วการ์ดขึ้นทันทีด้วย `GenericBody`
+มุมมองสวย ๆ ค่อยตามมาทีหลังโดยเพิ่มบรรทัดเดียวใน `WIDGET_VIEW` (หลัก open/closed แบบเดียวกับ `@RegisterModule()`)
+
+### 10.2 `<dialog>` — modal ที่เบราว์เซอร์ทำให้
+
+modal ที่เข้าถึงได้ต้องมี: โฟกัสย้ายเข้าไป, Tab วนอยู่ข้างใน (focus trap), Esc ปิด, ส่วนอื่นของหน้า inert, คืนโฟกัสเมื่อปิด
+`dialog.showModal()` ให้ทั้งหมดนี้มาเอง (บท 11 เขียน menu เองเพราะไม่มี element พื้นฐานให้ — modal มี จึงไม่ต้องเขียน)
+
+กับดักที่เจอ: ถ้า render เนื้อหาไว้ใน dialog ตลอด (แค่ปิดอยู่) query ที่ `enabled: false` จะค้าง `isPending` → skeleton อยู่ใน DOM
+มองไม่เห็นแต่ยังมีอยู่ · เทสต์ที่รอ "ไม่มี skeleton" จึงจับได้ · แก้โดย render เฉพาะตอนเปิด
+
+### 10.3 URL เป็น state ของ modal
+
+`?standup=1` แทน `useState`: ปุ่มในการ์ดงาน (ที่ API ส่งมาเป็น `href`) เปิด sheet ได้โดยไม่ต้องรู้จัก component ·
+แชร์ลิงก์ได้ · ปุ่ม back ปิด sheet · ใช้ `router.replace` (ไม่ใช่ `push`) เพื่อไม่ให้ประวัติรกด้วยการเปิด/ปิด (บท 12)
+
+### 10.4 Shortcut ตัวอักษรเดียว
+
+`s` ต้องไม่ทำงานเมื่อผู้ใช้กำลังพิมพ์ — ไม่งั้นพิมพ์คำว่า "ส่งงาน" ในช่องค้นหาแล้ว sheet เด้ง (บนแป้นไทย `s` คือ `ห` แต่ `e.key` บอกตัวอักษรที่ได้จริง
+จึงพิมพ์ไทยไม่ชน — แต่พิมพ์อังกฤษชน) · `isTypingTarget()` เช็ค input/textarea/select/contenteditable และไม่รับเมื่อกด ⌘/Ctrl/Alt ร่วม
+
+### 10.5 `min-width: auto` — ทำไม `truncate` ไม่ตัด
+
+```css
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+```
+
+`truncate` ตัดได้ก็ต่อเมื่อกล่องแม่ **กว้างได้ไม่เกิน** ที่มีให้ · แต่ flex item และ grid item มี `min-width: auto` โดยปริยาย =
+"ห้ามแคบกว่าเนื้อหาของตัวเอง" → ข้อความ nowrap ยาว ๆ ดันการ์ดให้กว้างตาม แล้วล้นจอ · แก้ด้วย `min-w-0` ที่ item ชั้นนอกสุดที่อยู่ใน grid/flex
+
+### 10.6 สิ่งที่ภาพเห็น แต่เทสต์ไม่แดง
+
+ภาพ fullPage ของ Today มือถือกว้าง 467px บนจอ 390px — **ถ้าไม่มีคนเปิดดู baseline จะกลายเป็น "ความจริง" ที่มีบั๊ก**
+(เรื่องเดียวกับหัวข้อ 8.4 และ 9.4) · เราจึงแปลงสิ่งที่ตาเห็นเป็นคำยืนยันที่เครื่องตรวจได้:
+
+```ts
+expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(viewport.width);
+```
+
+ใส่ไว้ใน `settle()` จึงครอบทุกหน้า และพิสูจน์ว่าเทสต์จับได้จริงด้วยการถอดตัวแก้ออกชั่วคราวแล้วดูมันแดง (`452 > 390`) —
+เทสต์ที่ไม่เคยเห็นแดง ไม่รู้ว่ามันตรวจอะไรอยู่จริงหรือเปล่า
+
+---
+
 ## ข้อเสียที่ยอมรับ
 
 - พจนานุกรมหมวดเขียนด้วยมือ — คำที่ไม่อยู่ในรายการได้ `other` (ผู้ใช้แก้ได้ใน UI) · Phase 8 อาจเรียนรู้จากที่ผู้ใช้แก้
@@ -521,3 +583,5 @@ mock ของ visual test ถ้าตัวเลขไม่สอดคล�
 13. หาเทสต์อื่นในโปรเจกต์ที่ค่าใน expect อาจมาจาก "สิ่งที่โค้ดคืน" มากกว่า "สิ่งที่ผู้ใช้ต้องการ" — เขียนเหตุผลว่าทำไมคิดแบบนั้น
 14. ใน `expense-capture.tsx` ลบเงื่อนไข `preview?.text === trimmed` ออก แล้วลองพิมพ์ "กาแฟ 65" รอ preview แล้วพิมพ์ 0 ต่อและกด ↵ ทันที — บันทึกได้เท่าไร
 15. ใส่ชื่อรายการว่า `=1+1` แล้ว export CSV เปิดใน Excel/Numbers — เห็นอะไร ถ้าเอา `'` ออกจาก `toCsv` ล่ะ
+16. ลบ `min-w-0` ใน `widgets.tsx` แล้วรัน `pnpm --filter @nosion/web test:ui -g "mobile › Today"` — ข้อความ error บอกอะไร ตัวเลขเท่าไร
+17. ทำไมหน้า Today ใช้ `router.replace` ไม่ใช่ `router.push` ตอนเปิด sheet — ลองเปลี่ยนแล้วกดเปิด/ปิด 3 รอบ แล้วกด back
