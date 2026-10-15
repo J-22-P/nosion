@@ -123,7 +123,10 @@ export interface ParsedEntry {
   isAllDay: boolean;
   priority?: Priority;
   payload: Record<string, unknown>;
+  /** การเตือนที่โมดูลแนะนำ เช่น บิล = ล่วงหน้า 1 วัน 09:00 */
   reminders?: { channel: ReminderChannel; offsetMinutes: number }[];
+  /** RRULE body เมื่อข้อความบอกการเกิดซ้ำ — บันทึกเป็นกฎ โดย occurredAt = รอบแรก */
+  rrule?: string | null;
   /** 0–1 — ใช้ตัดสินว่าจะโชว์เป็นตัวเลือกแรกใน ⌘K หรือไม่ */
   confidence: number;
   /** ส่วนของ input ที่ parser เข้าใจ — ใช้ highlight ใน UI */

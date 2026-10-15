@@ -12,7 +12,9 @@ import {
   type ExpenseSummaryDto,
   type ExpenseTrendsDto,
 } from '@nosion/contracts';
+import { parseNaturalText } from '@nosion/core';
 import { CurrentUser } from '../../common/decorators';
+import { nlContextOf } from '../../core/parser/parser.service';
 import { zodBody, zodQuery } from '../../common/zod-validation.pipe';
 import { UserContextService } from '../../users/user-context.service';
 import { ExpenseStatsService } from './expense-stats.service';
@@ -39,7 +41,10 @@ export class ExpensesController {
     @Body(zodBody(parseExpenseSchema)) dto: { text: string },
   ): Promise<ExpenseParseDto> {
     const ctx = await this.userContext.forUser(userId);
-    const parsed = this.expense.parseNaturalLanguage(dto.text, ctx);
+    const parsed = this.expense.parseNaturalLanguage(
+      parseNaturalText(dto.text, nlContextOf(ctx)),
+      ctx,
+    );
     if (!parsed) return { result: null };
     return {
       result: {

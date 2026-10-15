@@ -10,6 +10,7 @@ import type {
   UserContext,
   WeeklySection,
 } from './domain';
+import type { NlResult } from './nl';
 
 /**
  * สัญญาเดียวที่ทุกโมดูลต้อง implement
@@ -55,8 +56,11 @@ export interface TrackableModule<TPayload = unknown> {
   /** สรุปสำหรับ Weekly Review */
   summarizeWeek(entries: Entry[], ctx: UserContext): WeeklySection;
 
-  /** ลองแปลงข้อความธรรมชาติเป็น entry (คืน null ถ้าไม่ใช่ของโมดูลนี้) */
-  parseNaturalLanguage(input: string, ctx: UserContext): ParsedEntry | null;
+  /**
+   * ตัดสินว่าข้อความที่ parser กลางแยกชิ้นแล้วเป็นของโมดูลนี้ไหม มั่นใจแค่ไหน (คืน null ถ้าไม่ใช่)
+   * วันที่ เวลา การเกิดซ้ำ ตัวเลข แยกไว้ให้แล้วที่ @nosion/core/nl — โมดูลไม่ต้องเขียน regex ซ้ำ (สเปก 6.4)
+   */
+  parseNaturalLanguage(text: NlResult, ctx: UserContext): ParsedEntry | null;
 
   /** hook หลังสร้าง/แก้ไข/ลบ — ใช้ทำ side effect เฉพาะโมดูล */
   onAfterWrite?(event: EntryWriteEvent): Promise<void>;

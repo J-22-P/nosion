@@ -4,6 +4,7 @@ import {
   type CalendarEvent,
   type Entry,
   type ModuleMeta,
+  type NlResult,
   type ParsedEntry,
   type TodayWidget,
   type TrackableModule,
@@ -13,9 +14,12 @@ import {
 import { RegisterModule } from '../../core/registry/register-module.decorator';
 import { ExpenseStatsService } from './expense-stats.service';
 import { CATEGORY_LABEL_TH } from './expense-labels';
-import { parseExpenseText } from './expense-text';
+import { interpretExpense } from './expense-text';
 import { buildExpenseTodayWidget } from './expense-today';
 import { isSpent, sumSpent } from './spend-rules';
+
+/** ล่วงหน้า 1 วัน เวลา 09:00 — offset เทียบเที่ยงคืนของวันครบกำหนด */
+const BILL_REMINDER_OFFSET = -1440 + 9 * 60;
 
 /**
  * โมดูลที่สอง — พิสูจน์ว่าเพิ่มโมดูลได้โดยไม่แก้ core:
@@ -105,17 +109,17 @@ export class ExpenseTrackableModule implements TrackableModule<ExpensePayload> {
     };
   }
 
-  parseNaturalLanguage(input: string, ctx: UserContext): ParsedEntry | null {
+  parseNaturalLanguage(text: NlResult, ctx: UserContext): ParsedEntry | null {
     const now = ctx.now ?? new Date();
-    const parsed = parseExpenseText(input, now, ctx.timezone, ctx.currency);
+    const parsed = interpretExpense(text, ctx.currency);
     if (!parsed) return null;
 
     return {
       module: this.key,
       title: parsed.title,
-      // บิล = วันครบกำหนด (ทั้งวัน) · รายจ่ายทั่วไป = ตอนนี้
-      occurredAt: parsed.isBill ? parsed.dueAt : now,
-      isAllDay: parsed.isBill,
+      // บิล = วันครบกำหนด (ทั้งวัน) · ระบุวันเอง ("เมื่อวาน") = วันนั้น · ไม่ระบุ = ตอนนี้
+      occurredAt: parsed.dueAt ?? parsed.occurredAt ?? now,
+      isAllDay: parsed.isBill || (parsed.occurredAt !== null && text.isAllDay),
       payload: expensePayloadSchema.parse({
         amountMinor: parsed.amountMinor,
         currency: ctx.currency,
@@ -124,6 +128,9 @@ export class ExpenseTrackableModule implements TrackableModule<ExpensePayload> {
         costType: parsed.isBill ? 'fixed' : 'variable',
         isBill: parsed.isBill,
       }),
+      rrule: parsed.rrule,
+      // ค่าเริ่มต้นเดียวกับ "เพิ่มรอบบิลใหม่" — ล่วงหน้า 1 วัน 09:00 (DoD Phase 5: บิลพร้อมการเตือนในคำสั่งเดียว)
+      reminders: parsed.isBill ? [{ channel: 'push', offsetMinutes: BILL_REMINDER_OFFSET }] : [],
       confidence: parsed.confidence,
       matchedTokens: parsed.matchedTokens,
     };

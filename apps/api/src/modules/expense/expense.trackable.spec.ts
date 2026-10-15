@@ -1,5 +1,6 @@
 import { expensePayloadSchema, type ExpensePayload } from '@nosion/contracts';
-import { type Entry, type UserContext } from '@nosion/core';
+import { parseNaturalText, type Entry, type UserContext } from '@nosion/core';
+import { nlContextOf } from '../../core/parser/parser.service';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { BudgetStatusDto } from '@nosion/contracts';
 import type { ExpenseStatsService } from './expense-stats.service';
@@ -133,22 +134,38 @@ describe('ExpenseTrackableModule', () => {
     expect(w.highlights).toEqual(['ใช้กับอาหารมากที่สุด ฿300 (75%)']);
   });
 
-  it('parseNaturalLanguage: payload ผ่าน schema และบิลเป็นต้นทุนคงที่ทั้งวัน', () => {
-    const coffee = module.parseNaturalLanguage('กาแฟ 65', ctx)!;
+  const parse = (input: string) =>
+    module.parseNaturalLanguage(parseNaturalText(input, nlContextOf(ctx)), ctx);
+
+  it('parseNaturalLanguage: payload ผ่าน schema · รายจ่ายทั่วไป = ตอนนี้ ไม่เตือน', () => {
+    const coffee = parse('กาแฟ 65')!;
     expect(coffee.occurredAt).toEqual(ctx.now);
+    expect(coffee.rrule).toBeNull();
+    expect(coffee.reminders).toEqual([]);
     expect(coffee.payload).toMatchObject({
       amountMinor: 6500,
       category: 'food',
       costType: 'variable',
     });
+  });
 
-    const bill = module.parseNaturalLanguage('ค่าเน็ต 799 ทุกวันที่ 5', ctx)!;
+  it('บิล "ทุกวันที่ 5" = กฎรายเดือน รอบแรกทั้งวัน + เตือนล่วงหน้า 1 วัน 09:00 (DoD Phase 5)', () => {
+    const bill = parse('ค่าเน็ต 799 ทุกวันที่ 5')!;
+    expect(bill.rrule).toBe('FREQ=MONTHLY;BYMONTHDAY=5');
     expect(bill.isAllDay).toBe(true);
+    expect(bill.occurredAt?.toISOString()).toBe('2026-10-04T17:00:00.000Z'); // 5 ต.ค. 00:00 เวลาไทย
+    expect(bill.reminders).toEqual([{ channel: 'push', offsetMinutes: -900 }]);
     expect(bill.payload).toMatchObject({ isBill: true, costType: 'fixed' });
     expect(() => expensePayloadSchema.parse(bill.payload)).not.toThrow();
   });
 
+  it('ระบุวันเอง ("เมื่อวาน") → บันทึกย้อนหลังทั้งวัน', () => {
+    const late = parse('ข้าวมันไก่ 50 เมื่อวาน')!;
+    expect(late.occurredAt?.toISOString()).toBe('2026-09-16T17:00:00.000Z');
+    expect(late.isAllDay).toBe(true);
+  });
+
   it('ข้อความที่ไม่มีจำนวนเงิน → null (ให้โมดูล task รับไป)', () => {
-    expect(module.parseNaturalLanguage('ประชุมทีม พรุ่งนี้', ctx)).toBeNull();
+    expect(parse('ประชุมทีม พรุ่งนี้')).toBeNull();
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { guessCategory, nextDueDate, parseExpenseText } from './expense-text';
+import { guessCategory, parseExpenseText } from './expense-text';
 
 const TZ = 'Asia/Bangkok';
 // 18 ก.ย. 2026 10:00 ตามเวลาไทย
@@ -81,7 +81,13 @@ describe('parseExpenseText', () => {
     const plain = parseExpenseText('ของขวัญ 100', NOW, TZ)!;
     const rich = parseExpenseText('กาแฟ 100 บาท', NOW, TZ)!;
     expect(rich.confidence).toBeGreaterThan(plain.confidence);
-    expect(rich.matchedTokens).toEqual(['100', 'บาท', 'กาแฟ']);
+    expect(rich.matchedTokens).toEqual(['100 บาท', 'กาแฟ']);
+  });
+
+  it('ปริมาณเป็นส่วนของชื่อ · รายวันเป็นรายจ่ายซ้ำแต่ไม่ใช่บิล', () => {
+    expect(parseExpenseText('ซื้อน้ำ 2 ขวด 30 บาท', NOW, TZ)?.title).toBe('ซื้อน้ำ 2 ขวด');
+    const daily = parseExpenseText('ค่ารถ 40 ทุกวัน', NOW, TZ)!;
+    expect(daily).toMatchObject({ isBill: false, rrule: 'FREQ=DAILY', dueAt: null });
   });
 
   it('บิล "ทุกวันที่ 5" ได้วันครบกำหนดถัดไป (วันที่ 5 เดือนหน้า เพราะเลยวันที่ 5 ของเดือนนี้แล้ว)', () => {
@@ -94,24 +100,5 @@ describe('guessCategory', () => {
   it('คำที่ยาวที่สุดชนะ: "ค่าน้ำมัน" เป็นเดินทาง ไม่ใช่ค่าน้ำ · "หนังสือ" ไม่ใช่ดูหนัง', () => {
     expect(guessCategory('ค่าน้ำมันรถ').category).toBe('transport');
     expect(guessCategory('หนังสือ').category).toBe('education');
-  });
-});
-
-describe('nextDueDate', () => {
-  it('วันนี้คือวันครบกำหนดพอดี → วันนี้', () => {
-    expect(nextDueDate(18, NOW, TZ).toISOString()).toBe('2026-09-17T17:00:00.000Z');
-  });
-
-  it('ยังไม่ถึง → เดือนนี้', () => {
-    expect(nextDueDate(25, NOW, TZ).toISOString()).toBe('2026-09-24T17:00:00.000Z');
-  });
-
-  it('วันที่ 31 ในเดือนที่มี 30 วัน → วันสุดท้ายของเดือน', () => {
-    expect(nextDueDate(31, NOW, TZ).toISOString()).toBe('2026-09-29T17:00:00.000Z');
-  });
-
-  it('ธันวาคมเลยแล้ว → มกราคมปีถัดไป', () => {
-    const dec = new Date('2026-12-20T03:00:00Z');
-    expect(nextDueDate(5, dec, TZ).toISOString()).toBe('2027-01-04T17:00:00.000Z');
   });
 });

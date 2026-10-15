@@ -1,6 +1,8 @@
 import { taskPayloadSchema, type TaskPayload } from '@nosion/contracts';
 import {
   isEntryOverdue,
+  remainingText,
+  type NlResult,
   type CalendarEvent,
   type Entry,
   type ModuleMeta,
@@ -12,11 +14,11 @@ import {
 } from '@nosion/core';
 import { RegisterModule } from '../../core/registry/register-module.decorator';
 
-/** คำที่บอกว่าเป็นงาน + คำบอกเวลาแบบไทย ใช้ในโหมดสร้างของ ⌘K */
+/** คำที่บอกว่าเป็นงาน ใช้ในโหมดสร้างของ ⌘K */
 const TASK_HINTS = ['ทำ', 'งาน', 'ส่ง', 'นัด', 'ประชุม', 'โทร', 'เตรียม', 'todo', 'task'];
 const PRIORITY_HINTS: { pattern: RegExp; priority: TodayPriority }[] = [
-  { pattern: /ด่วนมาก|urgent|!!!/i, priority: 'urgent' },
-  { pattern: /ด่วน|สำคัญ|!!/i, priority: 'high' },
+  { pattern: /ด่วนมาก|urgent/i, priority: 'urgent' },
+  { pattern: /ด่วน|สำคัญ/i, priority: 'high' },
 ];
 type TodayPriority = 'none' | 'low' | 'medium' | 'high' | 'urgent';
 
@@ -127,56 +129,45 @@ export class TaskTrackableModule implements TrackableModule<TaskPayload> {
   }
 
   /**
-   * Phase 1: heuristic แบบง่าย — จับคำบอกเวลาไทยและระดับความสำคัญ
-   * Phase 5 จะย้ายไปใช้ NL Parser กลางที่ใช้โค้ดชุดเดียวกับ frontend
+   * งานเป็น "ทางเลือกสุดท้าย" ของ ⌘K — ข้อความไหนก็เป็นงานได้ แต่มั่นใจมากขึ้นเมื่อมีวัน/เวลา/priority
+   * ตัวเลขเงินและปริมาณเป็นส่วนหนึ่งของชื่องาน ("ซื้อของ 500" = งานชื่อนั้น ถ้าผู้ใช้เลือกสร้างเป็นงาน)
    */
-  parseNaturalLanguage(input: string, ctx: UserContext): ParsedEntry | null {
-    const text = input.trim();
-    if (!text) return null;
+  parseNaturalLanguage(text: NlResult, _ctx: UserContext): ParsedEntry | null {
+    const title = remainingText(text, ['amount', 'quantity']);
+    if (!title) return null;
 
-    const now = ctx.now ?? new Date();
-    const day = 24 * 60 * 60 * 1000;
-    let occurredAt: Date | null = null;
+    const matched = text.tokens
+      .filter((t) => ['date', 'time', 'recurrence', 'priority', 'duration'].includes(t.kind))
+      .map((t) => t.raw);
     let confidence = 0.35;
-    const matched: string[] = [];
+    if (text.date) confidence += 0.2;
+    if (text.time) confidence += 0.1;
+    if (text.priority) confidence += 0.1;
+    if (text.tags.length > 0 || text.project) confidence += 0.05;
+    if (TASK_HINTS.some((hint) => title.toLowerCase().includes(hint))) confidence += 0.15;
 
-    if (/พรุ่งนี้|tomorrow/i.test(text)) {
-      occurredAt = new Date(now.getTime() + day);
-      confidence += 0.2;
-      matched.push('พรุ่งนี้');
-    } else if (/มะรืน/i.test(text)) {
-      occurredAt = new Date(now.getTime() + 2 * day);
-      confidence += 0.2;
-      matched.push('มะรืน');
-    } else if (/วันนี้|today/i.test(text)) {
-      occurredAt = now;
-      confidence += 0.2;
-      matched.push('วันนี้');
-    }
-
-    let priority: TodayPriority = 'none';
-    for (const hint of PRIORITY_HINTS) {
-      if (hint.pattern.test(text)) {
+    let priority: TodayPriority = text.priority ?? 'none';
+    if (!text.priority) {
+      const hint = PRIORITY_HINTS.find((h) => h.pattern.test(title));
+      if (hint) {
         priority = hint.priority;
         confidence += 0.1;
-        break;
       }
     }
 
-    if (TASK_HINTS.some((hint) => text.toLowerCase().includes(hint))) {
-      confidence += 0.15;
-    }
-
-    // ตัวเลขล้วนท้ายข้อความมักเป็นจำนวนเงิน → ปล่อยให้โมดูล expense รับไป
-    if (/\d+(\.\d+)?\s*(บาท|฿)?$/.test(text) && !occurredAt) return null;
+    // มีจำนวนเงินแต่ไม่มีวัน → น่าจะเป็นรายจ่าย ให้ขึ้นเป็นตัวเลือกรอง
+    if (text.amount && !text.date) confidence = Math.min(confidence, 0.25);
 
     return {
       module: this.key,
-      title: text,
-      occurredAt,
-      isAllDay: true,
+      title,
+      occurredAt: text.occurredAt,
+      isAllDay: text.isAllDay,
       priority,
-      payload: taskPayloadSchema.parse({}),
+      payload: taskPayloadSchema.parse({ estimateMinutes: text.durationMinutes }),
+      rrule: text.rrule,
+      // ระบุเวลา = อยากถูกเตือนตอนนั้น · ทั้งวันไม่เตือนเอง (ผู้ใช้เพิ่มได้ในหน้ารายละเอียด)
+      reminders: text.time ? [{ channel: 'push', offsetMinutes: 0 }] : [],
       confidence: Math.min(confidence, 0.95),
       matchedTokens: matched,
     };

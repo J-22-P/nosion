@@ -1,5 +1,5 @@
 import type { ExpenseCategory } from '@nosion/contracts';
-import { formatInTimeZone, parseAmountToMinor, zonedTimeToUtc } from '@nosion/core';
+import { parseAmountToMinor, parseNaturalText, remainingText, type NlResult } from '@nosion/core';
 
 /**
  * คำที่บอกหมวด — จับแบบ "คำที่ยาวที่สุดชนะ" ไม่ใช่ "เจอก่อนชนะ"
@@ -73,12 +73,8 @@ const CATEGORY_KEYWORDS: Record<Exclude<ExpenseCategory, 'other'>, string[]> = {
 
 const INCOME_HINTS = /^\+|เงินเดือน|รายรับ|ได้เงิน|โบนัส|salary|income/i;
 
-/** "ชื่อ ตัวเลข [บาท|฿|thb] [ส่วนท้าย]" — ตัวเลขต้องลอยเป็นคำ ไม่ติดกับตัวอักษร (กัน "ais5g") */
-const AMOUNT_PATTERN =
-  /^(?<title>.+?)\s+฿?\s*(?<amount>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*(?<unit>บาท|฿|thb)?(?:\s+(?<rest>.*))?$/i;
-
-/** "ทุกวันที่ 5" · "ทุกเดือน" — Phase 3 จะแปลงเป็น rrule จริง ตอนนี้ใช้ตั้ง isBill + วันครบกำหนด */
-const BILL_PATTERN = /ทุกวันที่\s*(?<day>\d{1,2})|ทุกเดือน|monthly/i;
+/** รอบรายเดือน/รายปี = บิล (ขึ้นปฏิทิน + การ์ดบิลประจำ) · รายวัน/สัปดาห์ = รายจ่ายซ้ำธรรมดา */
+const BILL_FREQ = /^FREQ=(MONTHLY|YEARLY)\b/;
 
 export interface ParsedExpenseText {
   title: string;
@@ -86,8 +82,11 @@ export interface ParsedExpenseText {
   direction: 'expense' | 'income';
   category: ExpenseCategory;
   isBill: boolean;
-  /** วันครบกำหนดของบิล (ต้นวันตามโซนผู้ใช้) · null = ไม่ใช่บิลหรือไม่ระบุวัน */
+  /** วันครบกำหนดของบิล = รอบแรกของกฎ (ต้นวันตามโซนผู้ใช้) · null = ไม่ใช่บิล */
   dueAt: Date | null;
+  /** วันที่ผู้ใช้ระบุ ("เมื่อวาน") · null = ไม่ระบุ */
+  occurredAt: Date | null;
+  rrule: string | null;
   confidence: number;
   matchedTokens: string[];
 }
@@ -110,50 +109,24 @@ export function guessCategory(text: string): { category: ExpenseCategory; keywor
 }
 
 /**
- * วันครบกำหนดถัดไปของ "ทุกวันที่ N" นับจากวันนี้ (รวมวันนี้)
- * เดือนที่ไม่มีวันที่ N (เช่น 31 ใน ก.พ.) → วันสุดท้ายของเดือน
+ * ตีความผลของ parser กลางเป็นรายจ่าย (สเปก 6.4) — pure function ไม่แตะฐานข้อมูล
+ * ไม่มีจำนวนเงิน / ไม่มีชื่อรายการ = ไม่ใช่รายจ่าย → null (ให้โมดูลอื่นลอง)
  */
-export function nextDueDate(dayOfMonth: number, now: Date, timeZone: string): Date {
-  const [y, m, d] = formatInTimeZone(now, timeZone).split('-').map(Number) as [
-    number,
-    number,
-    number,
-  ];
-  const clamp = (year: number, month: number) =>
-    Math.min(dayOfMonth, new Date(Date.UTC(year, month, 0)).getUTCDate());
-  let year = y;
-  let month = m;
-  if (clamp(year, month) < d) {
-    month = m === 12 ? 1 : m + 1;
-    year = m === 12 ? y + 1 : y;
-  }
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return zonedTimeToUtc(`${year}-${pad(month)}-${pad(clamp(year, month))}T00:00:00`, timeZone);
-}
-
-/**
- * แปลงข้อความสั้นแบบ "กาแฟ 65" เป็นรายจ่าย (สเปก 6.4) — pure function ไม่แตะฐานข้อมูล
- * ไม่มีจำนวนเงิน = ไม่ใช่รายจ่าย → null (ให้โมดูลอื่นลอง)
- */
-export function parseExpenseText(
-  input: string,
-  now: Date,
-  timeZone: string,
-  currency = 'THB',
-): ParsedExpenseText | null {
-  const m = AMOUNT_PATTERN.exec(input.trim());
-  if (!m?.groups) return null;
-  const amountMinor = parseAmountToMinor(m.groups.amount!, currency);
+export function interpretExpense(nl: NlResult, currency = 'THB'): ParsedExpenseText | null {
+  const amount = nl.tokens.find((t) => t.kind === 'amount');
+  if (!amount || amount.kind !== 'amount') return null;
+  const amountMinor = parseAmountToMinor(amount.value, currency);
   if (amountMinor === null || amountMinor === 0) return null;
 
-  const title = m.groups.title!.replace(/^\+\s*/, '').trim();
-  const rest = m.groups.rest ?? '';
-  const matchedTokens = [m.groups.amount!];
+  // "ซื้อ 2 ขวด 50 บาท" ชื่อ "ซื้อ 2 ขวด" — ปริมาณ/ระยะเวลาเป็นส่วนหนึ่งของชื่อ ไม่ใช่ข้อมูลของรายจ่าย
+  const title = remainingText(nl, ['quantity', 'duration'])
+    .replace(/^\+\s*/, '')
+    .trim();
+  if (!title) return null;
+
+  const matchedTokens = [amount.raw];
   let confidence = 0.6;
-  if (m.groups.unit) {
-    confidence += 0.1;
-    matchedTokens.push(m.groups.unit);
-  }
+  if (amount.hasCurrency) confidence += 0.1;
 
   const { category, keyword } = guessCategory(title);
   if (keyword) {
@@ -161,23 +134,33 @@ export function parseExpenseText(
     matchedTokens.push(keyword);
   }
 
-  const bill = BILL_PATTERN.exec(rest);
-  let dueAt: Date | null = null;
-  if (bill) {
+  const recurrence = nl.tokens.find((t) => t.kind === 'recurrence');
+  if (recurrence) {
     confidence += 0.1;
-    matchedTokens.push(bill[0]);
-    const day = bill.groups?.day ? Number(bill.groups.day) : null;
-    if (day !== null && day >= 1 && day <= 31) dueAt = nextDueDate(day, now, timeZone);
+    matchedTokens.push(recurrence.raw);
   }
+  const isBill = nl.rrule !== null && BILL_FREQ.test(nl.rrule);
 
   return {
     title,
     amountMinor,
-    direction: INCOME_HINTS.test(input) ? 'income' : 'expense',
+    direction: amount.income || INCOME_HINTS.test(nl.input.trim()) ? 'income' : 'expense',
     category,
-    isBill: bill !== null,
-    dueAt,
+    isBill,
+    dueAt: isBill ? nl.occurredAt : null,
+    occurredAt: nl.date ? nl.occurredAt : null,
+    rrule: nl.rrule,
     confidence: Math.min(confidence, 0.95),
     matchedTokens,
   };
+}
+
+/** ทางลัดสำหรับเทสต์และโค้ดที่มีแค่ข้อความ */
+export function parseExpenseText(
+  input: string,
+  now: Date,
+  timeZone: string,
+  currency = 'THB',
+): ParsedExpenseText | null {
+  return interpretExpense(parseNaturalText(input, { now, timeZone }), currency);
 }

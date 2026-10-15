@@ -11,3 +11,4 @@ export * from './today';
 export * from './recurrence';
 export * from './reminders';
 export * from './push';
+export * from './parse';

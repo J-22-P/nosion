@@ -21,6 +21,7 @@ import { RedisModule } from './infra/redis/redis.module';
 import { ExpenseModule } from './modules/expense/expense.module';
 import { TaskModule } from './modules/task/task.module';
 import { OrganizationModule } from './organization/organization.module';
+import { ParseModule } from './parse/parse.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
@@ -36,6 +37,7 @@ import { UsersModule } from './users/users.module';
     OrganizationModule,
     EntriesModule,
     TodayModule,
+    ParseModule,
 
     // ── โมดูลโดเมน: เพิ่มบรรทัดเดียวต่อโมดูลใหม่ ──
     TaskModule,
