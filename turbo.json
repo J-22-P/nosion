@@ -24,7 +24,11 @@
         "CORS_ORIGINS",
         "PORT",
         "ENCRYPTION_KEY",
-        "ENABLE_DEMO_ACCOUNT"
+        "ENABLE_DEMO_ACCOUNT",
+        "VAPID_PUBLIC_KEY",
+        "VAPID_PRIVATE_KEY",
+        "VAPID_SUBJECT",
+        "NOTIFICATION_ACTION_SECRET"
       ]
     },
     "lint": {

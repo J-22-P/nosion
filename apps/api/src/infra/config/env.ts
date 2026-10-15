@@ -37,6 +37,14 @@ export const envSchema = z.object({
   /** Vercel Cron ส่งมาใน Authorization: Bearer — ไม่ตั้ง = ปิด endpoint cron (404) */
   CRON_SECRET: z.string().min(32, 'CRON_SECRET ต้องยาวอย่างน้อย 32 ตัว').optional(),
 
+  /** Web Push (สเปก 10.3) — public key ส่งให้เบราว์เซอร์ใช้ subscribe · ไม่ตั้ง = ปิด push */
+  VAPID_PUBLIC_KEY: z.string().min(1).optional(),
+  /** ลายเซ็นของปุ่มใน notification — ต้องตรงกับของ worker · ไม่ตั้ง = endpoint ปุ่มปิด (404) */
+  NOTIFICATION_ACTION_SECRET: z
+    .string()
+    .min(32, 'NOTIFICATION_ACTION_SECRET ต้องยาวอย่างน้อย 32 ตัว')
+    .optional(),
+
   ENABLE_DEMO_ACCOUNT: z
     .string()
     .default('true')

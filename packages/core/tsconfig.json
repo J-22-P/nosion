@@ -4,7 +4,9 @@
     "outDir": "dist",
     "rootDir": "src",
     // buildinfo อยู่ใน dist: ลบ dist เมื่อไร buildinfo หายตาม → tsc ไม่เข้าใจผิดว่าไฟล์ที่ไม่เปลี่ยน emit ไว้แล้ว
-    "tsBuildInfoFile": "dist/.tsbuildinfo"
+    "tsBuildInfoFile": "dist/.tsbuildinfo",
+    // ใช้ node:crypto ใน action-token.ts (ฝั่ง server) — web import ได้เฉพาะ subpath money/time/recurrence ที่ไม่แตะ Node (กฎ lint ใน eslint-config/next)
+    "types": ["node"]
   },
   "include": ["src/**/*.ts"],
   "exclude": ["dist", "node_modules", "**/*.test.ts"]

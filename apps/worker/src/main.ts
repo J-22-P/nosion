@@ -6,7 +6,8 @@ import { Queue, Worker, type Job } from 'bullmq';
 import IORedis from 'ioredis';
 import { logger } from './logger';
 import { runCleanup } from './processors/cleanup.processor';
-import { LogDispatcher } from './reminders/dispatcher';
+import { LogDispatcher, type ReminderDispatcher } from './reminders/dispatcher';
+import { WebPushDispatcher } from './reminders/web-push.dispatcher';
 import { startReminderPipeline } from './reminders/pipeline';
 import { DEFAULT_JOB_OPTIONS, QUEUE } from './queues';
 
@@ -42,11 +43,11 @@ async function bootstrap(): Promise<void> {
     { connection, concurrency: 1 },
   );
 
-  // Reminder Engine (สเปก 6.2) — push/email ของจริงต่อในขั้น 3–4 · ระหว่างนี้บันทึก log
+  // Reminder Engine (สเปก 6.2) — push ส่งจริงเมื่อตั้ง VAPID · ช่องทางอื่นยังบันทึก log (email: ขั้น 4)
   const reminders = await startReminderPipeline({
     connection,
     prisma,
-    dispatcher: new LogDispatcher(),
+    dispatcher: createDispatcher(),
   });
 
   cleanupWorker.on('failed', (job, err) => {
@@ -68,6 +69,33 @@ async function bootstrap(): Promise<void> {
 
   process.on('SIGTERM', () => void shutdown('SIGTERM'));
   process.on('SIGINT', () => void shutdown('SIGINT'));
+}
+
+function createDispatcher(): ReminderDispatcher {
+  const log = new LogDispatcher();
+  const { VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT, NOTIFICATION_ACTION_SECRET } =
+    process.env;
+  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
+    logger.warn(
+      'ไม่ได้ตั้ง VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY — การเตือนแบบ push จะถูกบันทึก log แทนการส่งจริง',
+    );
+    return log;
+  }
+  if (!NOTIFICATION_ACTION_SECRET) {
+    logger.warn(
+      'ไม่ได้ตั้ง NOTIFICATION_ACTION_SECRET — notification จะไม่มีปุ่ม "จ่ายแล้ว / เลื่อน"',
+    );
+  }
+  return new WebPushDispatcher(
+    prisma,
+    {
+      publicKey: VAPID_PUBLIC_KEY,
+      privateKey: VAPID_PRIVATE_KEY,
+      subject: VAPID_SUBJECT ?? 'mailto:noreply@nosion.dev',
+      actionSecret: NOTIFICATION_ACTION_SECRET,
+    },
+    log,
+  );
 }
 
 bootstrap().catch((err: unknown) => {

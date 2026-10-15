@@ -7,6 +7,7 @@ import { ProblemDetailsFilter } from './common/problem.filter';
 import { TraceMiddleware } from './common/trace.middleware';
 import { RecurrenceModule } from './recurrence/recurrence.module';
 import { RemindersModule } from './reminders/reminders.module';
+import { PushModule } from './push/push.module';
 import { RegistryModule } from './core/registry/registry.module';
 import { TodayModule } from './entries/today/today.module';
 import { EntriesModule } from './entries/entries.module';
@@ -39,6 +40,7 @@ import { UsersModule } from './users/users.module';
     ExpenseModule,
     RecurrenceModule,
     RemindersModule,
+    PushModule,
 
     HealthModule,
   ],

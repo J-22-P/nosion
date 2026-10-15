@@ -9,8 +9,8 @@
 | #   | ขั้น                                                                                              | Commit      | สถานะ |
 | --- | ------------------------------------------------------------------------------------------------- | ----------- | ----- |
 | 1   | API: reminder CRUD + `fireAt` ตามวันของ entry (แก้/เลื่อน) + reminder ใน template ของกฎการเกิดซ้ำ | `b8a1e31`   | ✅    |
-| 2   | Worker: sweeper ทุก 1 นาที + processor (guard, quiet hours, retry, DLQ) + integration test        | (รอ commit) | ✅    |
-| 3   | Web Push: VAPID · subscribe · service worker · ปุ่ม "จ่ายแล้ว / เลื่อน" โดยไม่เปิดแอป             |             | ⏳    |
+| 2   | Worker: sweeper ทุก 1 นาที + processor (guard, quiet hours, retry, DLQ) + integration test        | `3a3daae`   | ✅    |
+| 3   | Web Push: VAPID · subscribe · service worker · ปุ่ม "จ่ายแล้ว / เลื่อน" โดยไม่เปิดแอป             | (รอ commit) | ▶     |
 | 4   | Email: Resend + React Email 6 แบบ · Mailpit ในเครื่อง                                             |             | ⏳    |
 | 5   | Daily digest ตามโซนผู้ใช้ (สเปก 10.2) + ตั้งค่า quiet hours / digest ในหน้า Settings              |             | ⏳    |
 | 6   | Metrics `reminder_delivery_lag_seconds` + alert                                                   |             | ⏳    |
@@ -57,7 +57,7 @@
 
 ---
 
-## ขั้น 2 · Worker: sweeper + processor + retry + DLQ — (รอ commit)
+## ขั้น 2 · Worker: sweeper + processor + retry + DLQ — `3a3daae`
 
 **เป้าหมาย:** ยิงการเตือนตรงเวลา ไม่ซ้ำ ไม่หาย ตามสถาปัตยกรรม 2 ชั้นของสเปก 6.2 (transactional outbox + polling publisher)
 
@@ -98,3 +98,37 @@
 
 - ยังไม่มีหน้า admin retry DLQ (สเปก 6.2) — ดู/ลองใหม่ผ่าน Redis ได้ก่อน
 - หลายช่องทาง (push + email) ของการเตือนเดียวกันเป็นคนละแถวอยู่แล้ว — ไม่ต้องทำเพิ่ม
+
+---
+
+## ขั้น 3a · Web Push ฝั่ง server + ปุ่มใน notification — (รอ commit)
+
+**เป้าหมาย:** worker ส่ง push จริงถึงทุกเครื่องของผู้ใช้ และกด "จ่ายแล้ว / เลื่อน 1 วัน" จาก notification ได้โดยไม่ต้องล็อกอิน
+
+**สิ่งที่เปลี่ยน**
+
+- 📁 `packages/contracts/src/push.ts` — subscribe / unsubscribe / notification action / `PushConfigDto`
+- 📁 `packages/core/src/action-token.ts` — `signActionToken` / `verifyActionToken` (HMAC-SHA256 · ผูก user + entry · 7 วัน) · core ได้ `@types/node`
+- 📁 `apps/api/src/push/` — `GET /push/config`, `POST /push/subscribe`, `DELETE /push/unsubscribe`,
+  `POST /notifications/actions` (`@Public` · rate limit 30/นาที) · env `VAPID_PUBLIC_KEY`, `NOTIFICATION_ACTION_SECRET`
+- 📁 `apps/worker/src/reminders/web-push.dispatcher.ts` — `web-push@3.6.7` · `main.ts` เลือก dispatcher ตาม env
+- 📁 `scripts/setup-dev.mjs` สุ่มคู่กุญแจ VAPID (ECDH P-256 ด้วย `node:crypto` ไม่ต้องลง lib) + secret ให้ · `.env.example`, `docker-compose.yml`, `turbo.json` (env ของ `dev`)
+
+**การตัดสินใจ**
+
+- **ปุ่มใน notification ยืนยันตัวด้วย action token ไม่ใช่ access token** — service worker เข้าถึง access token ไม่ได้ (เก็บใน memory ของหน้าเว็บตามสเปก 9.1)
+  token ผูก user + entry และทำได้แค่ complete/defer → หลุดไปก็แตะได้รายการเดียว · payload ของ Web Push เข้ารหัสถึงเบราว์เซอร์อยู่แล้ว (RFC 8291)
+  · ทางเลือกที่ไม่เลือก: device token ต่อ subscription เก็บใน IndexedDB — ไม่ต้องแชร์ secret ระหว่าง API/worker แต่โค้ดฝั่ง SW มากกว่ามาก
+  · ข้อเสียที่ยอมรับ: logout แล้ว token ใน notification ที่ค้างอยู่ยังใช้ได้จนหมดอายุ
+- token ผิด/หมดอายุ → 401 ข้อความเดียว (ไม่บอกเหตุผล) · token ถูกแต่ entry ไม่ใช่ของ user ใน token → 404 ตามกฎ IDOR เดิม
+- **endpoint เป็นของเครื่อง ไม่ใช่ของบัญชี** — subscribe เครื่องเดิมด้วยบัญชีอื่น = ย้ายเจ้าของ (กันการเตือนของคนเก่าเด้งบนเครื่องคนใหม่)
+- dispatcher: ไม่มีเครื่องเลย / ทุกเครื่องตอบ 404·410 → ล้มถาวร (ลบ subscription ที่ตาย) · สำเร็จ ≥ 1 เครื่อง = สำเร็จ · 5xx ทุกเครื่อง → retry
+- ไม่ตั้ง VAPID = บันทึก log แทนส่ง · ไม่ตั้ง secret = notification ไม่มีปุ่ม (กดแล้วเปิดแอป) — ระบบยังขึ้นได้ทุกกรณี
+
+**วิธีตรวจ**
+
+- unit: action token 10 เคส (หมดอายุ · secret ผิด · แก้ entryId ใน body · รูปแบบผิด) · WebPushDispatcher 7 เคส (ทุกเครื่อง · ไม่มี secret · 410 ลบ · 5xx retry · fallback)
+- integration API `test/push.int-spec.ts` 6 เคส: config · subscribe ซ้ำ/ย้ายเจ้าของ/unsubscribe เฉพาะของตัวเอง · 422 ·
+  **กด "จ่ายแล้ว" โดยไม่มี access token → done** · "เลื่อน 1 วัน" → วัน + การเตือนเลื่อนตาม · token ปลอม/หมดอายุ/secret ผิด 401 · token ของคนอื่น 404
+- กุญแจที่ `setup:dev` สร้างผ่าน `webpush.setVapidDetails` (ตรวจความยาว/รูปแบบ) · integration ทั้งชุด API 77 + worker 9 · `pnpm verify`
+- ⚠️ ยังไม่ได้ส่งถึง push service จริง (FCM / APNs) — ทำพร้อมฝั่งเว็บ (3b)
