@@ -6,6 +6,8 @@ import { Queue, Worker, type Job } from 'bullmq';
 import IORedis from 'ioredis';
 import { logger } from './logger';
 import { runCleanup } from './processors/cleanup.processor';
+import { LogDispatcher } from './reminders/dispatcher';
+import { startReminderPipeline } from './reminders/pipeline';
 import { DEFAULT_JOB_OPTIONS, QUEUE } from './queues';
 
 const connection = new IORedis(process.env.REDIS_URL ?? 'redis://localhost:6379', {
@@ -40,6 +42,13 @@ async function bootstrap(): Promise<void> {
     { connection, concurrency: 1 },
   );
 
+  // Reminder Engine (สเปก 6.2) — push/email ของจริงต่อในขั้น 3–4 · ระหว่างนี้บันทึก log
+  const reminders = await startReminderPipeline({
+    connection,
+    prisma,
+    dispatcher: new LogDispatcher(),
+  });
+
   cleanupWorker.on('failed', (job, err) => {
     logger.error({ jobId: job?.id, attempts: job?.attemptsMade, err: err.message }, 'job ล้มเหลว');
   });
@@ -49,6 +58,7 @@ async function bootstrap(): Promise<void> {
   // graceful shutdown: ปิด worker ก่อน เพื่อให้ job ที่ทำค้างอยู่จบก่อนตัดการเชื่อมต่อ
   const shutdown = async (signal: string) => {
     logger.info({ signal }, 'กำลังปิด worker อย่างนุ่มนวล…');
+    await reminders.close();
     await cleanupWorker.close();
     await cleanupQueue.close();
     await prisma.$disconnect();

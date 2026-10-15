@@ -9,8 +9,9 @@
     "start": "node dist/main.js",
     "lint": "eslint src",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run",
-    "test:unit": "vitest run"
+    "test": "vitest run --project unit",
+    "test:unit": "vitest run --project unit",
+    "test:int": "vitest run --project integration"
   },
   "dependencies": {
     "@nosion/contracts": "workspace:*",

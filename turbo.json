@@ -46,6 +46,11 @@
     },
     "db:generate": {
       "cache": false
+    },
+    "@nosion/worker#test:int": {
+      "cache": false,
+      "dependsOn": ["^build", "@nosion/api#test:int"],
+      "env": ["DATABASE_URL", "REDIS_URL"]
     }
   }
 }
