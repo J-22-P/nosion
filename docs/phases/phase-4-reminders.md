@@ -2,19 +2,19 @@
 
 > เป้าหมาย: แจ้งเตือนตรงเวลา ไม่ซ้ำ ไม่หาย — PostgreSQL เป็น source of truth, Redis เป็นแค่ตัวตั้งเวลาระยะสั้น (≤ 5 นาที) — สเปก 6.2, 10, 15 Phase 4
 > **DoD:** ตั้งเตือนล่วงหน้า 1 วัน → ได้รับ push จริงบนมือถือ ตรงเวลา ±60 วินาที · กด "จ่ายแล้ว" จาก notification ได้โดยไม่เปิดแอป
-> ความรู้เบื้องหลัง: บท 17 (ยังไม่เขียน)
+> ความรู้เบื้องหลัง: [บท 17](../learn/17-phase4-reminders-push-email-and-worker.md) · [ADR-011](../adr/011-reminders-outbox-polling.md)
 
 ## แผน (ปรับได้ระหว่างทาง)
 
-| #   | ขั้น                                                                                              | Commit                | สถานะ |
-| --- | ------------------------------------------------------------------------------------------------- | --------------------- | ----- |
-| 1   | API: reminder CRUD + `fireAt` ตามวันของ entry (แก้/เลื่อน) + reminder ใน template ของกฎการเกิดซ้ำ | `b8a1e31`             | ✅    |
-| 2   | Worker: sweeper ทุก 1 นาที + processor (guard, quiet hours, retry, DLQ) + integration test        | `3a3daae`             | ✅    |
-| 3   | Web Push: VAPID · subscribe · service worker · ปุ่ม "จ่ายแล้ว / เลื่อน" โดยไม่เปิดแอป             | `f2b699e` · `c257537` | ✅    |
-| 4   | Email: Resend + React Email 6 แบบ · Mailpit ในเครื่อง                                             | `7e58335`             | ✅    |
-| 5   | Daily digest ตามโซนผู้ใช้ (สเปก 10.2) + ตั้งค่า quiet hours / digest ในหน้า Settings              | `aea4a10`             | ✅    |
-| 6   | Metrics `reminder_delivery_lag_seconds` + alert                                                   | `07f048d`             | ✅    |
-| 7   | Staging: worker + Redis บน Fly.io (region sin) · DoD บนมือถือจริง · บท learn 17 · ADR             |                       | ⏳    |
+| #   | ขั้น                                                                                              | Commit                              | สถานะ                 |
+| --- | ------------------------------------------------------------------------------------------------- | ----------------------------------- | --------------------- |
+| 1   | API: reminder CRUD + `fireAt` ตามวันของ entry (แก้/เลื่อน) + reminder ใน template ของกฎการเกิดซ้ำ | `b8a1e31`                           | ✅                    |
+| 2   | Worker: sweeper ทุก 1 นาที + processor (guard, quiet hours, retry, DLQ) + integration test        | `3a3daae`                           | ✅                    |
+| 3   | Web Push: VAPID · subscribe · service worker · ปุ่ม "จ่ายแล้ว / เลื่อน" โดยไม่เปิดแอป             | `f2b699e` · `c257537`               | ✅                    |
+| 4   | Email: Resend + React Email 6 แบบ · Mailpit ในเครื่อง                                             | `7e58335`                           | ✅                    |
+| 5   | Daily digest ตามโซนผู้ใช้ (สเปก 10.2) + ตั้งค่า quiet hours / digest ในหน้า Settings              | `aea4a10`                           | ✅                    |
+| 6   | Metrics `reminder_delivery_lag_seconds` + alert                                                   | `07f048d`                           | ✅                    |
+| 7   | Staging: worker + Redis บน Fly.io (region sin) · DoD บนมือถือจริง · บท learn 17 · ADR             | `aa4f460` · `bc0dd63` · (รอ commit) | 🟡 รอรัน wizard + DoD |
 
 **ตัดสินใจก่อนเริ่ม:** worker บน staging รันที่ **Fly.io** (เจ้าของบัญชีเลือก 15 ต.ค. 2026) — Vercel Cron แผนฟรีรันได้วันละครั้ง
 แต่ sweeper ต้องรันทุกนาที และ BullMQ poll Redis ตลอดเวลาจนโควตาฟรีของ Upstash ไม่พอ
@@ -327,7 +327,7 @@
 
 ---
 
-## ขั้น 7b · ตั้งค่า Fly.io (worker + Redis) + wizard + deploy อัตโนมัติ — (รอ commit)
+## ขั้น 7b · ตั้งค่า Fly.io (worker + Redis) + wizard + deploy อัตโนมัติ — `bc0dd63`
 
 **เป้าหมาย:** เตรียมทุกอย่างที่ deploy worker ได้ในคำสั่งเดียว ส่วนที่ต้องใช้บัญชีของเจ้าของ (Fly / Vercel / Supabase / Resend) รวมไว้ใน wizard
 
@@ -361,3 +361,13 @@
 
 - [ ] รัน `bash scripts/fly-staging-setup.sh`
 - [ ] DoD บนมือถือจริง: เปิดการแจ้งเตือนที่ `/settings` → ตั้งบิลเตือนล่วงหน้า → ได้ push ตรงเวลา ±60 วินาที → กด "จ่ายแล้ว" โดยไม่เปิดแอป
+
+---
+
+## ขั้น 7c · บท learn 17 + ADR-011 — (รอ commit)
+
+- 📁 `docs/learn/17-phase4-reminders-push-email-and-worker.md` — 10 หัวข้อ + ข้อเสียที่ยอมรับ + แบบฝึกหัด 12 ข้อ · ลงสารบัญ `00-how-to-read.md` และ `index.html`
+- 📁 `docs/adr/011-reminders-outbox-polling.md` — ทำไม PostgreSQL + sweeper แทน enqueue พร้อม delay (ทางเลือกที่ไม่เลือก + ข้อเสีย)
+- ADR ใช้เลข 011 — 007/008 ยังจองไว้ตามสเปกภาคผนวก
+
+> ✅ Phase 4 เสร็จฝั่งโค้ด (15 ต.ค. 2026) — เหลือรัน `scripts/fly-staging-setup.sh` และตรวจ DoD บนมือถือจริง

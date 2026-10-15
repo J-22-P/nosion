@@ -13,5 +13,6 @@
 | [006](./006-architecture-boundaries-as-lint.md)     | บังคับกฎสถาปัตยกรรมด้วย lint             | ยอมรับแล้ว |
 | [009](./009-monochrome-design-system-dual-theme.md) | Monochrome design system + dual theme    | ยอมรับแล้ว |
 | [010](./010-floating-time-and-month-end-clamp.md)   | Floating time + clamp วันสิ้นเดือน       | ยอมรับแล้ว |
+| [011](./011-reminders-outbox-polling.md)            | การเตือน: PostgreSQL + sweeper (outbox)  | ยอมรับแล้ว |
 
 > ADR-007 และ 008 จองไว้ตามสเปกภาคผนวก (ยังไม่เขียน)

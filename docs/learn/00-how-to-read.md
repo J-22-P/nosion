@@ -21,24 +21,25 @@
 
 ## ลำดับที่ควรอ่าน
 
-| ไฟล์                                                              | หัวข้อ                                                                                                    | อ่านเมื่อ    |
-| ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ------------ |
-| [01](./01-foundations-web-architecture.md)                        | พื้นฐานสถาปัตยกรรมเว็บ: client/server, HTTP, process, ทำไมต้องแยก 3 แอป                                   | อ่านก่อนเสมอ |
-| [02](./02-phase0-monorepo-and-tooling.md)                         | **Phase 0** · monorepo, pnpm, Turborepo, TypeScript, ESLint, Docker, CI                                   | หลังอ่าน 01  |
-| [03](./03-phase0-database-and-prisma.md)                          | **Phase 0** · ฐานข้อมูลเชิงสัมพันธ์, index, JSONB, migration, Prisma                                      | หลังอ่าน 02  |
-| [04](./04-phase1-auth-deep-dive.md)                               | **Phase 1** · รหัสผ่าน, JWT, cookie, refresh rotation, IDOR, rate limit                                   | หลังอ่าน 03  |
-| [05](./05-phase1-plugin-architecture-and-di.md)                   | **Phase 1** · SOLID, DI container, decorator, metadata, registry pattern                                  | หลังอ่าน 04  |
-| [06](./06-phase1-api-design-and-validation.md)                    | **Phase 1** · REST, RFC 9457, pagination, Zod, optimistic concurrency                                     | หลังอ่าน 05  |
-| [07](./07-phase1-frontend-data-layer.md)                          | **Phase 1** · React, Next.js App Router, TanStack Query, Zustand, Tailwind                                | หลังอ่าน 06  |
-| [10](./10-phase2a-design-system-and-theming.md)                   | **Phase 2a** · CSS cascade/layer, custom property, design token, Tailwind v4, dark mode, contrast, ฟอนต์  | หลังอ่าน 07  |
-| [11](./11-phase2a-accessible-components-and-app-shell.md)         | **Phase 2a** · accessibility tree, ARIA, focus, keyboard pattern, responsive, hydration                   | หลังอ่าน 10  |
-| [12](./12-phase2a-tasks-page-frontend.md)                         | **Phase 2a** · URL state, pure function, debounce, regex + Unicode, query key, นาฬิกาฝั่ง client          | หลังอ่าน 11  |
-| [13](./13-phase2a-task-api-sidebar-and-focus-timer.md)            | **Phase 2a** · timezone/DST, COUNT/GROUP BY, isolation, race condition, partial unique index, idempotency | หลังอ่าน 12  |
-| [14](./14-phase2a-pwa-icons-visual-and-a11y-testing.md)           | **Phase 2a** · web app manifest, maskable icon, visual regression, API ปลอม, axe, contrast เป็นเทสต์      | หลังอ่าน 13  |
-| [15](./15-phase2b-money-months-and-second-module.md)              | **Phase 2b** · เงินเป็น integer, ขอบเดือนตามโซนเวลา, โมดูลที่สอง, parser "กาแฟ 65"                        | หลังอ่าน 14  |
-| [16](./16-phase3-recurrence-floating-time-and-materialization.md) | **Phase 3** · RRULE, floating time, DST, clamp วันสิ้นเดือน, lazy materialization, idempotency, cron      | หลังอ่าน 15  |
-| [08](./08-testing-and-quality.md)                                 | การทดสอบและคุณภาพ: pyramid, unit/integration/e2e, coverage, CI gate                                       | ท้ายสุด      |
-| [09](./09-glossary.md)                                            | อภิธานศัพท์ — เปิดหาเวลาเจอคำที่ไม่รู้จัก                                                                 | ใช้อ้างอิง   |
+| ไฟล์                                                              | หัวข้อ                                                                                                                        | อ่านเมื่อ    |
+| ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| [01](./01-foundations-web-architecture.md)                        | พื้นฐานสถาปัตยกรรมเว็บ: client/server, HTTP, process, ทำไมต้องแยก 3 แอป                                                       | อ่านก่อนเสมอ |
+| [02](./02-phase0-monorepo-and-tooling.md)                         | **Phase 0** · monorepo, pnpm, Turborepo, TypeScript, ESLint, Docker, CI                                                       | หลังอ่าน 01  |
+| [03](./03-phase0-database-and-prisma.md)                          | **Phase 0** · ฐานข้อมูลเชิงสัมพันธ์, index, JSONB, migration, Prisma                                                          | หลังอ่าน 02  |
+| [04](./04-phase1-auth-deep-dive.md)                               | **Phase 1** · รหัสผ่าน, JWT, cookie, refresh rotation, IDOR, rate limit                                                       | หลังอ่าน 03  |
+| [05](./05-phase1-plugin-architecture-and-di.md)                   | **Phase 1** · SOLID, DI container, decorator, metadata, registry pattern                                                      | หลังอ่าน 04  |
+| [06](./06-phase1-api-design-and-validation.md)                    | **Phase 1** · REST, RFC 9457, pagination, Zod, optimistic concurrency                                                         | หลังอ่าน 05  |
+| [07](./07-phase1-frontend-data-layer.md)                          | **Phase 1** · React, Next.js App Router, TanStack Query, Zustand, Tailwind                                                    | หลังอ่าน 06  |
+| [10](./10-phase2a-design-system-and-theming.md)                   | **Phase 2a** · CSS cascade/layer, custom property, design token, Tailwind v4, dark mode, contrast, ฟอนต์                      | หลังอ่าน 07  |
+| [11](./11-phase2a-accessible-components-and-app-shell.md)         | **Phase 2a** · accessibility tree, ARIA, focus, keyboard pattern, responsive, hydration                                       | หลังอ่าน 10  |
+| [12](./12-phase2a-tasks-page-frontend.md)                         | **Phase 2a** · URL state, pure function, debounce, regex + Unicode, query key, นาฬิกาฝั่ง client                              | หลังอ่าน 11  |
+| [13](./13-phase2a-task-api-sidebar-and-focus-timer.md)            | **Phase 2a** · timezone/DST, COUNT/GROUP BY, isolation, race condition, partial unique index, idempotency                     | หลังอ่าน 12  |
+| [14](./14-phase2a-pwa-icons-visual-and-a11y-testing.md)           | **Phase 2a** · web app manifest, maskable icon, visual regression, API ปลอม, axe, contrast เป็นเทสต์                          | หลังอ่าน 13  |
+| [15](./15-phase2b-money-months-and-second-module.md)              | **Phase 2b** · เงินเป็น integer, ขอบเดือนตามโซนเวลา, โมดูลที่สอง, parser "กาแฟ 65"                                            | หลังอ่าน 14  |
+| [16](./16-phase3-recurrence-floating-time-and-materialization.md) | **Phase 3** · RRULE, floating time, DST, clamp วันสิ้นเดือน, lazy materialization, idempotency, cron                          | หลังอ่าน 15  |
+| [17](./17-phase4-reminders-push-email-and-worker.md)              | **Phase 4** · outbox + sweeper, at-least-once, quiet hours, Web Push/VAPID, action token, อีเมล, digest ตามโซน, metrics/alert | หลังอ่าน 16  |
+| [08](./08-testing-and-quality.md)                                 | การทดสอบและคุณภาพ: pyramid, unit/integration/e2e, coverage, CI gate                                                           | ท้ายสุด      |
+| [09](./09-glossary.md)                                            | อภิธานศัพท์ — เปิดหาเวลาเจอคำที่ไม่รู้จัก                                                                                     | ใช้อ้างอิง   |
 
 ---
 
