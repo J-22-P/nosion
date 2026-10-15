@@ -1,6 +1,7 @@
 import { expensePayloadSchema, type ExpenseCategory, type ExpensePayload } from '@nosion/contracts';
 import {
   formatMoney,
+  type CalendarAction,
   type CalendarEvent,
   type Entry,
   type ModuleMeta,
@@ -60,8 +61,21 @@ export class ExpenseTrackableModule implements TrackableModule<ExpensePayload> {
       allDay: true,
       color: this.meta.color,
       status: entry.status,
-      meta: { badge: paid ? 'จ่ายแล้ว' : 'ครบกำหนด', deepLink: `/expenses?entry=${entry.id}` },
+      meta: {
+        badge: paid ? 'จ่ายแล้ว' : 'ครบกำหนด',
+        deepLink: `/expenses?entry=${entry.id}`,
+        // Quick Snapshot ของปฏิทินรวมยอดบิลที่ครบกำหนดในสัปดาห์
+        amountMinor: p.amountMinor,
+        currency: p.currency,
+      },
     };
+  }
+
+  /** บิลที่ยังไม่จ่าย = ปุ่ม "จ่ายแล้ว" (Mark Paid ใน mockup 8.11.4) */
+  calendarActions(entry: Entry): CalendarAction[] {
+    const p = entry.payload as ExpensePayload;
+    if (!p.isBill || entry.status === 'done' || entry.status === 'cancelled') return [];
+    return [{ kind: 'complete', label: 'จ่ายแล้ว', presentation: 'button' }];
   }
 
   /** การ์ด "การเงินและงบประมาณ": ใช้วันนี้ + เดือนนี้เทียบงบ + แจ้งเตือนหมวด/บิล */

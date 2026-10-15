@@ -2,6 +2,7 @@ import { type MiddlewareConsumer, Module, type NestModule } from '@nestjs/common
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AuthModule } from './auth/auth.module';
+import { CalendarModule } from './calendar/calendar.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { ProblemDetailsFilter } from './common/problem.filter';
 import { TraceMiddleware } from './common/trace.middleware';
@@ -38,6 +39,7 @@ import { UsersModule } from './users/users.module';
     EntriesModule,
     TodayModule,
     ParseModule,
+    CalendarModule,
 
     // ── โมดูลโดเมน: เพิ่มบรรทัดเดียวต่อโมดูลใหม่ ──
     TaskModule,

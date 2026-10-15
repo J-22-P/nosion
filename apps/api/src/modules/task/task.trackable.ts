@@ -3,6 +3,7 @@ import {
   isEntryOverdue,
   remainingText,
   type NlResult,
+  type CalendarAction,
   type CalendarEvent,
   type Entry,
   type ModuleMeta,
@@ -55,6 +56,11 @@ export class TaskTrackableModule implements TrackableModule<TaskPayload> {
       status: entry.status,
       meta: { priority: entry.priority },
     };
+  }
+
+  calendarActions(entry: Entry): CalendarAction[] {
+    if (entry.status === 'done' || entry.status === 'cancelled') return [];
+    return [{ kind: 'complete', label: 'ทำเสร็จ', presentation: 'checkbox' }];
   }
 
   summarizeToday(entries: Entry[], ctx: UserContext): TodayWidget {

@@ -7,9 +7,9 @@
 
 | #   | ขั้น                                                                                                        | Commit      | สถานะ |
 | --- | ----------------------------------------------------------------------------------------------------------- | ----------- | ----- |
-| 1   | NL Parser กลาง `@nosion/core/nl` (ไทย + อังกฤษ) + table-driven test 80 เคส                                  | (รอ commit) | ✅    |
-| 2   | โมดูล task/expense ใช้ parser กลาง · `POST /parse` วนทุกโมดูล + `POST /parse/commit` (entry + rule + เตือน) | (รอ commit) | ✅    |
-| 3   | Calendar Aggregator `GET /calendar` (+ `countsByModule`, การเตือนของวัน, `calendarActions()`)               | —           | ⬜    |
+| 1   | NL Parser กลาง `@nosion/core/nl` (ไทย + อังกฤษ) + table-driven test 80 เคส                                  | `7d94b1f`   | ✅    |
+| 2   | โมดูล task/expense ใช้ parser กลาง · `POST /parse` วนทุกโมดูล + `POST /parse/commit` (entry + rule + เตือน) | `bc6d4b9`   | ✅    |
+| 3   | Calendar Aggregator `GET /calendar` (+ `countsByModule`, การเตือนของวัน, `calendarActions()`)               | (รอ commit) | ✅    |
 | 4   | iCal feed `GET /calendar/:token.ics` + rotate token                                                         | —           | ⬜    |
 | 5   | หน้า `/calendar` — month / week / agenda · module filter · day panel · Quick Snapshot                       | —           | ⬜    |
 | 6   | ลากรายการเปลี่ยนวัน (optimistic + rollback)                                                                 | —           | ⬜    |
@@ -23,7 +23,7 @@
 
 ---
 
-## ขั้น 1 · NL Parser กลาง `@nosion/core/nl` — (รอ commit)
+## ขั้น 1 · NL Parser กลาง `@nosion/core/nl` — `7d94b1f`
 
 **เป้าหมาย:** parser ชุดเดียวที่ทั้งเบราว์เซอร์ (preview ทันทีใน ⌘K) และ API (ตัดสินจริง) ใช้ — ก่อนหน้านี้ task กับ expense
 ต่างคนต่างเขียน regex ของตัวเอง ("พรุ่งนี้" ของ task บวก 24 ชม. จาก server ไม่ใช่พรุ่งนี้ของผู้ใช้)
@@ -70,7 +70,7 @@
 
 ---
 
-## ขั้น 2 · โมดูลใช้ parser กลาง + `POST /parse` · `POST /parse/commit` — (รอ commit)
+## ขั้น 2 · โมดูลใช้ parser กลาง + `POST /parse` · `POST /parse/commit` — `bc6d4b9`
 
 **เป้าหมาย:** ฝั่ง API ของ DoD — ประโยคเดียว → รายการที่ถูกโมดูล + กฎการเกิดซ้ำ + การเตือน + แท็ก/โปรเจกต์ ในคำขอเดียว
 (⌘K ในขั้น 7 แค่เรียก endpoint นี้)
@@ -105,3 +105,37 @@
     `clientId` ซ้ำไม่สร้างซ้ำ · 422 · 401
 - `pnpm verify` ผ่าน · integration API 93 + worker 19 ผ่าน (`pnpm test:int:local`)
 - ⚠️ ยังไม่มี UI เรียก `/parse` (ขั้น 7–8) · ยังไม่ได้ลองบน staging
+
+---
+
+## ขั้น 3 · Calendar Aggregator `GET /calendar` — (รอ commit)
+
+**เป้าหมาย:** API ของหน้าปฏิทินรวม (สเปก 6.3 · 8.11.4) — ทุกโมดูลในคำขอเดียว พร้อมทุกอย่างที่ grid / day panel / chip ต้องใช้
+
+**สิ่งที่เปลี่ยน**
+
+- 📁 `apps/api/src/calendar/` (โมดูลใหม่) — `GET /calendar?from=&to=&module=` · `from`/`to` เป็นวันบนปฏิทินของผู้ใช้ รวมทั้งสองวัน ไม่เกิน 93 วัน
+  (month grid 6 สัปดาห์ = 42 วัน) · header `Server-Timing: calendar;dur=…` สำหรับบรรทัด "Sync latency"
+- `calendar-events.ts` — `buildCalendar()` ส่วนคำนวณล้วน: เรียก `toCalendarEvent` + `calendarActions` ของแต่ละโมดูล · `date` ของ event ตามโซนผู้ใช้ ·
+  `countsByModule` (ทุกโมดูลที่เปิด รวม 0) · `reminders` ในช่วง (จุด accent + หัว day panel)
+- 📁 `packages/core` — `TrackableModule.calendarActions?(entry)` (optional) + type `CalendarAction` (`complete` checkbox/button · `open`)
+- task: ยังไม่เสร็จ = checkbox "ทำเสร็จ" · expense: บิลที่ยังไม่จ่าย = ปุ่ม "จ่ายแล้ว" · meta ของบิลมี `amountMinor`/`currency` สำหรับ Quick Snapshot
+- 📁 `RecurrenceService.projectedEntries()` — รอบที่เลย horizon 90 วันคำนวณจากกฎโดยไม่เขียน DB → event `projected: true, entryId: null, actions: []`
+- 📁 `packages/contracts/src/calendar.ts` — `calendarQuerySchema`, `CalendarDto`, `CalendarEventDto`, `CalendarReminderDto`
+
+**การตัดสินใจ**
+
+- **ดึง entry ทุกโมดูลใน query เดียว** (ตามสเปก 6.3) รวมการเตือนด้วย `include` — ไม่ใช่ N query ต่อโมดูล
+- **projected events** — เดิมเลื่อนปฏิทินไปเกิน 3 เดือนแล้วบิลรายเดือนหายไปเฉย ๆ (ยังไม่ถูก materialize) ·
+  เลือก "คำนวณแสดง" แทน "materialize ตามช่วงที่เปิดดู" เพราะการเปิดดูไม่ควรเขียน DB และ cron เติมให้เองเมื่อใกล้ถึง
+- `?module=` กรองเฉพาะ events แต่ `countsByModule` นับทุกโมดูล — chip ที่ไม่ได้เลือกยังบอกได้ว่ามีกี่รายการ
+- Quick Snapshot ไม่ทำเป็น endpoint แยก — หน้าเว็บคำนวณจาก events ของสัปดาห์ (ตัวเลขตรงกับที่เห็นบน grid เสมอ)
+- การเตือนนับเฉพาะของ entry ที่อยู่ในช่วง — การเตือนล่วงหน้าของรายการวันแรกของเดือนถัดไปที่ยิงในวันสุดท้ายของช่วงจะไม่ติดจุด (ยอมรับได้)
+- โมดูลอยู่ที่ `src/calendar/` ไม่ใช่ `core/calendar/` อย่างตัวอย่างในสเปก — อ่าน Prisma ซึ่ง ADR-006 ห้ามใน `core/` (แบบเดียวกับ Today)
+
+**วิธีตรวจ**
+
+- unit `calendar-events.spec.ts` 6 เคส: วันที่ตามโซน · ลำดับ (วัน → ทั้งวัน → เวลา) · filter vs counts · โมดูลปิด/ปุ่มจากโมดูล · projected · การเตือนที่ยกเลิก
+- integration `test/calendar.int-spec.ts` 5 เคส: งาน + บิล (จาก `/parse/commit`) ในคำขอเดียวพร้อมปุ่มและการเตือน · รายจ่ายจรไม่ขึ้น · `?module=` ·
+  **เลย horizon → projected และไม่เขียน DB** · แยกผู้ใช้ · 422
+- `pnpm verify` ผ่าน · integration API 98 + worker 19 ผ่าน

@@ -24,6 +24,7 @@ import {
   resolveDateInput,
   slotOnLocalDate,
   toFloating,
+  type Entry,
   type RecurrenceEnd,
   type RecurrenceSpec,
 } from '@nosion/core';
@@ -440,6 +441,61 @@ export class RecurrenceService {
     });
 
     return { ruleId: rule.id, created, materializedUntil: horizon };
+  }
+
+  /**
+   * รอบในช่วง `[from, to)` ที่ "ยังไม่ถูกสร้าง" (เลย horizon 90 วัน) — ให้ปฏิทินมองไปข้างหน้าได้โดยไม่เขียน DB
+   * คืนเป็น domain entry ชั่วคราว id = `projected:<ruleId>:<epoch ms>` สถานะ pending · ไม่ย้อนอดีต
+   */
+  async projectedEntries(userId: string, from: Date, to: Date, now = new Date()): Promise<Entry[]> {
+    const rules = await this.prisma.forUser(userId).recurrenceRule.findMany({
+      where: {
+        deletedAt: null,
+        isPaused: false,
+        OR: [{ materializedUntil: null }, { materializedUntil: { lt: to } }],
+      },
+    });
+    const floor = Math.max(from.getTime(), now.getTime()) - 1;
+    const until = new Date(to.getTime() - 1);
+    const out: Entry[] = [];
+    for (const rule of rules) {
+      const parsed = recurrenceTemplateSchema.safeParse(rule.template);
+      if (!parsed.success) continue;
+      const after = new Date(Math.max(floor, rule.materializedUntil?.getTime() ?? floor));
+      let slots: Date[];
+      try {
+        slots = occurrencesBetween(toSpec(rule), after, until);
+      } catch {
+        continue; // กฎเสียไม่ทำให้ทั้งปฏิทินล้ม
+      }
+      const t = parsed.data;
+      for (const slot of slots) {
+        out.push({
+          id: `projected:${rule.id}:${slot.getTime()}`,
+          userId,
+          module: t.module,
+          title: t.title,
+          description: t.description ?? null,
+          status: 'pending',
+          priority: t.priority,
+          occurredAt: slot,
+          isAllDay: t.isAllDay,
+          completedAt: null,
+          payload: t.payload,
+          projectId: t.projectId ?? null,
+          parentId: null,
+          recurrenceRuleId: rule.id,
+          recurrenceSlot: slot,
+          sortOrder: 0,
+          clientId: null,
+          version: 0,
+          createdAt: rule.createdAt,
+          updatedAt: rule.updatedAt,
+          deletedAt: null,
+        });
+      }
+    }
+    return out;
   }
 
   /** ปุ่ม "Materialize Recurrence" — ทุก rule ของผู้ใช้คนนี้ 7 วันข้างหน้า (idempotent) */

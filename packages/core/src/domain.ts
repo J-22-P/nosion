@@ -60,6 +60,15 @@ export interface CalendarEvent {
   meta?: Record<string, unknown>;
 }
 
+/**
+ * ปุ่มบนการ์ดของ day panel ในปฏิทิน (สเปก 8.11.4) — โมดูลบอกว่า "มีปุ่มอะไร" UI ตัดสินว่าวาดอย่างไร
+ * `complete` = POST /entries/:id/complete (งาน = checkbox, บิล = ปุ่ม "จ่ายแล้ว") · `open` = ลิงก์ไปหน้าของโมดูล
+ * Phase 6 เพิ่มชนิดใหม่ได้ (เช่น habit = progress) โดย core ไม่ต้องรู้ความหมาย
+ */
+export type CalendarAction =
+  | { kind: 'complete'; label: string; presentation: 'checkbox' | 'button' }
+  | { kind: 'open'; label: string; href: string };
+
 export interface TodayWidgetItem {
   entryId: string;
   title: string;

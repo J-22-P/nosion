@@ -1,6 +1,7 @@
 import type { ModuleKey } from '@nosion/contracts';
 import type { ZodType, ZodTypeDef } from 'zod';
 import type {
+  CalendarAction,
   CalendarEvent,
   Entry,
   EntryWriteEvent,
@@ -43,6 +44,9 @@ export interface TrackableModule<TPayload = unknown> {
 
   /** แปลง entry เป็น event สำหรับแสดงบนปฏิทินรวม */
   toCalendarEvent(entry: Entry): CalendarEvent | null;
+
+  /** ปุ่มบนการ์ดของ event นี้ใน day panel · ไม่ implement = ไม่มีปุ่ม */
+  calendarActions?(entry: Entry): CalendarAction[];
 
   /**
    * สรุปข้อมูลโมดูลนี้สำหรับหน้า Today
