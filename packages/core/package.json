@@ -23,6 +23,10 @@
     "./recurrence": {
       "types": "./dist/recurrence.d.ts",
       "default": "./dist/recurrence.js"
+    },
+    "./nl": {
+      "types": "./dist/nl.d.ts",
+      "default": "./dist/nl.js"
     }
   },
   "scripts": {

@@ -4,5 +4,6 @@ export * from './errors';
 export * from './time';
 export * from './money';
 export * from './recurrence';
+export * from './nl';
 export * from './quiet-hours';
 export * from './action-token';
