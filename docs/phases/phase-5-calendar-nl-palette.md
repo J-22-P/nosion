@@ -9,8 +9,8 @@
 | --- | ----------------------------------------------------------------------------------------------------------- | ----------- | ----- |
 | 1   | NL Parser กลาง `@nosion/core/nl` (ไทย + อังกฤษ) + table-driven test 80 เคส                                  | `7d94b1f`   | ✅    |
 | 2   | โมดูล task/expense ใช้ parser กลาง · `POST /parse` วนทุกโมดูล + `POST /parse/commit` (entry + rule + เตือน) | `bc6d4b9`   | ✅    |
-| 3   | Calendar Aggregator `GET /calendar` (+ `countsByModule`, การเตือนของวัน, `calendarActions()`)               | (รอ commit) | ✅    |
-| 4   | iCal feed `GET /calendar/:token.ics` + rotate token                                                         | —           | ⬜    |
+| 3   | Calendar Aggregator `GET /calendar` (+ `countsByModule`, การเตือนของวัน, `calendarActions()`)               | `9ebcf05`   | ✅    |
+| 4   | iCal feed `GET /calendar/:token.ics` + rotate token                                                         | (รอ commit) | ✅    |
 | 5   | หน้า `/calendar` — month / week / agenda · module filter · day panel · Quick Snapshot                       | —           | ⬜    |
 | 6   | ลากรายการเปลี่ยนวัน (optimistic + rollback)                                                                 | —           | ⬜    |
 | 7   | Command Palette ⌘K 3 โหมด (ค้นหา / คำสั่ง / สร้าง) — **DoD**                                                | —           | ⬜    |
@@ -108,7 +108,7 @@
 
 ---
 
-## ขั้น 3 · Calendar Aggregator `GET /calendar` — (รอ commit)
+## ขั้น 3 · Calendar Aggregator `GET /calendar` — `9ebcf05`
 
 **เป้าหมาย:** API ของหน้าปฏิทินรวม (สเปก 6.3 · 8.11.4) — ทุกโมดูลในคำขอเดียว พร้อมทุกอย่างที่ grid / day panel / chip ต้องใช้
 
@@ -139,3 +139,34 @@
 - integration `test/calendar.int-spec.ts` 5 เคส: งาน + บิล (จาก `/parse/commit`) ในคำขอเดียวพร้อมปุ่มและการเตือน · รายจ่ายจรไม่ขึ้น · `?module=` ·
   **เลย horizon → projected และไม่เขียน DB** · แยกผู้ใช้ · 422
 - `pnpm verify` ผ่าน · integration API 98 + worker 19 ผ่าน
+
+---
+
+## ขั้น 4 · iCal feed `GET /calendar/:token.ics` + rotate — (รอ commit)
+
+**เป้าหมาย:** subscribe ปฏิทินของ NOSION ใน Google / Apple Calendar ได้จริง (สเปก 6.3 "iCal Export" · ปุ่ม Subscribe iCal ใน 8.11.4)
+
+**สิ่งที่เปลี่ยน**
+
+- 📁 `apps/api/src/calendar/ical.ts` — `buildIcal()` pure: VCALENDAR/VEVENT · ทั้งวัน `VALUE=DATE` + DTEND วันถัดไป · มีเวลาเป็น UTC ·
+  escape `\ ; ,` และขึ้นบรรทัด · **พับบรรทัดที่ 75 byte ของ UTF-8** · งานเสร็จขึ้น `✓` · `CATEGORIES` = โมดูล · `REFRESH-INTERVAL` 1 ชม.
+- `GET /calendar/feed` → `{ url, webcalUrl }` · `POST /calendar/feed/rotate` (10 ครั้ง/ชม.) · `GET /calendar/:token.ics` (`@Public`, 120 ครั้ง/นาที/IP)
+- feed ครอบคลุมย้อน 30 วัน – ล่วงหน้า 180 วัน ใช้ `CalendarService.range` ตัวเดียวกับหน้าเว็บ (รวมรอบ projected ของบิล)
+- ไม่มี migration — คอลัมน์ `user_settings.calendarFeedToken` (unique, default cuid2) มีมาตั้งแต่ init
+
+**การตัดสินใจ**
+
+- **token เก็บแบบอ่านได้ (ไม่ hash)** — สเปกให้ dialog "คัดลอก URL" ได้ทุกเมื่อ ถ้า hash ต้อง rotate ทุกครั้งที่อยากดูลิงก์ซึ่งตัด subscription เดิม ·
+  ความเสี่ยงคือ DB หลุดแล้วอ่านปฏิทินได้ — แต่ DB หลุดก็อ่านข้อมูลเดียวกันได้ตรง ๆ อยู่แล้ว · token ใหม่สุ่ม 192 bit
+- ไม่ใช้ token แบบเซ็น (เหมือน action token) — rotate ต้องมี state อยู่ดี และลิงก์ subscribe ต้องไม่มีวันหมดอายุ
+- token ผิดรูปแบบไม่ query DB · ทุกกรณีที่ใช้ไม่ได้ตอบ 404 เหมือนกัน (ไม่บอกว่ามีหรือไม่มี)
+- **UID ของรอบจากกฎ = ruleId + เวลา slot** — รอบ projected กับตอนถูกสร้างจริงเป็น event เดียวกันในแอปปฏิทิน ไม่ซ้ำ
+- URL ใช้ `API_URL` แบบเดียวกับลิงก์เลิกรับอีเมล
+- `Cache-Control: private, max-age=300` — ลดการดึงซ้ำจาก client ที่ refresh ถี่
+
+**วิธีตรวจ**
+
+- unit `ical.spec.ts` 5 เคส: escape · พับบรรทัดไทยไม่เกิน 75 byte และต่อกลับได้เดิม · เวลา/ทั้งวัน · ✓ · UID ของ projected = ของจริง
+- integration +3 เคส: ลิงก์ → `.ics` ไม่ต้องล็อกอิน (content-type, มีงาน+บิล, ไม่มีรายจ่ายจร) · rotate แล้วลิงก์เดิม 404 / ใหม่ 200 / token มั่ว 404 · แยกผู้ใช้
+- `pnpm verify` ผ่าน · integration API 101 + worker 19 ผ่าน
+- ⚠️ ยังไม่ได้ลอง subscribe จริงใน Google/Apple Calendar — ทำได้หลังขึ้น staging (ต้องเป็น URL สาธารณะ)

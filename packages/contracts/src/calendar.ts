@@ -82,3 +82,13 @@ export interface CalendarDto {
   countsByModule: Partial<Record<ModuleKey, number>>;
   reminders: CalendarReminderDto[];
 }
+
+/**
+ * GET /calendar/feed · POST /calendar/feed/rotate — ลิงก์ iCal ของผู้ใช้ (สเปก 8.11.4 ปุ่ม "Subscribe iCal")
+ * ลิงก์คือ credential: ใครมีลิงก์อ่านปฏิทินได้ · rotate แล้วลิงก์เดิมใช้ไม่ได้ทันที
+ */
+export interface CalendarFeedDto {
+  url: string;
+  /** สำหรับ Apple Calendar — เปิดแล้วถาม subscribe ทันที */
+  webcalUrl: string;
+}

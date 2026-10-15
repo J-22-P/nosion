@@ -123,4 +123,37 @@ describe('Calendar (/calendar)', () => {
     await calendar(alice, bkk(0), bkk(93)).expect(422);
     await calendar(alice, 'today', bkk(1)).expect(422);
   });
+
+  describe('iCal feed', () => {
+    it('ลิงก์ → .ics ที่ subscribe ได้ ไม่ต้องล็อกอิน', async () => {
+      const feed = await api().get('/api/v1/calendar/feed').set(as(alice)).expect(200);
+      expect(feed.body.url).toMatch(/\/api\/v1\/calendar\/[\w-]+\.ics$/);
+      expect(feed.body.webcalUrl).toMatch(/^webcal:\/\//);
+
+      const path = new URL(feed.body.url).pathname;
+      const res = await api().get(path).expect(200);
+      expect(res.headers['content-type']).toMatch(/^text\/calendar/);
+      expect(res.text.startsWith('BEGIN:VCALENDAR\r\n')).toBe(true);
+      expect(res.text).toContain('SUMMARY:ส่งรายงาน');
+      expect(res.text).toMatch(/SUMMARY:ค่าเน็ต/);
+      expect(res.text).not.toContain('กาแฟ');
+    });
+
+    it('rotate → ลิงก์เดิมใช้ไม่ได้ทันที · token มั่วได้ 404 เหมือนกัน', async () => {
+      const before = await api().get('/api/v1/calendar/feed').set(as(alice)).expect(200);
+      const rotated = await api().post('/api/v1/calendar/feed/rotate').set(as(alice)).expect(200);
+      expect(rotated.body.url).not.toBe(before.body.url);
+
+      await api().get(new URL(before.body.url).pathname).expect(404);
+      await api().get(new URL(rotated.body.url).pathname).expect(200);
+      await api().get('/api/v1/calendar/not-a-real-token-at-all-xx.ics').expect(404);
+      await api().get('/api/v1/calendar/x.ics').expect(404);
+    });
+
+    it('feed ของ bob ไม่มีรายการของ alice', async () => {
+      const feed = await api().get('/api/v1/calendar/feed').set(as(bob)).expect(200);
+      const res = await api().get(new URL(feed.body.url).pathname).expect(200);
+      expect(res.text).not.toContain('BEGIN:VEVENT');
+    });
+  });
 });

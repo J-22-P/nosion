@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { RateLimitGuard } from '../auth/guards/rate-limit.guard';
 import { RegistryModule } from '../core/registry/registry.module';
 import { RecurrenceModule } from '../recurrence/recurrence.module';
 import { UsersModule } from '../users/users.module';
@@ -9,6 +10,6 @@ import { CalendarService } from './calendar.service';
 @Module({
   imports: [RegistryModule, UsersModule, RecurrenceModule],
   controllers: [CalendarController],
-  providers: [CalendarService],
+  providers: [CalendarService, RateLimitGuard],
 })
 export class CalendarModule {}

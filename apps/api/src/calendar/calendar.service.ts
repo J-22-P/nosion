@@ -1,15 +1,23 @@
-import { Injectable } from '@nestjs/common';
-import type { CalendarDto, CalendarQuery } from '@nosion/contracts';
-import { resolveDateInput } from '@nosion/core';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import type { CalendarDto, CalendarFeedDto, CalendarQuery } from '@nosion/contracts';
+import { formatInTimeZone, resolveDateInput } from '@nosion/core';
+import { randomBytes } from 'node:crypto';
 import { EntryStatus } from '@prisma/client';
 import { ModuleRegistryService } from '../core/registry/module-registry.service';
 import { toDomain } from '../entries/entry.mapper';
+import { APP_CONFIG, type AppConfig } from '../infra/config/env';
 import { PrismaService } from '../infra/prisma/prisma.service';
 import { RecurrenceService } from '../recurrence/recurrence.service';
 import { UserContextService } from '../users/user-context.service';
 import { buildCalendar, type CalendarSource } from './calendar-events';
+import { buildIcal } from './ical';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+/** ช่วงของ iCal feed — ย้อน 30 วัน ล่วงหน้า 180 วัน (รวมรอบ projected ของบิล) */
+const FEED_PAST_DAYS = 30;
+const FEED_FUTURE_DAYS = 180;
+/** token ที่ rotate ใหม่: 24 byte สุ่ม = 192 bit → base64url 32 ตัว */
+const FEED_TOKEN_PATTERN = /^[\w-]{20,64}$/;
 
 /**
  * GET /calendar — ดึง entry ทุกโมดูลใน query เดียว (ไม่ใช่ N query ต่อโมดูล · สเปก 6.3)
@@ -23,6 +31,7 @@ export class CalendarService {
     private readonly registry: ModuleRegistryService,
     private readonly userContext: UserContextService,
     private readonly recurrence: RecurrenceService,
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
   async range(userId: string, query: CalendarQuery, now = new Date()): Promise<CalendarDto> {
@@ -60,5 +69,51 @@ export class CalendarService {
       timezone: ctx.timezone,
       ...buildCalendar(sources, modules, ctx.timezone, query.module),
     };
+  }
+
+  // ── iCal feed ────────────────────────────────────────
+
+  async feed(userId: string): Promise<CalendarFeedDto> {
+    const settings = await this.prisma.userSettings.findUnique({
+      where: { userId },
+      select: { calendarFeedToken: true },
+    });
+    if (!settings) throw new NotFoundException('ไม่พบการตั้งค่าของผู้ใช้');
+    return this.feedUrls(settings.calendarFeedToken);
+  }
+
+  /** หมุน token — ลิงก์เดิมที่แชร์/subscribe ไว้ใช้ไม่ได้ทันที */
+  async rotateFeed(userId: string): Promise<CalendarFeedDto> {
+    const token = randomBytes(24).toString('base64url');
+    await this.prisma.userSettings.update({
+      where: { userId },
+      data: { calendarFeedToken: token },
+    });
+    return this.feedUrls(token);
+  }
+
+  /** เนื้อหา .ics ของเจ้าของ token · token ไม่รู้จัก = 404 (ไม่บอกว่าผิดเพราะอะไร) */
+  async ics(token: string, now = new Date()): Promise<string> {
+    const settings = FEED_TOKEN_PATTERN.test(token)
+      ? await this.prisma.userSettings.findUnique({
+          where: { calendarFeedToken: token },
+          select: { userId: true, timezone: true },
+        })
+      : null;
+    if (!settings) throw new NotFoundException('ไม่พบปฏิทินนี้');
+
+    const day = (offset: number) =>
+      formatInTimeZone(new Date(now.getTime() + offset * DAY_MS), settings.timezone);
+    const { events } = await this.range(
+      settings.userId,
+      { from: day(-FEED_PAST_DAYS), to: day(FEED_FUTURE_DAYS) },
+      now,
+    );
+    return buildIcal(events, { name: 'NOSION', timeZone: settings.timezone, now });
+  }
+
+  private feedUrls(token: string): CalendarFeedDto {
+    const url = `${this.config.API_URL}/api/v1/calendar/${token}.ics`;
+    return { url, webcalUrl: url.replace(/^https?:/, 'webcal:') };
   }
 }
