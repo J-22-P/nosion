@@ -16,6 +16,18 @@ import { CATEGORY, PAYMENT_LABEL } from './categories';
 
 type PaymentMethod = keyof typeof PAYMENT_LABEL;
 
+/**
+ * บิลเป็นรายการทั้งวัน (occurredAt = เที่ยงคืนตามโซนผู้ใช้) — เตือนตอน 00:00 จะตกช่วงห้ามรบกวนแล้วถูกเลื่อนไป 07:00
+ * จึงตั้งเป็น 09:00 ของวันนั้นให้ชัดเจน: offset = จำนวนวันก่อน × −1440 + 540
+ */
+const REMIND_OPTIONS = [
+  { value: 'none', label: 'ไม่เตือน', offset: null },
+  { value: 'due', label: 'เช้าวันครบกำหนด (09:00)', offset: 540 },
+  { value: '1d', label: 'ล่วงหน้า 1 วัน (09:00)', offset: -1440 + 540 },
+  { value: '3d', label: 'ล่วงหน้า 3 วัน (09:00)', offset: -3 * 1440 + 540 },
+] as const;
+type RemindOption = (typeof REMIND_OPTIONS)[number]['value'];
+
 /** 'YYYY-MM-DD' ของวันนี้ตามโซนผู้ใช้ — ไม่ใช้วันที่ของเครื่อง (สเปก 8.9) */
 function todayYmd(timeZone = DEFAULT_TIME_ZONE): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date());
@@ -68,6 +80,7 @@ function NewBillForm({ onDone }: { onDone: () => void }) {
   const [category, setCategory] = useState<ExpenseCategory>('utilities');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('transfer');
   const [draft, setDraft] = useState(() => defaultDraft(todayYmd()));
+  const [remind, setRemind] = useState<RemindOption>('1d');
   const [touched, setTouched] = useState(false);
   const create = useCreateRule();
 
@@ -96,6 +109,10 @@ function NewBillForm({ onDone }: { onDone: () => void }) {
             costType: 'fixed',
             isBill: true,
           },
+          reminders: reminderOffsets(remind).map((offsetMinutes) => ({
+            channel: 'push' as const,
+            offsetMinutes,
+          })),
         },
       },
       {
@@ -178,6 +195,26 @@ function NewBillForm({ onDone }: { onDone: () => void }) {
         <RecurrenceBuilder value={draft} onChange={setDraft} />
       </div>
 
+      <div className="border-t border-hairline pt-5">
+        <Label htmlFor={`${id}-remind`}>เตือนทุกรอบ</Label>
+        <Select
+          id={`${id}-remind`}
+          value={remind}
+          onChange={(e) => setRemind(e.target.value as RemindOption)}
+          aria-describedby={`${id}-remind-hint`}
+        >
+          {REMIND_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </Select>
+        <p id={`${id}-remind-hint`} className="mt-1.5 text-xs text-fg-secondary">
+          แจ้งเตือนเด้งบนเครื่องที่เปิดการแจ้งเตือนไว้ในหน้าตั้งค่า · กด “จ่ายแล้ว”
+          จากการแจ้งเตือนได้เลย
+        </p>
+      </div>
+
       <div className="flex justify-end gap-2">
         <Button variant="secondary" onClick={onDone}>
           ยกเลิก
@@ -188,4 +225,9 @@ function NewBillForm({ onDone }: { onDone: () => void }) {
       </div>
     </form>
   );
+}
+
+function reminderOffsets(option: RemindOption): number[] {
+  const offset = REMIND_OPTIONS.find((o) => o.value === option)?.offset ?? null;
+  return offset === null ? [] : [offset];
 }

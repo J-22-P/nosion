@@ -1,0 +1,61 @@
+'use client';
+
+import { Bell, BellOff } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardHeader } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import type { PushState } from './push';
+import { usePushStatus, useTogglePush } from './use-push';
+
+const DESCRIPTION: Record<PushState, string> = {
+  on: 'เครื่องนี้จะได้รับการเตือนบิลและงานตามเวลาที่ตั้งไว้ · กด "จ่ายแล้ว" จากการแจ้งเตือนได้เลย',
+  off: 'เปิดเพื่อรับการเตือนบนเครื่องนี้ (เปิดแยกทีละเครื่อง)',
+  denied:
+    'เบราว์เซอร์บล็อกการแจ้งเตือนของเว็บนี้ไว้ — เปิดสิทธิ์ที่ไอคอนแม่กุญแจข้างแถบที่อยู่ แล้วกลับมากดเปิดอีกครั้ง',
+  'ios-needs-install':
+    'บน iPhone/iPad ต้องเพิ่มแอปลงหน้าจอโฮมก่อน (ปุ่มแชร์ → "เพิ่มไปยังหน้าจอโฮม") แล้วเปิดจากไอคอนนั้น',
+  unsupported: 'เบราว์เซอร์นี้ไม่รองรับ Web Push',
+  'server-disabled': 'เซิร์ฟเวอร์ยังไม่ได้ตั้งค่าการแจ้งเตือน (VAPID)',
+};
+
+/** การแจ้งเตือนในหน้า Settings (สเปก 10.3) — สถานะเป็นของ "เครื่องนี้" ไม่ใช่ของบัญชี */
+export function NotificationsCard() {
+  const status = usePushStatus();
+  const toggle = useTogglePush();
+  const state = status.data?.state;
+
+  const aside = status.isPending ? (
+    <Skeleton className="h-9 w-28" />
+  ) : state === 'on' ? (
+    <Button
+      variant="secondary"
+      onClick={() => toggle.mutate({ enable: false })}
+      disabled={toggle.isPending}
+    >
+      <BellOff size={16} aria-hidden="true" /> ปิด
+    </Button>
+  ) : state === 'off' && status.data?.publicKey ? (
+    <Button
+      onClick={() => toggle.mutate({ enable: true, publicKey: status.data.publicKey! })}
+      disabled={toggle.isPending}
+    >
+      <Bell size={16} aria-hidden="true" /> {toggle.isPending ? 'กำลังเปิด…' : 'เปิดการแจ้งเตือน'}
+    </Button>
+  ) : null;
+
+  return (
+    <Card>
+      <CardHeader
+        title="การแจ้งเตือน"
+        description={
+          status.isError
+            ? 'ตรวจสถานะการแจ้งเตือนไม่สำเร็จ — ลองรีเฟรชหน้า'
+            : state
+              ? DESCRIPTION[state]
+              : 'กำลังตรวจสถานะ…'
+        }
+        aside={aside}
+      />
+    </Card>
+  );
+}

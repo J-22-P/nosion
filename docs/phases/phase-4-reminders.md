@@ -6,15 +6,15 @@
 
 ## แผน (ปรับได้ระหว่างทาง)
 
-| #   | ขั้น                                                                                              | Commit      | สถานะ |
-| --- | ------------------------------------------------------------------------------------------------- | ----------- | ----- |
-| 1   | API: reminder CRUD + `fireAt` ตามวันของ entry (แก้/เลื่อน) + reminder ใน template ของกฎการเกิดซ้ำ | `b8a1e31`   | ✅    |
-| 2   | Worker: sweeper ทุก 1 นาที + processor (guard, quiet hours, retry, DLQ) + integration test        | `3a3daae`   | ✅    |
-| 3   | Web Push: VAPID · subscribe · service worker · ปุ่ม "จ่ายแล้ว / เลื่อน" โดยไม่เปิดแอป             | (รอ commit) | ▶     |
-| 4   | Email: Resend + React Email 6 แบบ · Mailpit ในเครื่อง                                             |             | ⏳    |
-| 5   | Daily digest ตามโซนผู้ใช้ (สเปก 10.2) + ตั้งค่า quiet hours / digest ในหน้า Settings              |             | ⏳    |
-| 6   | Metrics `reminder_delivery_lag_seconds` + alert                                                   |             | ⏳    |
-| 7   | Staging: worker + Redis บน Fly.io (region sin) · DoD บนมือถือจริง · บท learn 17 · ADR             |             | ⏳    |
+| #   | ขั้น                                                                                              | Commit                  | สถานะ |
+| --- | ------------------------------------------------------------------------------------------------- | ----------------------- | ----- |
+| 1   | API: reminder CRUD + `fireAt` ตามวันของ entry (แก้/เลื่อน) + reminder ใน template ของกฎการเกิดซ้ำ | `b8a1e31`               | ✅    |
+| 2   | Worker: sweeper ทุก 1 นาที + processor (guard, quiet hours, retry, DLQ) + integration test        | `3a3daae`               | ✅    |
+| 3   | Web Push: VAPID · subscribe · service worker · ปุ่ม "จ่ายแล้ว / เลื่อน" โดยไม่เปิดแอป             | `f2b699e` · (รอ commit) | ✅    |
+| 4   | Email: Resend + React Email 6 แบบ · Mailpit ในเครื่อง                                             |                         | ⏳    |
+| 5   | Daily digest ตามโซนผู้ใช้ (สเปก 10.2) + ตั้งค่า quiet hours / digest ในหน้า Settings              |                         | ⏳    |
+| 6   | Metrics `reminder_delivery_lag_seconds` + alert                                                   |                         | ⏳    |
+| 7   | Staging: worker + Redis บน Fly.io (region sin) · DoD บนมือถือจริง · บท learn 17 · ADR             |                         | ⏳    |
 
 **ตัดสินใจก่อนเริ่ม:** worker บน staging รันที่ **Fly.io** (เจ้าของบัญชีเลือก 15 ต.ค. 2026) — Vercel Cron แผนฟรีรันได้วันละครั้ง
 แต่ sweeper ต้องรันทุกนาที และ BullMQ poll Redis ตลอดเวลาจนโควตาฟรีของ Upstash ไม่พอ
@@ -101,7 +101,7 @@
 
 ---
 
-## ขั้น 3a · Web Push ฝั่ง server + ปุ่มใน notification — (รอ commit)
+## ขั้น 3a · Web Push ฝั่ง server + ปุ่มใน notification — `f2b699e`
 
 **เป้าหมาย:** worker ส่ง push จริงถึงทุกเครื่องของผู้ใช้ และกด "จ่ายแล้ว / เลื่อน 1 วัน" จาก notification ได้โดยไม่ต้องล็อกอิน
 
@@ -132,3 +132,41 @@
   **กด "จ่ายแล้ว" โดยไม่มี access token → done** · "เลื่อน 1 วัน" → วัน + การเตือนเลื่อนตาม · token ปลอม/หมดอายุ/secret ผิด 401 · token ของคนอื่น 404
 - กุญแจที่ `setup:dev` สร้างผ่าน `webpush.setVapidDetails` (ตรวจความยาว/รูปแบบ) · integration ทั้งชุด API 77 + worker 9 · `pnpm verify`
 - ⚠️ ยังไม่ได้ส่งถึง push service จริง (FCM / APNs) — ทำพร้อมฝั่งเว็บ (3b)
+
+---
+
+## ขั้น 3b · Web Push ฝั่งเว็บ: service worker + เปิดการแจ้งเตือน + เตือนบิล — (รอ commit)
+
+**เป้าหมาย:** ผู้ใช้เปิดการแจ้งเตือนบนเครื่องได้เอง ตั้ง "เตือนล่วงหน้า" ตอนสร้างรอบบิล และกดปุ่มใน notification ได้โดยไม่เปิดแอป
+
+**สิ่งที่เปลี่ยน**
+
+- 📁 `apps/web/public/sw.js` — `push` → แสดง notification (tag ต่อรายการ · ปุ่มจาก payload) ·
+  `notificationclick` → ปุ่ม = `POST /api/v1/notifications/actions` เบื้องหลัง แล้วบอกแท็บที่เปิดอยู่ให้รีเฟรช · แตะตัว notification = เปิด/โฟกัสแอปที่หน้าของโมดูล
+- 📁 `features/notifications/` — `push.ts` (ตรวจความพร้อมเป็นฟังก์ชันล้วน · subscribe/unsubscribe), `use-push.ts` (`ServiceWorkerBridge` ใน `providers.tsx`),
+  `notifications-card.tsx` ในหน้า Settings
+- 📁 `new-bill-dialog.tsx` — "เตือนทุกรอบ": ไม่เตือน / เช้าวันครบกำหนด / ล่วงหน้า 1 วัน (ค่าเริ่มต้น) / 3 วัน — เวลา 09:00
+- 📁 `vitest.config.ts` ของ web — alias `@/` ให้เทสต์ import โมดูลที่ใช้ path alias ได้
+
+**การตัดสินใจ**
+
+- **SW เป็นไฟล์ static ไม่ผ่าน bundler** และไม่มี `fetch` handler — ไม่แคชอะไร จึงไม่กระทบการโหลดหน้า (offline เป็นเรื่องของ Phase 7)
+- **บอกที่อยู่ API ให้ SW ผ่าน query ตอน register** (`/sw.js?api=…`) — local API อยู่คนละพอร์ต · staging ใช้ proxy origin เดียวกัน (ไม่ส่ง)
+- **บิลเตือนเวลา 09:00** ไม่ใช่ 00:00 — รายการทั้งวันคือเที่ยงคืน เตือนตอนนั้นจะตกช่วงห้ามรบกวนแล้วถูกเลื่อนไป 07:00 (ขั้น 2) ซึ่งผู้ใช้ไม่ได้เลือกเอง
+  · ล่วงหน้า 1 วัน = −1440 + 540 = **−900 นาที**
+- สถานะเป็นของ "เครื่องนี้" ไม่ใช่บัญชี — การ์ดบอก 6 สถานะ: เปิด / ปิด / ถูกบล็อก (บอกวิธีเปิดสิทธิ์) / iPhone ที่ยังไม่ติดตั้งลงหน้าจอโฮม / ไม่รองรับ / เซิร์ฟเวอร์ยังไม่ตั้ง VAPID
+- ปิดการแจ้งเตือน: ลบที่ API ก่อนแล้วค่อยยกเลิกกับเบราว์เซอร์ — ถ้าลบที่ API ไม่สำเร็จยังกดใหม่ได้ (กลับลำดับจะเหลือ subscription กำพร้าที่ worker ส่งไปแล้วได้ 410)
+
+**วิธีตรวจ**
+
+- unit web `push.test.ts` 9 เคส (สถานะทั้ง 6 · base64url → bytes · URL ของ SW) → web unit 74/74
+- Playwright `ui` 23/23: บิลวันที่ 31 ส่ง `reminders: [{ push, −900 }]` · การ์ดแจ้งเตือนสถานะ "ยังไม่เคยถาม" มีปุ่ม / "ถูกบล็อก" ไม่มีปุ่มและอธิบายวิธีเปิด ·
+  axe ผ่านทุกหน้ารวม /settings · SW ลงทะเบียนระหว่างเทสต์โดยไม่กระทบหน้า (ไม่มี fetch handler)
+- `pnpm verify`
+- ⚠️ **ยังไม่ได้ทดสอบ push จริงจากต้นจนจบ** (subscribe กับ FCM/APNs → worker ส่ง → notification เด้ง → กดปุ่ม) — Chromium ของ Playwright subscribe กับ push service จริงไม่ได้
+  ทำบนมือถือจริงในขั้น 7 ตาม DoD · headless Chromium ตอบ `Notification.permission = denied` เสมอ เทสต์สถานะ "ยังไม่เคยถาม" จึงจำลองด้วย init script
+
+**สิ่งที่ค้าง**
+
+- ยังตั้งเตือนให้งาน (Tasks) จากหน้าเว็บไม่ได้ — API พร้อมแล้ว (ขั้น 1)
+- `.env` ที่มีอยู่แล้วในเครื่องไม่ถูกเติมค่า VAPID อัตโนมัติ (`setup:dev` เติมเฉพาะตอนสร้าง .env ใหม่)

@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { Toaster } from 'sonner';
 import { ApiError } from '@/lib/api-client';
 import '@/features/auth/auth-store';
+import { ServiceWorkerBridge } from '@/features/notifications/use-push';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -29,6 +30,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
         {children}
+        <ServiceWorkerBridge />
         <Toaster position="bottom-right" richColors closeButton />
       </ThemeProvider>
     </QueryClientProvider>

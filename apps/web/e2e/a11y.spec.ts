@@ -145,6 +145,8 @@ test.describe('Expenses · เพิ่มรอบบิลใหม่ (Phase 
           module: 'expense',
           title: 'ค่าเน็ต',
           payload: { amountMinor: 79_900, isBill: true, costType: 'fixed' },
+          // ค่าเริ่มต้น "ล่วงหน้า 1 วัน (09:00)" = −1440 + 540 นาที (DoD Phase 4)
+          reminders: [{ channel: 'push', offsetMinutes: -900 }],
         },
       });
     });
@@ -182,5 +184,28 @@ test.describe('Today · Materialize Recurrence (Phase 3)', () => {
     await expect(button).toBeEnabled();
     await button.click();
     await expect(page.getByText('สร้างรายการใหม่ 3 รายการ')).toBeVisible();
+  });
+});
+
+test.describe('Settings · การแจ้งเตือน (Phase 4)', () => {
+  test('ยังไม่เคยถามสิทธิ์ → มีปุ่ม "เปิดการแจ้งเตือน"', async ({ page }) => {
+    // headless Chromium ตอบ denied เสมอ (grantPermissions ไม่มีผลกับ Notification) → จำลองสถานะครั้งแรกของผู้ใช้จริง
+    await page.addInitScript(() => {
+      Object.defineProperty(Notification, 'permission', { get: () => 'default' });
+    });
+    await page.goto('/settings');
+    await expect(page.getByRole('button', { name: 'เปิดการแจ้งเตือน' })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByText('เปิดเพื่อรับการเตือนบนเครื่องนี้')).toBeVisible();
+  });
+
+  test('เบราว์เซอร์บล็อกไว้ → ไม่มีปุ่ม และบอกวิธีเปิดสิทธิ์', async ({ page }) => {
+    // headless Chromium ปฏิเสธการแจ้งเตือนเป็นค่าเริ่มต้น
+    await page.goto('/settings');
+    await expect(page.getByText('เบราว์เซอร์บล็อกการแจ้งเตือนของเว็บนี้ไว้')).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByRole('button', { name: 'เปิดการแจ้งเตือน' })).toHaveCount(0);
   });
 });

@@ -67,6 +67,8 @@ export async function mockApi(page: Page, options: { authenticated?: boolean } =
     if (method === 'POST' && path === '/recurrence-rules/preview') {
       return json(previewOf(route.request().postDataJSON() as PreviewBody));
     }
+    if (method === 'GET' && path === '/push/config')
+      return json({ publicKey: 'BTestVapidPublicKey' });
     if (method === 'POST' && path === '/recurrence-rules/materialize') {
       return json({ rules: 2, created: 3 });
     }

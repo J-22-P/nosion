@@ -3,6 +3,7 @@
 import { useSession } from '@/features/auth/use-session';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ThemeSwitcher } from '@/components/shared/theme-switcher';
+import { NotificationsCard } from '@/features/notifications/notifications-card';
 
 export default function SettingsPage() {
   const { user, settings } = useSession();
@@ -42,6 +43,7 @@ export default function SettingsPage() {
           aside={<ThemeSwitcher />}
         />
       </Card>
+      <NotificationsCard />
     </div>
   );
 }
