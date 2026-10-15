@@ -242,8 +242,13 @@ else
 fi
 write_env VAPID_PUBLIC_KEY "$VAPID_PUBLIC_KEY"
 write_env VAPID_PRIVATE_KEY "$VAPID_PRIVATE_KEY"
-ask VAPID_SUBJECT "อีเมลติดต่อสำหรับ push service (mailto:…):" || true
-[[ "$VAPID_SUBJECT" == mailto:* ]] || VAPID_SUBJECT="mailto:${VAPID_SUBJECT:-pongsathorn.junt@gmail.com}"
+# push service (โดยเฉพาะ Apple) ปฏิเสธ push ที่ subject ไม่ใช่อีเมล/URL จริง — ถามซ้ำจนได้อีเมลที่มี @
+while :; do
+  ask VAPID_SUBJECT "อีเมลติดต่อสำหรับ push service (Google/Apple ใช้ติดต่อเมื่อมีปัญหา):" || true
+  VAPID_SUBJECT="mailto:${VAPID_SUBJECT#mailto:}"
+  [[ "$VAPID_SUBJECT" =~ ^mailto:[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$ ]] && break
+  warn "ต้องเป็นอีเมลจริง เช่น you@example.com"
+done
 write_env VAPID_SUBJECT "$VAPID_SUBJECT"
 NOTIFICATION_ACTION_SECRET=$(_existing NOTIFICATION_ACTION_SECRET || true)
 [[ -n "$NOTIFICATION_ACTION_SECRET" ]] || NOTIFICATION_ACTION_SECRET=$(openssl rand -hex 32)
