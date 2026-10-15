@@ -19,6 +19,9 @@ export const createTagSchema = z.object({
 });
 export const updateTagSchema = createTagSchema.partial();
 
+/** "HH:mm" ที่มีอยู่จริง (00:00–23:59) — SQL ของสรุปรายวันแปลงเป็นนาทีแล้วเทียบตรง ๆ จึงรับ "25:99" ไม่ได้ */
+const clockTime = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'เวลาต้องเป็น HH:mm (00:00–23:59)');
+
 export const updateSettingsSchema = z.object({
   timezone: z.string().max(64).optional(),
   locale: z.enum(['th', 'en']).optional(),
@@ -26,19 +29,10 @@ export const updateSettingsSchema = z.object({
   weekStartsOn: z.number().int().min(0).max(6).optional(),
   theme: z.enum(['light', 'dark', 'system']).optional(),
   quietHoursEnabled: z.boolean().optional(),
-  quietHoursStart: z
-    .string()
-    .regex(/^\d{2}:\d{2}$/)
-    .optional(),
-  quietHoursEnd: z
-    .string()
-    .regex(/^\d{2}:\d{2}$/)
-    .optional(),
+  quietHoursStart: clockTime.optional(),
+  quietHoursEnd: clockTime.optional(),
   dailyDigestEnabled: z.boolean().optional(),
-  dailyDigestTime: z
-    .string()
-    .regex(/^\d{2}:\d{2}$/)
-    .optional(),
+  dailyDigestTime: clockTime.optional(),
   weeklyReviewEnabled: z.boolean().optional(),
   weeklyReviewDay: z.number().int().min(0).max(6).optional(),
   enabledModules: z.array(moduleKeySchema).min(1).optional(),

@@ -4,6 +4,7 @@ import type {
   LoginResponse,
   ModuleKey,
   RegisterInput,
+  UpdateSettingsInput,
 } from '@nosion/contracts';
 import { apiFetch } from '@/lib/api-client';
 
@@ -17,6 +18,11 @@ export interface MeResponse {
     theme: string;
     enabledModules: ModuleKey[];
     focusGoalMinutes: number;
+    quietHoursEnabled: boolean;
+    quietHoursStart: string;
+    quietHoursEnd: string;
+    dailyDigestEnabled: boolean;
+    dailyDigestTime: string;
     [key: string]: unknown;
   };
 }
@@ -37,6 +43,9 @@ export const authApi = {
     }),
 
   me: () => apiFetch<MeResponse>('/me'),
+
+  updateSettings: (input: UpdateSettingsInput) =>
+    apiFetch<MeResponse['settings']>('/me/settings', { method: 'PATCH', body: input }),
 
   logout: () => apiFetch<void>('/auth/logout', { method: 'POST' }),
 };

@@ -1,4 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
+import { SETTINGS } from './support/mock-data';
 import { settle, test, expect, type Theme } from './support/ui-test';
 
 /**
@@ -207,5 +208,48 @@ test.describe('Settings · การแจ้งเตือน (Phase 4)', () =
       timeout: 15_000,
     });
     await expect(page.getByRole('button', { name: 'เปิดการแจ้งเตือน' })).toHaveCount(0);
+  });
+});
+
+test.describe('Settings · ห้ามรบกวนและสรุปรายวัน (Phase 4)', () => {
+  test('แก้เวลาสรุปรายวัน → ปุ่มบันทึกเปิด · PATCH เฉพาะค่าที่ตั้ง · เวลาเริ่ม=จบถูกกันไว้', async ({
+    page,
+  }) => {
+    let patched: Record<string, unknown> | null = null;
+    await page.route('**/api/v1/me/settings', async (route) => {
+      patched = route.request().postDataJSON() as Record<string, unknown>;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ...SETTINGS, ...patched }),
+      });
+    });
+    await page.goto('/settings');
+    const save = page.getByRole('button', { name: 'บันทึก', exact: true });
+    await expect(save).toBeDisabled({ timeout: 15_000 });
+
+    await page.getByLabel('ถึง').fill('22:00'); // เท่ากับเวลาเริ่ม
+    await expect(page.getByText('เวลาเริ่มกับเวลาจบต้องต่างกัน')).toBeVisible();
+    await expect(save).toBeDisabled();
+    await page.getByLabel('ถึง').fill('06:30');
+
+    await page.getByLabel('ส่งเวลา').fill('06:45');
+    await expect(save).toBeEnabled();
+    await save.click();
+    await expect(page.getByText('บันทึกการตั้งค่าแล้ว')).toBeVisible();
+    expect(patched).toEqual({
+      quietHoursEnabled: true,
+      quietHoursStart: '22:00',
+      quietHoursEnd: '06:30',
+      dailyDigestEnabled: true,
+      dailyDigestTime: '06:45',
+    });
+    await expect(save).toBeDisabled(); // บันทึกแล้ว = ไม่มีอะไรค้าง
+
+    // ข้าม toast ที่กำลังจางเข้า — axe วัด contrast ระหว่าง animation (opacity ยังไม่เต็ม) ได้ 1.33 ซึ่งไม่ใช่สีจริง
+    const results = await new AxeBuilder({ page }).exclude('[data-sonner-toaster]').analyze();
+    expect(
+      results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical'),
+    ).toEqual([]);
   });
 });
