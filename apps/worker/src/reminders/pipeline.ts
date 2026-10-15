@@ -1,9 +1,10 @@
 import type { PrismaClient } from '@prisma/client';
 import { Queue, Worker, type ConnectionOptions, type Job } from 'bullmq';
 import { logger } from '../logger';
+import type { WorkerMetrics } from '../metrics';
 import { QUEUE, REMINDER_JOB_OPTIONS } from '../queues';
 import type { ReminderDispatcher } from './dispatcher';
-import { processReminder } from './processor';
+import { RetryableDeliveryError, processReminder } from './processor';
 import { sweepReminders, type ReminderJobData } from './sweeper';
 
 export interface ReminderPipelineOptions {
@@ -16,6 +17,7 @@ export interface ReminderPipelineOptions {
   sweepEveryMs?: number | null;
   /** override backoff ในเทสต์ — ค่าจริง 30s ทำให้เทสต์ retry ช้าเกินไป */
   backoffMs?: number;
+  metrics?: WorkerMetrics;
 }
 
 /**
@@ -24,7 +26,7 @@ export interface ReminderPipelineOptions {
  *   retry ครบแล้วยังล้ม → คัดลอกเข้า reminder-dlq ไว้ retry ด้วยมือ
  */
 export async function startReminderPipeline(options: ReminderPipelineOptions) {
-  const { connection, prisma, dispatcher, prefix } = options;
+  const { connection, prisma, dispatcher, prefix, metrics } = options;
   const jobOptions = {
     ...REMINDER_JOB_OPTIONS,
     ...(options.backoffMs !== undefined
@@ -70,12 +72,35 @@ export async function startReminderPipeline(options: ReminderPipelineOptions) {
   const reminderWorker = new Worker<ReminderJobData>(
     QUEUE.reminder,
     async (job: Job<ReminderJobData>) => {
-      const outcome = await processReminder(prisma, dispatcher, job.data);
-      logger.info({ jobId: job.id, reminderId: job.data.reminderId, ...outcome }, 'reminder');
-      return outcome;
+      const stopTimer = metrics?.queueJobDuration.startTimer({ queue: QUEUE.reminder });
+      try {
+        const outcome = await processReminder(prisma, dispatcher, job.data);
+        metrics?.queueJobs.inc({ queue: QUEUE.reminder, status: outcome.result });
+        if (outcome.result === 'sent') {
+          // วัดตอนส่งเสร็จจริง เทียบกับ fireAt ที่อยู่ใน job — รวมเวลารอคิว + เวลาส่ง
+          const lag = Math.max(0, (Date.now() - Date.parse(job.data.fireAt)) / 1000);
+          metrics?.reminderLag.observe({ channel: outcome.channel }, lag);
+        }
+        if (outcome.result === 'failed') {
+          metrics?.reminderFailures.inc({ channel: outcome.channel, kind: 'permanent' });
+        }
+        logger.info({ jobId: job.id, reminderId: job.data.reminderId, ...outcome }, 'reminder');
+        return outcome;
+      } catch (err) {
+        metrics?.queueJobs.inc({ queue: QUEUE.reminder, status: 'error' });
+        metrics?.reminderFailures.inc({
+          channel: err instanceof RetryableDeliveryError ? err.channel : 'unknown',
+          kind: 'retryable',
+        });
+        throw err;
+      } finally {
+        stopTimer?.();
+      }
     },
     { connection, prefix, concurrency: 10 },
   );
+
+  metrics?.watchQueues(reminderQueue, sweepQueue, dlq);
 
   reminderWorker.on('failed', (job, err) => {
     if (!job) return;

@@ -1,0 +1,100 @@
+# unit test ของกฎ alert — `promtool test rules alerts.test.yml`
+rule_files:
+  - alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+  # ── lag: p95 ต่ำกว่า 120 วินาที → เงียบ · เกินนาน 5 นาที → ดัง ──
+  - interval: 1m
+    input_series:
+      # ส่งตรงเวลา: ทุกการเตือนอยู่ใน bucket ≤ 5 วินาที
+      - series: 'reminder_delivery_lag_seconds_bucket{channel="push", le="5"}'
+        values: '0+10x30'
+      - series: 'reminder_delivery_lag_seconds_bucket{channel="push", le="120"}'
+        values: '0+10x30'
+      - series: 'reminder_delivery_lag_seconds_bucket{channel="push", le="300"}'
+        values: '0+10x30'
+      - series: 'reminder_delivery_lag_seconds_bucket{channel="push", le="+Inf"}'
+        values: '0+10x30'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: ReminderDeliveryLagHigh
+        exp_alerts: []
+
+  - interval: 1m
+    input_series:
+      # worker ตามไม่ทัน: ทุกการเตือนช้า 2–5 นาที
+      - series: 'reminder_delivery_lag_seconds_bucket{channel="push", le="5"}'
+        values: '0+0x30'
+      - series: 'reminder_delivery_lag_seconds_bucket{channel="push", le="120"}'
+        values: '0+0x30'
+      - series: 'reminder_delivery_lag_seconds_bucket{channel="push", le="300"}'
+        values: '0+10x30'
+      - series: 'reminder_delivery_lag_seconds_bucket{channel="push", le="+Inf"}'
+        values: '0+10x30'
+    alert_rule_test:
+      # rate ต้องมีข้อมูลก่อน แล้วต้องเกินต่อเนื่อง 5 นาทีถึงดัง
+      - eval_time: 3m
+        alertname: ReminderDeliveryLagHigh
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: ReminderDeliveryLagHigh
+        exp_alerts:
+          - exp_labels:
+              severity: high
+            exp_annotations:
+              # 120 + (300 − 120) × 0.95 = 291 วินาที — histogram_quantile เกลี่ยเชิงเส้นในช่วง bucket
+              summary: 'การเตือน p95 ช้ากว่ากำหนด 4m 51s'
+              description: 'ดูว่า worker ตามคิวทันไหม (queue_depth{queue="reminder",state="waiting"}), sweeper ยังรันทุกนาทีไหม และ push service / Resend ตอบช้าหรือเปล่า'
+
+  # ── คิวค้าง: เกิน 1000 แป๊บเดียวไม่ดัง · ค้างเกิน 5 นาทีดัง · delayed ไม่นับ ──
+  - interval: 1m
+    input_series:
+      - series: 'queue_depth{queue="reminder", state="waiting"}'
+        values: '50 1500 1500 50 50 50 50 50 1500 1500 1500 1500 1500 1500 1500 1500'
+      - series: 'queue_depth{queue="reminder", state="delayed"}'
+        values: '5000x15'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: QueueBacklogHigh
+        exp_alerts: []
+      - eval_time: 14m
+        alertname: QueueBacklogHigh
+        exp_alerts:
+          - exp_labels:
+              severity: high
+              queue: reminder
+            exp_annotations:
+              summary: 'คิว reminder ค้าง 1500 งานนานเกิน 5 นาที'
+              description: 'เพิ่ม concurrency หรือจำนวนเครื่อง worker · ตรวจว่าปลายทาง (DB / push / email) ช้าลงไหม'
+
+  # การเตือนที่รอเวลาใน 5 นาทีข้างหน้า (delayed) มีมากได้ตามปกติ — ต้องไม่ดัง
+  - interval: 1m
+    input_series:
+      - series: 'queue_depth{queue="reminder", state="waiting"}'
+        values: '10x20'
+      - series: 'queue_depth{queue="reminder", state="delayed"}'
+        values: '5000x20'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: QueueBacklogHigh
+        exp_alerts: []
+
+  # ── DLQ ──
+  - interval: 1m
+    input_series:
+      - series: 'queue_depth{queue="reminder-dlq", state="waiting"}'
+        values: '0 0 0 2x20'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: ReminderDeadLetters
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: ReminderDeadLetters
+        exp_alerts:
+          - exp_labels:
+              severity: medium
+            exp_annotations:
+              summary: 'มีการเตือนที่ส่งไม่สำเร็จค้างใน DLQ 2 งาน'
+              description: 'ดู lastError ในตาราง reminders แล้ว retry จากคิว reminder-dlq'

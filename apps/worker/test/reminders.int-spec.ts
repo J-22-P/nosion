@@ -6,6 +6,7 @@ import {
   type ReminderDispatcher,
   type ReminderMessage,
 } from '../src/reminders/dispatcher';
+import { createMetrics, type WorkerMetrics } from '../src/metrics';
 import { startReminderPipeline } from '../src/reminders/pipeline';
 import { processReminder } from '../src/reminders/processor';
 import { jobIdFor, sweepReminders } from '../src/reminders/sweeper';
@@ -78,6 +79,7 @@ async function seed(
 
 describe('Reminder Engine · worker (PostgreSQL + Redis จริง)', () => {
   let dispatcher: FakeDispatcher;
+  let metrics: WorkerMetrics;
   let pipeline: Awaited<ReturnType<typeof startReminderPipeline>>;
 
   beforeAll(async () => {
@@ -92,6 +94,7 @@ describe('Reminder Engine · worker (PostgreSQL + Redis จริง)', () => {
       data: { status: 'cancelled' },
     });
     dispatcher = new FakeDispatcher();
+    metrics = createMetrics();
     pipeline = await startReminderPipeline({
       connection,
       prisma,
@@ -99,6 +102,7 @@ describe('Reminder Engine · worker (PostgreSQL + Redis จริง)', () => {
       prefix: `test-${crypto.randomUUID()}`,
       sweepEveryMs: null, // เรียก sweep เองในเทสต์
       backoffMs: 50,
+      metrics,
     });
   });
 
@@ -126,6 +130,17 @@ describe('Reminder Engine · worker (PostgreSQL + Redis จริง)', () => {
 
     const saved = await prisma.reminder.findUniqueOrThrow({ where: { id: reminder.id } });
     expect(saved).toMatchObject({ status: 'sent', jobId: jobIdFor(reminder.id, fireAt) });
+
+    // metric สำคัญที่สุด (สเปก 14.3) ถูกบันทึกด้วยค่าจริง ติดป้ายช่องทาง
+    const lagMetric = (await metrics.reminderLag.get()).values;
+    expect(
+      lagMetric.find((v) => v.metricName === 'reminder_delivery_lag_seconds_count'),
+    ).toMatchObject({
+      labels: { channel: 'push' },
+      value: 1,
+    });
+    const sum = lagMetric.find((v) => v.metricName === 'reminder_delivery_lag_seconds_sum')!.value;
+    expect(sum).toBeLessThan(1);
   });
 
   it('ไม่ยิงซ้ำ — sweep หลายรอบและพร้อมกันได้ job เดียว ส่งครั้งเดียว', async () => {
@@ -161,6 +176,10 @@ describe('Reminder Engine · worker (PostgreSQL + Redis จริง)', () => {
     expect(saved).toMatchObject({ status: 'failed', attempts: 5 });
     expect(saved.lastError).toContain('503');
     expect(dispatcher.calls).toBe(5);
+    const failures = (await metrics.reminderFailures.get()).values;
+    expect(failures).toContainEqual(
+      expect.objectContaining({ labels: { channel: 'push', kind: 'retryable' }, value: 5 }),
+    );
   });
 
   it('ล้มแบบถาวร (ไม่มี subscription) → failed ทันที ไม่เผา retry', async () => {

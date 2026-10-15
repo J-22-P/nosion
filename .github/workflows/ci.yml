@@ -70,6 +70,19 @@ jobs:
           SMTP_URL: smtp://localhost:1025
           MAILPIT_API_URL: http://localhost:8025
 
+  # กฎ alert ของ Prometheus (สเปก 14.4) — ตรวจไวยากรณ์และ unit test ด้วย promtool (ไม่ต้องมี Prometheus จริง)
+  alerts:
+    name: Alert rules
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: promtool check + test
+        run: |
+          docker run --rm -v "$PWD/ops/prometheus:/rules" -w /rules --entrypoint promtool \
+            prom/prometheus:v3.5.0 check rules alerts.yml
+          docker run --rm -v "$PWD/ops/prometheus:/rules" -w /rules --entrypoint promtool \
+            prom/prometheus:v3.5.0 test rules alerts.test.yml
+
   security:
     name: Security scan
     runs-on: ubuntu-24.04

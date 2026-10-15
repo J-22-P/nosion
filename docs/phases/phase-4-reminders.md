@@ -12,8 +12,8 @@
 | 2   | Worker: sweeper ทุก 1 นาที + processor (guard, quiet hours, retry, DLQ) + integration test        | `3a3daae`             | ✅    |
 | 3   | Web Push: VAPID · subscribe · service worker · ปุ่ม "จ่ายแล้ว / เลื่อน" โดยไม่เปิดแอป             | `f2b699e` · `c257537` | ✅    |
 | 4   | Email: Resend + React Email 6 แบบ · Mailpit ในเครื่อง                                             | `7e58335`             | ✅    |
-| 5   | Daily digest ตามโซนผู้ใช้ (สเปก 10.2) + ตั้งค่า quiet hours / digest ในหน้า Settings              | (รอ commit)           | ✅    |
-| 6   | Metrics `reminder_delivery_lag_seconds` + alert                                                   |                       | ⏳    |
+| 5   | Daily digest ตามโซนผู้ใช้ (สเปก 10.2) + ตั้งค่า quiet hours / digest ในหน้า Settings              | `aea4a10`             | ✅    |
+| 6   | Metrics `reminder_delivery_lag_seconds` + alert                                                   | (รอ commit)           | ✅    |
 | 7   | Staging: worker + Redis บน Fly.io (region sin) · DoD บนมือถือจริง · บท learn 17 · ADR             |                       | ⏳    |
 
 **ตัดสินใจก่อนเริ่ม:** worker บน staging รันที่ **Fly.io** (เจ้าของบัญชีเลือก 15 ต.ค. 2026) — Vercel Cron แผนฟรีรันได้วันละครั้ง
@@ -217,7 +217,7 @@
 
 ---
 
-## ขั้น 5 · สรุปรายวันตามนาฬิกาของผู้ใช้ + ตั้งค่าห้ามรบกวน/สรุป — (รอ commit)
+## ขั้น 5 · สรุปรายวันตามนาฬิกาของผู้ใช้ + ตั้งค่าห้ามรบกวน/สรุป — `aea4a10`
 
 **เป้าหมาย:** อีเมลสรุปตอนเช้าถึงทุกคนตามเวลาท้องถิ่นของตัวเอง ไม่ซ้ำ ไม่ตกหล่น (สเปก 10.2) และผู้ใช้ตั้งช่วงห้ามรบกวน/เวลาสรุปเองได้
 
@@ -253,3 +253,40 @@
 
 - งานส่งสรุปสัปดาห์ (`weekly-review`) และงบเกิน (`budget-alert`) — template พร้อมแล้ว ยังไม่มีงานส่ง
 - ตั้งค่าสรุปสัปดาห์ในหน้าเว็บยังไม่มี (ยังไม่มีอะไรส่ง)
+
+---
+
+## ขั้น 6 · Metrics `reminder_delivery_lag_seconds` + alert — (รอ commit)
+
+**เป้าหมาย:** วัดได้ว่าการเตือน "ช้ากว่ากำหนดกี่วินาที" (metric สำคัญที่สุดตามสเปก 14.3) และมีกฎ alert ที่ทดสอบแล้วว่าดังถูกเวลา
+
+**สิ่งที่เปลี่ยน**
+
+- 📁 `apps/worker/src/metrics.ts` — `prom-client@15.1.3`: `reminder_delivery_lag_seconds{channel}` · `reminder_failures_total{channel,kind}` ·
+  `queue_jobs_total{queue,status}` · `queue_job_duration_seconds{queue}` · `queue_depth{queue,state}` (+ metric มาตรฐานของ process)
+- 📁 `apps/worker/src/server.ts` — HTTP ที่ `METRICS_PORT` (9464): `/metrics`, `/healthz`, `/readyz` · `pipeline.ts` / `main.ts` บันทึกค่า
+- 📁 `ops/prometheus/alerts.yml` + `alerts.test.yml` — `ReminderDeliveryLagHigh` (p95 > 120 วินาที 5 นาที) · `QueueBacklogHigh` (waiting > 1000 นาน 5 นาที) · `ReminderDeadLetters`
+- 📁 CI job "Alert rules" — `promtool check rules` + `promtool test rules`
+
+**การตัดสินใจ**
+
+- **lag วัดตอนส่งเสร็จ เทียบกับ `fireAt` ใน job** — รวมเวลารอคิว + เวลาที่ push service/Resend ใช้ = สิ่งที่ผู้ใช้รู้สึกจริง
+  · การเตือนที่ถูกเลื่อนเพราะช่วงห้ามรบกวนวัดจาก fireAt ใหม่ (ช่วงห้ามรบกวนไม่ใช่ความช้าของระบบ)
+- bucket ละเอียดช่วงต้น (1, 5, 15, 30, 60, 120 วินาที) — DoD คือ ±60 และ alert ที่ 120
+- **`queue_depth` อ่านจาก Redis ตอนถูก scrape** (`collect()`) ไม่ poll เอง — ไม่มี scrape = ไม่มีภาระ
+- **alert คิวค้างนับเฉพาะ `waiting`** — `delayed` คือการเตือนที่รอเวลาใน 5 นาทีข้างหน้า มีมากได้ตามปกติ (มีเทสต์กันคนแก้ให้นับ)
+- worker มี HTTP แล้ว (เดิม `HEALTHCHECK NONE` เพราะไม่มีพอร์ต) — Fly.io ใช้ `/readyz` ตรวจสุขภาพ และ scrape `/metrics` ได้เองในขั้น 7
+  · `/readyz` แยกจาก `/healthz`: DB/Redis กระตุกไม่ควรทำให้ worker ถูกรีสตาร์ท (สเปก 14.5)
+- ยังไม่ทำ metric ฝั่ง API (`http_request_duration_seconds` ฯลฯ ในตารางสเปก 14.3) — นอกขอบเขต Phase 4 · การส่ง alert ไป Discord ตั้งตอน deploy
+
+**วิธีตรวจ**
+
+- integration worker: ส่งจริงแล้ว `reminder_delivery_lag_seconds_count{channel="push"} = 1` และ sum < 1 วินาที · retry ครบ 5 → `reminder_failures_total{kind="retryable"} = 5`
+- unit `server.spec.ts`: `/metrics` เป็นรูปแบบ Prometheus · `/readyz` 503 เมื่อ dependency ล่มแต่ `/healthz` ยัง 200
+- `promtool test rules` 5 กรณี: lag ปกติเงียบ / ช้าดังหลัง 5 นาที (ข้อความ "4m 51s" = 120 + 180 × 0.95) · คิวค้างแป๊บเดียวไม่ดัง / ค้างนานดัง ·
+  delayed สูงแต่ waiting ต่ำไม่ดัง · DLQ — **ลองแก้กฎให้นับ delayed แล้วเทสต์ล้มจริง** (เทสต์จับได้)
+- `pnpm verify` · integration API 80 + worker 19
+
+**สิ่งที่ค้าง**
+
+- ยังไม่มี Prometheus/Grafana จริง — ต่อกับ Fly.io managed Prometheus + ช่องทางแจ้ง (Discord) ในขั้น 7

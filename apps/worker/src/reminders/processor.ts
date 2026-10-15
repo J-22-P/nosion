@@ -1,5 +1,5 @@
 import { isInQuietHours, quietHoursEnd } from '@nosion/core';
-import type { PrismaClient } from '@prisma/client';
+import type { PrismaClient, ReminderChannel } from '@prisma/client';
 import { PermanentDeliveryError, type ReminderDispatcher } from './dispatcher';
 import { buildReminderMessage } from './message';
 import type { ReminderJobData } from './sweeper';
@@ -8,10 +8,21 @@ import type { ReminderJobData } from './sweeper';
 export const MAX_ATTEMPTS = 5;
 
 export type ProcessOutcome =
-  | { result: 'sent' }
+  | { result: 'sent'; channel: ReminderChannel }
   | { result: 'skipped'; reason: string }
   | { result: 'deferred'; until: Date }
-  | { result: 'failed'; reason: string };
+  | { result: 'failed'; reason: string; channel: ReminderChannel };
+
+/** ล้มชั่วคราว — BullMQ จะ retry · พกช่องทางไว้ให้ metrics ติดป้าย */
+export class RetryableDeliveryError extends Error {
+  constructor(
+    message: string,
+    readonly channel: ReminderChannel,
+  ) {
+    super(message);
+    this.name = 'RetryableDeliveryError';
+  }
+}
 
 const CLOSED_STATUSES = new Set(['done', 'cancelled', 'skipped']);
 
@@ -96,13 +107,13 @@ export async function processReminder(
         status: permanent || attempts >= MAX_ATTEMPTS ? 'failed' : 'scheduled',
       },
     });
-    if (permanent) return { result: 'failed', reason };
-    throw err; // ให้ BullMQ retry ตาม backoff
+    if (permanent) return { result: 'failed', reason, channel: reminder.channel };
+    throw new RetryableDeliveryError(reason, reminder.channel); // ให้ BullMQ retry ตาม backoff
   }
 
   await prisma.reminder.update({
     where: { id: reminder.id },
     data: { status: 'sent', sentAt: now, lastError: null },
   });
-  return { result: 'sent' };
+  return { result: 'sent', channel: reminder.channel };
 }

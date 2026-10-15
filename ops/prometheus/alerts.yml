@@ -1,0 +1,39 @@
+# กฎ alert ของ Reminder Engine (สเปก 14.4) — ทดสอบด้วย `promtool test rules alerts.test.yml` (CI รันให้)
+groups:
+  - name: nosion-reminders
+    rules:
+      # metric สำคัญที่สุดของระบบ: การเตือนช้ากว่าเวลาที่ตั้ง (DoD ±60 วินาที)
+      - alert: ReminderDeliveryLagHigh
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(reminder_delivery_lag_seconds_bucket[10m]))
+          ) > 120
+        for: 5m
+        labels:
+          severity: high
+        annotations:
+          summary: 'การเตือน p95 ช้ากว่ากำหนด {{ $value | humanizeDuration }}'
+          description: >-
+            ดูว่า worker ตามคิวทันไหม (queue_depth{queue="reminder",state="waiting"}),
+            sweeper ยังรันทุกนาทีไหม และ push service / Resend ตอบช้าหรือเปล่า
+
+      # waiting ที่โตค้างคือ worker ตามไม่ทัน — delayed ไม่นับ (การเตือนใน 5 นาทีข้างหน้ารออยู่ตามปกติ)
+      - alert: QueueBacklogHigh
+        expr: max by (queue) (queue_depth{state="waiting"}) > 1000
+        for: 5m
+        labels:
+          severity: high
+        annotations:
+          summary: 'คิว {{ $labels.queue }} ค้าง {{ $value }} งานนานเกิน 5 นาที'
+          description: เพิ่ม concurrency หรือจำนวนเครื่อง worker · ตรวจว่าปลายทาง (DB / push / email) ช้าลงไหม
+
+      # retry ครบแล้วยังล้ม — ต้องมีคนดูและ retry ด้วยมือ
+      - alert: ReminderDeadLetters
+        expr: sum(queue_depth{queue="reminder-dlq", state=~"waiting|failed"}) > 0
+        for: 15m
+        labels:
+          severity: medium
+        annotations:
+          summary: 'มีการเตือนที่ส่งไม่สำเร็จค้างใน DLQ {{ $value }} งาน'
+          description: ดู lastError ในตาราง reminders แล้ว retry จากคิว reminder-dlq

@@ -5,6 +5,8 @@ import { PrismaClient } from '@prisma/client';
 import { Queue, Worker, type Job } from 'bullmq';
 import IORedis from 'ioredis';
 import { logger } from './logger';
+import { createMetrics } from './metrics';
+import { startServer } from './server';
 import { runCleanup } from './processors/cleanup.processor';
 import { LogDispatcher, type ReminderDispatcher } from './reminders/dispatcher';
 import { WebPushDispatcher } from './reminders/web-push.dispatcher';
@@ -18,6 +20,7 @@ const connection = new IORedis(process.env.REDIS_URL ?? 'redis://localhost:6379'
   maxRetriesPerRequest: null, // BullMQ ต้องการค่านี้เป็น null เพื่อให้ blocking command ทำงาน
 });
 const prisma = new PrismaClient();
+const metrics = createMetrics();
 const APP_URL = process.env.APP_URL ?? 'http://localhost:3000';
 const API_URL = process.env.API_URL ?? 'http://localhost:3001';
 const mail: MailTransport = createMailTransport({
@@ -60,6 +63,7 @@ async function bootstrap(): Promise<void> {
     connection,
     prisma,
     dispatcher: createDispatcher(),
+    metrics,
   });
 
   // สรุปรายวันตามนาฬิกาของผู้ใช้แต่ละคน (สเปก 10.2) — รันทุก 15 นาที แล้วเลือกคนที่ถึงเวลาใน SQL
@@ -88,6 +92,14 @@ async function bootstrap(): Promise<void> {
     { connection, concurrency: 1 },
   );
 
+  metrics.watchQueues(cleanupQueue, digestQueue);
+  const server = startServer(Number(process.env.METRICS_PORT ?? 9464), metrics.registry, {
+    ready: async () => {
+      await prisma.$queryRaw`SELECT 1`;
+      await connection.ping();
+    },
+  });
+
   cleanupWorker.on('failed', (job, err) => {
     logger.error({ jobId: job?.id, attempts: job?.attemptsMade, err: err.message }, 'job ล้มเหลว');
   });
@@ -97,6 +109,7 @@ async function bootstrap(): Promise<void> {
   // graceful shutdown: ปิด worker ก่อน เพื่อให้ job ที่ทำค้างอยู่จบก่อนตัดการเชื่อมต่อ
   const shutdown = async (signal: string) => {
     logger.info({ signal }, 'กำลังปิด worker อย่างนุ่มนวล…');
+    server.close();
     await reminders.close();
     await digestWorker.close();
     await digestQueue.close();
