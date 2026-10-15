@@ -6,15 +6,15 @@
 
 ## แผน (ปรับได้ระหว่างทาง)
 
-| #   | ขั้น                                                                                     | Commit      | สถานะ |
-| --- | ---------------------------------------------------------------------------------------- | ----------- | ----- |
-| 1   | core: คำนวณรอบ (rrule + timezone/DST + clamp) + 7 เคสบังคับ                              | `8b66813`   | ✅    |
-| 2   | API: CRUD + pause + preview (บันทึกแล้ว / ร่าง) + ลบเฉพาะรอบ                             | `2f36fa3`   | ✅    |
-| 3   | API: lazy materialization + cron 03:00 UTC + `POST /recurrence-rules/materialize`        | `2f36fa3`   | ✅    |
-| 4   | API: แก้รอบเดียว vs ทั้ง series จากฝั่ง entry (แก้ entry ที่มี recurrenceRuleId)         | `5686937`   | ✅    |
-| 5   | Web: ตัวสร้าง rrule แบบไม่ต้องรู้ RFC 5545 + preview 10 รอบ                              | `2af62d8`   | ✅    |
-| 6   | Web: ปุ่ม "เพิ่มรอบบิลใหม่" ในหน้า Expenses + เปิดปุ่ม "Materialize Recurrence" ใน Today | `180d47c`   | ✅    |
-| 7   | Staging: ตั้ง `CRON_SECRET` บน Vercel · บท learn 16 · ADR (floating time + clamp)        | (รอ commit) | 🟡    |
+| #   | ขั้น                                                                                     | Commit    | สถานะ |
+| --- | ---------------------------------------------------------------------------------------- | --------- | ----- |
+| 1   | core: คำนวณรอบ (rrule + timezone/DST + clamp) + 7 เคสบังคับ                              | `8b66813` | ✅    |
+| 2   | API: CRUD + pause + preview (บันทึกแล้ว / ร่าง) + ลบเฉพาะรอบ                             | `2f36fa3` | ✅    |
+| 3   | API: lazy materialization + cron 03:00 UTC + `POST /recurrence-rules/materialize`        | `2f36fa3` | ✅    |
+| 4   | API: แก้รอบเดียว vs ทั้ง series จากฝั่ง entry (แก้ entry ที่มี recurrenceRuleId)         | `5686937` | ✅    |
+| 5   | Web: ตัวสร้าง rrule แบบไม่ต้องรู้ RFC 5545 + preview 10 รอบ                              | `2af62d8` | ✅    |
+| 6   | Web: ปุ่ม "เพิ่มรอบบิลใหม่" ในหน้า Expenses + เปิดปุ่ม "Materialize Recurrence" ใน Today | `180d47c` | ✅    |
+| 7   | Staging: ตั้ง `CRON_SECRET` บน Vercel · บท learn 16 · ADR (floating time + clamp)        | `3781aae` | 🟡    |
 
 ---
 
@@ -226,7 +226,7 @@
 
 ---
 
-## ขั้น 7 · ปิด Phase: เอกสาร + staging cron — (รอ commit)
+## ขั้น 7 · ปิด Phase: เอกสาร + staging cron — `3781aae`
 
 **เป้าหมาย:** บันทึก "ทำไม" ของ engine ให้อ่านทีหลังได้ และให้ cron ทำงานจริงบน staging
 
@@ -244,8 +244,9 @@
 
 - [x] ตั้ง `CRON_SECRET` ใน Vercel → project API (เจ้าของบัญชีตั้งเอง 15 ต.ค. 2026)
 - [x] push Phase 3 ขึ้น main (`180d47c`) — CI รอบแรกแดงที่ Security scan จาก advisory ใหม่ของ handlebars (dev) → `bbfdd87`
-- [ ] หลัง Deploy staging: `GET /api/v1/internal/cron/recurrence` ไม่มี header → **401** (ก่อน deploy ได้ 404 เพราะ staging ยังไม่มี endpoint นี้)
-- [ ] ลองตั้งบิลทุกวันที่ 31 บน staging → รายการเดือน ก.พ. เป็นวันที่ 28
-- [ ] ดู log ของ Cron Job ใน Vercel หลัง 03:00 UTC (10:00 น. เวลาไทย) วันถัดไป
+- [x] Deploy staging ผ่าน (migrate · api · web · smoke) · `GET /api/v1/internal/cron/recurrence` ไม่มี header → **401** · secret ผิด → **401** (ก่อน deploy ได้ 404 เพราะ staging ยังไม่มี endpoint นี้)
+- [x] **DoD บน staging** (บัญชีทดลอง): preview กฎวันที่ 31 เริ่ม 31 ม.ค. 2027 → 31 ม.ค. · **28 ก.พ.** · 31 มี.ค. ·
+      สร้างกฎเริ่ม 31 ต.ค. 2026 → entry จริงใน DB: 31 ต.ค. · **30 พ.ย.** (clamp) · 31 ธ.ค. (ก.พ. อยู่นอก horizon 90 วัน — เห็นใน preview)
+- [ ] ดู log ของ Cron Job ใน Vercel หลัง 03:00 UTC (10:00 น. เวลาไทย) 16 ต.ค. 2026 — กฎทดสอบ `r145opyc9805e17l327yeaej` ของบัญชีทดลองยังอยู่ (หมดอายุพร้อมบัญชีใน 24 ชม.)
 
 > ✅ Phase 3 เสร็จฝั่งโค้ด (15 ต.ค. 2026) — เหลือตรวจบน staging ด้านบน
