@@ -27,4 +27,5 @@
 | 0–1   | [phase-0-1-foundation.md](./phase-0-1-foundation.md)       | ✅ เสร็จ                      |
 | 2a    | [phase-2a-design-refresh.md](./phase-2a-design-refresh.md) | ✅ เสร็จ · CI เขียว (ขั้น 13) |
 | 2b    | [phase-2b-expense-today.md](./phase-2b-expense-today.md)   | ✅ เสร็จ · staging ใช้งานได้  |
-| 3     | [phase-3-recurrence.md](./phase-3-recurrence.md)           | ▶ ขั้น 6/7                    |
+| 3     | [phase-3-recurrence.md](./phase-3-recurrence.md)           | 🟡 รอดู cron log บน staging   |
+| 4     | [phase-4-reminders.md](./phase-4-reminders.md)             | ▶ ขั้น 1/7                    |

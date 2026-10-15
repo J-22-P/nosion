@@ -29,6 +29,7 @@ import { EntryStatus, Prisma } from '@prisma/client';
 import type { z } from 'zod';
 import { ModuleRegistryService } from '../core/registry/module-registry.service';
 import { RecurrenceService } from '../recurrence/recurrence.service';
+import { RemindersService } from '../reminders/reminders.service';
 import { overdueWhere } from '../common/overdue-where';
 import { completedAtFor } from './completed-at';
 import { resolveDeferTarget } from './defer';
@@ -50,6 +51,7 @@ export class EntriesService {
     private readonly userContext: UserContextService,
     private readonly events: EventEmitter2,
     private readonly recurrence: RecurrenceService,
+    private readonly reminders: RemindersService,
   ) {}
 
   // ── อ่าน ─────────────────────────────────────────────
@@ -107,7 +109,7 @@ export class EntriesService {
 
   async create(userId: string, input: CreateEntryInput): Promise<EntryDto> {
     const dto = createEntrySchema.parse(input);
-    const module = this.registry.get(dto.module);
+    this.registry.get(dto.module); // โมดูลต้องมีอยู่จริง — ไม่มี = 422 ก่อนเขียนอะไร
     const { timezone } = await this.userContext.forUser(userId);
     const occurredAt = dto.occurredAt ? resolveDateInput(dto.occurredAt, timezone) : null;
     // ส่งมาแค่วันที่ = งานทั้งวันแน่นอน (ไม่มีเวลาให้ "เลย")
@@ -122,34 +124,30 @@ export class EntriesService {
       if (existing) return toDto(existing as EntryWithRelations);
     }
 
-    const reminders =
-      module.supportsReminder && occurredAt
-        ? dto.reminders.map((r) => ({
-            channel: r.channel,
-            offsetMinutes: r.offsetMinutes,
-            fireAt: new Date(occurredAt.getTime() + r.offsetMinutes * 60_000),
-            idempotencyKey: `${dto.clientId ?? crypto.randomUUID()}:${r.channel}:${r.offsetMinutes}`,
-          }))
-        : [];
-
-    const row = await this.prisma.entry.create({
-      data: {
-        userId,
-        module: dto.module,
-        title: dto.title,
-        description: dto.description ?? null,
-        status: dto.status,
-        priority: dto.priority,
-        occurredAt,
-        isAllDay,
-        payload: payload as Prisma.InputJsonValue,
-        projectId: dto.projectId ?? null,
-        parentId: dto.parentId ?? null,
-        clientId: dto.clientId ?? null,
-        ...(dto.tagIds.length ? { tags: { create: dto.tagIds.map((tagId) => ({ tagId })) } } : {}),
-        ...(reminders.length ? { reminders: { create: reminders } } : {}),
-      },
-      include: INCLUDE_RELATIONS,
+    // entry + การเตือนสำเร็จหรือล้มพร้อมกัน · key ของการเตือนผูกกับ id ของ entry (ดู reminderKey)
+    const row = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.entry.create({
+        data: {
+          userId,
+          module: dto.module,
+          title: dto.title,
+          description: dto.description ?? null,
+          status: dto.status,
+          priority: dto.priority,
+          occurredAt,
+          isAllDay,
+          payload: payload as Prisma.InputJsonValue,
+          projectId: dto.projectId ?? null,
+          parentId: dto.parentId ?? null,
+          clientId: dto.clientId ?? null,
+          ...(dto.tagIds.length
+            ? { tags: { create: dto.tagIds.map((tagId) => ({ tagId })) } }
+            : {}),
+        },
+        include: INCLUDE_RELATIONS,
+      });
+      await this.reminders.createForEntries(tx, [created], dto.reminders);
+      return created;
     });
 
     await this.emitWrite('create', userId, row as EntryWithRelations, null);
@@ -186,7 +184,10 @@ export class EntriesService {
       if (updated.count === 0) return false;
       if (dto.tagIds !== undefined) await replaceTags(tx, id, dto.tagIds);
       // "เลื่อนเฉพาะครั้งนี้" = แก้ entry ตรง ๆ + เพิ่มวันเดิมเข้า exceptions (สเปก 6.1)
-      if (moved) await this.detachFromSeries(tx, userId, before);
+      if (moved) {
+        await this.detachFromSeries(tx, userId, before);
+        await this.reminders.rescheduleForEntries(tx, [id], occurredAt ?? null, now);
+      }
       return true;
     });
     if (!won) await this.throwConflict(userId, id, dto.version);
@@ -282,6 +283,7 @@ export class EntriesService {
         },
       });
       await this.detachFromSeries(tx, userId, before);
+      await this.reminders.rescheduleForEntries(tx, [id], target);
     });
     const after = await this.requireEntry(userId, id);
     await this.emitWrite('update', userId, after, before);
@@ -362,11 +364,9 @@ export class EntriesService {
             where,
             data: { occurredAt: target, version: { increment: 1 } },
           });
-          await this.detachManyFromSeries(
-            tx,
-            userId,
-            targets.map((t) => t.id),
-          );
+          const ids = targets.map((t) => t.id);
+          await this.detachManyFromSeries(tx, userId, ids);
+          await this.reminders.rescheduleForEntries(tx, ids, target);
           return { affected: res.count };
         });
       }

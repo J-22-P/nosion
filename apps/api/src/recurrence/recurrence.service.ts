@@ -30,6 +30,7 @@ import {
 import { Prisma, type RecurrenceRule } from '@prisma/client';
 import { ModuleRegistryService } from '../core/registry/module-registry.service';
 import { PrismaService } from '../infra/prisma/prisma.service';
+import { RemindersService } from '../reminders/reminders.service';
 import { UserContextService } from '../users/user-context.service';
 
 /** สร้าง entry ล่วงหน้ากี่วัน (สเปก 6.1) */
@@ -75,6 +76,7 @@ export class RecurrenceService {
     private readonly prisma: PrismaService,
     private readonly registry: ModuleRegistryService,
     private readonly userContext: UserContextService,
+    private readonly reminders: RemindersService,
   ) {}
 
   // ── CRUD ─────────────────────────────────────────────
@@ -412,15 +414,19 @@ export class RecurrenceService {
             skipDuplicates: true, // ← หัวใจของ idempotency
           })
         : { count: 0 };
-      if (template.tagIds.length && result.count > 0) {
+      if ((template.tagIds.length || template.reminders.length) && result.count > 0) {
         const rows = await tx.entry.findMany({
           where: { recurrenceRuleId: rule.id, recurrenceSlot: { in: slots } },
-          select: { id: true },
+          select: { id: true, module: true, occurredAt: true },
         });
-        await tx.entryTag.createMany({
-          data: rows.flatMap((r) => template.tagIds.map((tagId) => ({ entryId: r.id, tagId }))),
-          skipDuplicates: true,
-        });
+        if (template.tagIds.length) {
+          await tx.entryTag.createMany({
+            data: rows.flatMap((r) => template.tagIds.map((tagId) => ({ entryId: r.id, tagId }))),
+            skipDuplicates: true,
+          });
+        }
+        // การเตือนของแต่ละรอบ — key ผูกกับ entry จึง materialize ซ้ำก็ไม่เกิดซ้ำ
+        await this.reminders.createForEntries(tx, rows, template.reminders);
       }
       // เลื่อนไปข้างหน้าเท่านั้น — ตัวที่ช้ากว่า (horizon น้อยกว่า) ไม่ดึงค่ากลับ
       await tx.recurrenceRule.updateMany({

@@ -9,3 +9,4 @@ export * from './tasks';
 export * from './expenses';
 export * from './today';
 export * from './recurrence';
+export * from './reminders';

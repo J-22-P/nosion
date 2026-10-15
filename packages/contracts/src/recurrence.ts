@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { moduleKeySchema, prioritySchema, recurrenceEndTypeSchema } from './enums';
+import { reminderInputSchema } from './entry';
 
 /**
  * Recurrence Rule (สเปก 6.1, 7.x "Recurrence & Reminder")
@@ -28,6 +29,8 @@ export const recurrenceTemplateSchema = z.object({
   payload: z.record(z.unknown()).default({}),
   projectId: z.string().nullish(),
   tagIds: z.array(z.string()).max(20).default([]),
+  /** การเตือนของทุกรอบ เช่น "ล่วงหน้า 1 วัน" = offsetMinutes -1440 — สร้างพร้อม entry ตอน materialize */
+  reminders: z.array(reminderInputSchema).max(5).default([]),
 });
 export type RecurrenceTemplate = z.infer<typeof recurrenceTemplateSchema>;
 export type RecurrenceTemplateInput = z.input<typeof recurrenceTemplateSchema>;

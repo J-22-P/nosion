@@ -37,6 +37,7 @@ describe('recurrence helpers', () => {
         isAllDay: true,
         payload: { amountMinor: 79_900 },
         tagIds: [],
+        reminders: [],
       },
       slot,
     );
