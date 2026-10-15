@@ -48,7 +48,7 @@
       "unrs-resolver"
     ],
     "overrides": {
-      "handlebars": ">=4.7.9",
+      "handlebars": ">=4.7.10",
       "picomatch": ">=4.0.4",
       "postcss": ">=8.5.18",
       "multer": ">=2.3.0",
