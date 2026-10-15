@@ -43,6 +43,14 @@ const CRON_BATCH_SIZE = 200;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/** ส่วนของ template ที่แก้จาก entry ได้ — วันเวลาและสถานะเป็นของแต่ละรอบ ไม่ใช่ของ series */
+export type SeriesTemplatePatch = Partial<
+  Pick<
+    RecurrenceTemplate,
+    'title' | 'description' | 'priority' | 'payload' | 'projectId' | 'tagIds'
+  >
+>;
+
 export interface MaterializeResult {
   ruleId: string;
   created: number;
@@ -189,10 +197,7 @@ export class RecurrenceService {
   /** ลบ rule (soft) — รอบที่ผ่านมาแล้วหรือผู้ใช้แก้ไว้ยังอยู่ รอบในอนาคตที่ยังไม่แตะถูกลบ */
   async remove(userId: string, id: string, now = new Date()): Promise<void> {
     await this.requireRule(userId, id);
-    await this.prisma.$transaction(async (tx) => {
-      await this.dropUntouchedFuture(tx, userId, id, now);
-      await tx.recurrenceRule.update({ where: { id }, data: { deletedAt: now } });
-    });
+    await this.prisma.$transaction((tx) => this.endSeries(tx, userId, id, now));
   }
 
   /** หยุด/เริ่มต่อ — หยุดแล้วรอบในอนาคตที่ยังไม่แตะหายไป เริ่มต่อแล้วสร้างกลับมาตามปกติ */
@@ -248,6 +253,89 @@ export class RecurrenceService {
         : tx.recurrenceRule.update({ where: { id }, data: { exceptions: { push: slot } } });
     });
     return toDto(row);
+  }
+
+  // ── จากฝั่ง entry (สเปก 6.1 "แก้ไขรอบเดียว vs ทั้ง series") ──
+  // เมธอดที่รับ `tx` ทำงานใน transaction ของ EntriesService — การแก้ entry กับกฎสำเร็จหรือล้มพร้อมกัน
+
+  /**
+   * ปลดรอบออกจาก series: เพิ่ม slot เข้า exceptions — ใช้เมื่อผู้ใช้เลื่อนหรือลบ "เฉพาะรอบนี้"
+   * กันซ้ำที่ระดับ SQL (`NOT has`) — เรียกซ้ำหรือพร้อมกันก็ไม่เกิด slot ซ้ำใน array
+   */
+  async excludeSlot(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    ruleId: string,
+    slot: Date,
+  ): Promise<void> {
+    await tx.recurrenceRule.updateMany({
+      where: { id: ruleId, userId, NOT: { exceptions: { has: slot } } },
+      data: { exceptions: { push: slot } },
+    });
+  }
+
+  /**
+   * template ใหม่ของ series จากส่วนที่ผู้ใช้แก้บน entry — payload ผสานกับของเดิมแล้วตรวจด้วย payloadSchema ของโมดูล
+   * เรียกก่อนเปิด transaction เพื่อให้ 404/422 เกิดก่อนเขียนอะไรทั้งนั้น
+   */
+  async seriesTemplateFor(
+    userId: string,
+    ruleId: string,
+    patch: SeriesTemplatePatch,
+  ): Promise<RecurrenceTemplate> {
+    const rule = await this.requireRule(userId, ruleId);
+    const current = recurrenceTemplateSchema.parse(rule.template);
+    const { payload, ...fields } = patch;
+    const defined = Object.fromEntries(
+      Object.entries(fields).filter(([, value]) => value !== undefined),
+    );
+    return this.validateTemplate({
+      ...current,
+      ...defined,
+      payload: payload ? { ...current.payload, ...payload } : current.payload,
+    });
+  }
+
+  /**
+   * เปลี่ยน template — รอบอนาคตที่ยังไม่ถูกแตะถูกลบเพื่อสร้างใหม่ตาม template ใหม่
+   * (ต่างจาก PATCH /recurrence-rules ที่แก้ template อย่างเดียวแล้วรอให้รอบใหม่ใช้เอง —
+   *  ผู้ใช้ที่กด "แก้ทุกรอบ" บนรายการคาดว่าจะเห็นรอบถัดไปเปลี่ยนทันที ไม่ใช่อีก 90 วัน)
+   * ต้องเรียก `materializeRule` หลัง commit
+   */
+  async replaceTemplate(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    ruleId: string,
+    template: RecurrenceTemplate,
+    now: Date,
+  ): Promise<void> {
+    await this.dropUntouchedFuture(tx, userId, ruleId, now);
+    await tx.recurrenceRule.updateMany({
+      where: { id: ruleId, userId, deletedAt: null },
+      data: { template: template as Prisma.InputJsonValue, materializedUntil: now },
+    });
+  }
+
+  /** จบ series (soft delete กฎ) — รอบที่ผ่านแล้วหรือผู้ใช้แตะแล้วยังอยู่ · เรียกซ้ำได้ */
+  async endSeries(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    ruleId: string,
+    now: Date,
+  ): Promise<void> {
+    await this.dropUntouchedFuture(tx, userId, ruleId, now);
+    await tx.recurrenceRule.updateMany({
+      where: { id: ruleId, userId, deletedAt: null },
+      data: { deletedAt: now },
+    });
+  }
+
+  /** materialize กฎตาม id — ใช้หลัง commit ของ replaceTemplate · กฎที่ถูกลบ/หยุดไว้ไม่ทำอะไร */
+  async materializeRule(userId: string, ruleId: string, now = new Date()): Promise<void> {
+    const rule = await this.prisma
+      .forUser(userId)
+      .recurrenceRule.findFirst({ where: { id: ruleId, deletedAt: null } });
+    if (rule) await this.materialize(rule, now);
   }
 
   // ── Preview ──────────────────────────────────────────

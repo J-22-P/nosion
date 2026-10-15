@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   type BulkActionInput,
@@ -6,6 +11,7 @@ import {
   type EntryDto,
   type ListEntriesQuery,
   type Paginated,
+  type RecurrenceScope,
   type UpdateEntryInput,
   createEntrySchema,
   updateEntrySchema,
@@ -20,7 +26,9 @@ import {
   type EntryWriteOperation,
 } from '@nosion/core';
 import { EntryStatus, Prisma } from '@prisma/client';
+import type { z } from 'zod';
 import { ModuleRegistryService } from '../core/registry/module-registry.service';
+import { RecurrenceService } from '../recurrence/recurrence.service';
 import { overdueWhere } from '../common/overdue-where';
 import { completedAtFor } from './completed-at';
 import { resolveDeferTarget } from './defer';
@@ -41,6 +49,7 @@ export class EntriesService {
     private readonly registry: ModuleRegistryService,
     private readonly userContext: UserContextService,
     private readonly events: EventEmitter2,
+    private readonly recurrence: RecurrenceService,
   ) {}
 
   // ── อ่าน ─────────────────────────────────────────────
@@ -147,64 +156,98 @@ export class EntriesService {
     return toDto(row as EntryWithRelations);
   }
 
-  async update(userId: string, id: string, input: UpdateEntryInput): Promise<EntryDto> {
+  /**
+   * แก้ entry — `scope` มีผลเฉพาะ entry ที่มาจากกฎการเกิดซ้ำ (สเปก 6.1)
+   *  - `this`: แก้รอบนี้ตรง ๆ · ถ้าเลื่อนวันเวลา slot เดิมเข้า exceptions ของกฎ
+   *  - `series`: แก้รอบนี้ + template ของกฎใน transaction เดียว (ดู updateSeries)
+   */
+  async update(
+    userId: string,
+    id: string,
+    input: UpdateEntryInput,
+    scope: RecurrenceScope = 'this',
+    now = new Date(),
+  ): Promise<EntryDto> {
     const dto = updateEntrySchema.parse(input);
     const before = await this.requireEntry(userId, id);
+    if (scope === 'series') return this.updateSeries(userId, before, dto, now);
+
     const { timezone } = await this.userContext.forUser(userId);
-    const occurredAt =
-      dto.occurredAt === undefined
-        ? undefined
-        : dto.occurredAt === null
-          ? null
-          : resolveDateInput(dto.occurredAt, timezone);
-    const isAllDay = typeof dto.occurredAt === 'string' ? true : dto.isAllDay;
-
-    const payload =
-      dto.payload !== undefined
-        ? this.validatePayload(before.module, { ...(before.payload as object), ...dto.payload })
-        : undefined;
-
-    const data: Prisma.EntryUpdateInput = {
-      ...(dto.title !== undefined ? { title: dto.title } : {}),
-      ...(dto.description !== undefined ? { description: dto.description ?? null } : {}),
-      ...(dto.status !== undefined ? { status: dto.status } : {}),
-      // completedAt ต้องตามสถานะเสมอ — เปิดงานกลับมาทำ (undo) แล้วยังค้างวันที่เสร็จไว้ สถิติจะเพี้ยน
-      ...(dto.status !== undefined ? { completedAt: completedAtFor(dto.status, before) } : {}),
-      ...(dto.priority !== undefined ? { priority: dto.priority } : {}),
-      ...(occurredAt !== undefined ? { occurredAt } : {}),
-      ...(isAllDay !== undefined ? { isAllDay } : {}),
-      ...(payload !== undefined ? { payload: payload as Prisma.InputJsonValue } : {}),
-      ...(dto.projectId !== undefined
-        ? { project: dto.projectId ? { connect: { id: dto.projectId } } : { disconnect: true } }
-        : {}),
-      version: { increment: 1 },
-    };
+    const { data, occurredAt } = this.buildUpdate(before, dto, timezone);
+    const moved =
+      occurredAt !== undefined && occurredAt?.getTime() !== before.occurredAt?.getTime();
 
     // optimistic concurrency: แพ้แล้วไม่เขียนทับ — บอก client ให้ merge เอง
-    const updated = await this.prisma.entry.updateMany({
-      where: { id, userId, version: dto.version, deletedAt: null },
-      data: data as Prisma.EntryUpdateManyMutationInput,
+    const won = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.entry.updateMany({
+        where: { id, userId, version: dto.version, deletedAt: null },
+        data,
+      });
+      if (updated.count === 0) return false;
+      if (dto.tagIds !== undefined) await replaceTags(tx, id, dto.tagIds);
+      // "เลื่อนเฉพาะครั้งนี้" = แก้ entry ตรง ๆ + เพิ่มวันเดิมเข้า exceptions (สเปก 6.1)
+      if (moved) await this.detachFromSeries(tx, userId, before);
+      return true;
     });
-
-    if (updated.count === 0) {
-      const current = await this.requireEntry(userId, id);
-      throw new VersionConflictError(dto.version, current.version);
-    }
-
-    if (dto.tagIds !== undefined) {
-      await this.prisma.$transaction([
-        this.prisma.entryTag.deleteMany({ where: { entryId: id } }),
-        ...(dto.tagIds.length
-          ? [
-              this.prisma.entryTag.createMany({
-                data: dto.tagIds.map((tagId) => ({ entryId: id, tagId })),
-              }),
-            ]
-          : []),
-      ]);
-    }
+    if (!won) await this.throwConflict(userId, id, dto.version);
 
     const after = await this.requireEntry(userId, id);
+    await this.emitWrite('update', userId, after, before);
+    return toDto(after);
+  }
+
+  /**
+   * แก้ "ทั้ง series" จากรายการหนึ่งรอบ: รอบนี้ + template ของกฎ แล้วสร้างรอบอนาคตที่ยังไม่ถูกแตะใหม่
+   * รอบที่ผ่านไปแล้วหรือผู้ใช้แก้เองแล้วไม่เปลี่ยน (ประวัติเป็นของผู้ใช้)
+   * วันเวลาและสถานะเป็นของรอบใดรอบหนึ่ง — เปลี่ยนตารางต้องทำที่ /recurrence-rules → 422
+   */
+  private async updateSeries(
+    userId: string,
+    before: EntryWithRelations,
+    dto: z.infer<typeof updateEntrySchema>,
+    now: Date,
+  ): Promise<EntryDto> {
+    const ruleId = before.recurrenceRuleId;
+    if (!ruleId) {
+      throw new UnprocessableEntityException('รายการนี้ไม่ได้มาจากกฎการเกิดซ้ำ — ใช้ scope=this');
+    }
+    const perOccurrence = (['occurredAt', 'isAllDay', 'status'] as const).filter(
+      (key) => dto[key] !== undefined,
+    );
+    if (perOccurrence.length) {
+      throw new UnprocessableEntityException(
+        `แก้ ${perOccurrence.join(', ')} ทั้ง series ไม่ได้ — เปลี่ยนตารางที่ /recurrence-rules/${ruleId} หรือใช้ scope=this`,
+      );
+    }
+
+    // ตรวจ template ก่อนเปิด transaction — 404/422 ต้องเกิดก่อนเขียนอะไรทั้งนั้น
+    const template = await this.recurrence.seriesTemplateFor(userId, ruleId, {
+      title: dto.title,
+      description: dto.description,
+      priority: dto.priority,
+      payload: dto.payload,
+      projectId: dto.projectId,
+      tagIds: dto.tagIds,
+    });
+    const { timezone } = await this.userContext.forUser(userId);
+    const { data } = this.buildUpdate(before, dto, timezone);
+
+    const won = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.entry.updateMany({
+        where: { id: before.id, userId, version: dto.version, deletedAt: null },
+        data,
+      });
+      if (updated.count === 0) return false;
+      if (dto.tagIds !== undefined) await replaceTags(tx, before.id, dto.tagIds);
+      // รอบนี้ถูกแก้แล้ว (version > 1) จึงไม่ถูกลบไปพร้อมรอบอนาคตที่ยังไม่แตะ
+      await this.recurrence.replaceTemplate(tx, userId, ruleId, template, now);
+      return true;
+    });
+    if (!won) await this.throwConflict(userId, before.id, dto.version);
+
+    // หลัง commit — ถ้าพังตรงนี้ cron รอบถัดไปเติมให้เอง (materializedUntil ถูกตั้งเป็น now แล้ว)
+    await this.recurrence.materializeRule(userId, ruleId, now);
+    const after = await this.requireEntry(userId, before.id);
     await this.emitWrite('update', userId, after, before);
     return toDto(after);
   }
@@ -229,24 +272,45 @@ export class EntriesService {
     const payload = { ...(before.payload as Record<string, unknown>) };
     if (typeof payload.deferCount === 'number') payload.deferCount += 1;
 
-    await this.prisma.entry.updateMany({
-      where: { id, userId, deletedAt: null },
-      data: {
-        occurredAt: target,
-        payload: payload as Prisma.InputJsonValue,
-        version: { increment: 1 },
-      },
+    await this.prisma.$transaction(async (tx) => {
+      await tx.entry.updateMany({
+        where: { id, userId, deletedAt: null },
+        data: {
+          occurredAt: target,
+          payload: payload as Prisma.InputJsonValue,
+          version: { increment: 1 },
+        },
+      });
+      await this.detachFromSeries(tx, userId, before);
     });
     const after = await this.requireEntry(userId, id);
     await this.emitWrite('update', userId, after, before);
     return toDto(after);
   }
 
-  async remove(userId: string, id: string): Promise<void> {
+  /**
+   * soft delete — entry จากกฎการเกิดซ้ำ:
+   *  - `this`: slot เข้า exceptions (เหมือน DELETE /recurrence-rules/:id/occurrences/:date)
+   *  - `series`: จบกฎด้วย — รอบอนาคตที่ยังไม่แตะหาย รอบที่ผ่านแล้วหรือแก้แล้วอยู่ต่อ
+   */
+  async remove(
+    userId: string,
+    id: string,
+    scope: RecurrenceScope = 'this',
+    now = new Date(),
+  ): Promise<void> {
     const before = await this.requireEntry(userId, id);
-    await this.prisma.entry.updateMany({
-      where: { id, userId, deletedAt: null },
-      data: { deletedAt: new Date(), version: { increment: 1 } },
+    const ruleId = before.recurrenceRuleId;
+    if (scope === 'series' && !ruleId) {
+      throw new UnprocessableEntityException('รายการนี้ไม่ได้มาจากกฎการเกิดซ้ำ — ใช้ scope=this');
+    }
+    await this.prisma.$transaction(async (tx) => {
+      await tx.entry.updateMany({
+        where: { id, userId, deletedAt: null },
+        data: { deletedAt: now, version: { increment: 1 } },
+      });
+      if (scope === 'series' && ruleId) await this.recurrence.endSeries(tx, userId, ruleId, now);
+      else await this.detachFromSeries(tx, userId, before);
     });
     await this.emitWrite('delete', userId, before, before);
   }
@@ -272,21 +336,39 @@ export class EntriesService {
         });
         return { affected: res.count };
       }
+      // ลบ/เลื่อนหลายรายการ = "เฉพาะรอบนี้" ของแต่ละรายการ → slot ของรายการที่มาจากกฎเข้า exceptions
       case 'delete': {
-        const res = await this.prisma.entry.updateMany({
-          where,
-          data: { deletedAt: new Date(), version: { increment: 1 } },
+        return this.prisma.$transaction(async (tx) => {
+          const targets = await tx.entry.findMany({ where, select: { id: true } });
+          const res = await tx.entry.updateMany({
+            where,
+            data: { deletedAt: new Date(), version: { increment: 1 } },
+          });
+          await this.detachManyFromSeries(
+            tx,
+            userId,
+            targets.map((t) => t.id),
+          );
+          return { affected: res.count };
         });
-        return { affected: res.count };
       }
       case 'defer': {
         const { timezone } = await this.userContext.forUser(userId);
         const target = resolveDeferTarget(input.to ?? 'tomorrow', new Date(), timezone);
-        const res = await this.prisma.entry.updateMany({
-          where,
-          data: { occurredAt: target, version: { increment: 1 } },
+        return this.prisma.$transaction(async (tx) => {
+          // หา id ก่อนอัปเดต — หลังอัปเดตแยกไม่ออกว่ารายการไหนเพิ่งถูกเลื่อน
+          const targets = await tx.entry.findMany({ where, select: { id: true } });
+          const res = await tx.entry.updateMany({
+            where,
+            data: { occurredAt: target, version: { increment: 1 } },
+          });
+          await this.detachManyFromSeries(
+            tx,
+            userId,
+            targets.map((t) => t.id),
+          );
+          return { affected: res.count };
         });
-        return { affected: res.count };
       }
       case 'move': {
         if (!input.to) throw new BadRequestException('ต้องระบุ projectId ที่จะย้ายไป');
@@ -311,6 +393,69 @@ export class EntriesService {
   }
 
   // ── ภายใน ────────────────────────────────────────────
+
+  /** แปลง dto ของ PATCH เป็นข้อมูลที่จะเขียน — ใช้ร่วมกันทั้ง scope=this และ series */
+  private buildUpdate(
+    before: EntryWithRelations,
+    dto: z.infer<typeof updateEntrySchema>,
+    timezone: string,
+  ): { data: Prisma.EntryUncheckedUpdateManyInput; occurredAt: Date | null | undefined } {
+    const occurredAt =
+      dto.occurredAt === undefined
+        ? undefined
+        : dto.occurredAt === null
+          ? null
+          : resolveDateInput(dto.occurredAt, timezone);
+    const isAllDay = typeof dto.occurredAt === 'string' ? true : dto.isAllDay;
+
+    const payload =
+      dto.payload !== undefined
+        ? this.validatePayload(before.module, { ...(before.payload as object), ...dto.payload })
+        : undefined;
+
+    const data: Prisma.EntryUncheckedUpdateManyInput = {
+      ...(dto.title !== undefined ? { title: dto.title } : {}),
+      ...(dto.description !== undefined ? { description: dto.description ?? null } : {}),
+      ...(dto.status !== undefined ? { status: dto.status } : {}),
+      // completedAt ต้องตามสถานะเสมอ — เปิดงานกลับมาทำ (undo) แล้วยังค้างวันที่เสร็จไว้ สถิติจะเพี้ยน
+      ...(dto.status !== undefined ? { completedAt: completedAtFor(dto.status, before) } : {}),
+      ...(dto.priority !== undefined ? { priority: dto.priority } : {}),
+      ...(occurredAt !== undefined ? { occurredAt } : {}),
+      ...(isAllDay !== undefined ? { isAllDay } : {}),
+      ...(payload !== undefined ? { payload: payload as Prisma.InputJsonValue } : {}),
+      ...(dto.projectId !== undefined ? { projectId: dto.projectId ?? null } : {}),
+      version: { increment: 1 },
+    };
+    return { data, occurredAt };
+  }
+
+  private async throwConflict(userId: string, id: string, expected: number): Promise<never> {
+    const current = await this.requireEntry(userId, id);
+    throw new VersionConflictError(expected, current.version);
+  }
+
+  /** รอบนี้ไม่อยู่ที่ slot เดิมแล้ว (เลื่อน/ลบ) → slot เข้า exceptions ของกฎ · entry ปกติไม่ทำอะไร */
+  private async detachFromSeries(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    entry: Pick<EntryWithRelations, 'recurrenceRuleId' | 'recurrenceSlot'>,
+  ): Promise<void> {
+    if (!entry.recurrenceRuleId || !entry.recurrenceSlot) return;
+    await this.recurrence.excludeSlot(tx, userId, entry.recurrenceRuleId, entry.recurrenceSlot);
+  }
+
+  private async detachManyFromSeries(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    ids: string[],
+  ): Promise<void> {
+    if (!ids.length) return;
+    const recurring = await tx.entry.findMany({
+      where: { id: { in: ids }, userId, recurrenceRuleId: { not: null } },
+      select: { recurrenceRuleId: true, recurrenceSlot: true },
+    });
+    for (const entry of recurring) await this.detachFromSeries(tx, userId, entry);
+  }
 
   /** payload ถูก validate ด้วย Zod ของโมดูลนั้น — JSONB ไม่ได้แปลว่า freeform (ADR-003) */
   private validatePayload(moduleKey: string, payload: unknown): Record<string, unknown> {
@@ -402,5 +547,16 @@ export class EntriesService {
       // hook ของโมดูลพังต้องไม่ทำให้คำขอหลักล้ม
       this.logger.error(`onAfterWrite ของโมดูล ${row.module} ล้มเหลว: ${(err as Error).message}`);
     }
+  }
+}
+
+async function replaceTags(
+  tx: Prisma.TransactionClient,
+  entryId: string,
+  tagIds: string[],
+): Promise<void> {
+  await tx.entryTag.deleteMany({ where: { entryId } });
+  if (tagIds.length) {
+    await tx.entryTag.createMany({ data: tagIds.map((tagId) => ({ entryId, tagId })) });
   }
 }

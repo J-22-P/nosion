@@ -15,6 +15,7 @@ import {
   bulkActionSchema,
   createEntrySchema,
   deferSchema,
+  entryScopeQuerySchema,
   listEntriesQuerySchema,
   reorderSchema,
   updateEntrySchema,
@@ -23,6 +24,7 @@ import {
   type EntryDto,
   type ListEntriesQuery,
   type Paginated,
+  type RecurrenceScope,
   type UpdateEntryInput,
 } from '@nosion/contracts';
 import { CurrentUser } from '../common/decorators';
@@ -67,19 +69,26 @@ export class EntriesController {
     return this.entries.create(userId, dto);
   }
 
+  /** `?scope=series` = แก้รอบนี้ + template ของกฎการเกิดซ้ำ (สเปก 6.1) · ค่าเริ่มต้น `this` */
   @Patch(':id')
   async update(
     @CurrentUser('userId') userId: string,
     @Param('id') id: string,
     @Body(zodBody(updateEntrySchema)) dto: UpdateEntryInput,
+    @Query(zodQuery(entryScopeQuerySchema)) query: { scope: RecurrenceScope },
   ): Promise<EntryDto> {
-    return this.entries.update(userId, id, dto);
+    return this.entries.update(userId, id, dto, query.scope);
   }
 
+  /** `?scope=series` = ลบรอบนี้และจบกฎการเกิดซ้ำ · ค่าเริ่มต้น `this` */
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async remove(@CurrentUser('userId') userId: string, @Param('id') id: string): Promise<void> {
-    await this.entries.remove(userId, id);
+  async remove(
+    @CurrentUser('userId') userId: string,
+    @Param('id') id: string,
+    @Query(zodQuery(entryScopeQuerySchema)) query: { scope: RecurrenceScope },
+  ): Promise<void> {
+    await this.entries.remove(userId, id, query.scope);
   }
 
   @Post(':id/restore')

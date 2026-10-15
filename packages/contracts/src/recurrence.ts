@@ -105,6 +105,18 @@ export const pauseRecurrenceRuleSchema = z.object({ paused: z.boolean().default(
 /** วันที่ตามปฏิทินของ rule — ลบเฉพาะรอบของวันนั้น */
 export const occurrenceDateSchema = z.string().date();
 
+/**
+ * ขอบเขตของการแก้/ลบ entry ที่มาจากกฎการเกิดซ้ำ (สเปก 6.1 "แก้ไขรอบเดียว vs ทั้ง series")
+ *  - `this`   = เฉพาะรอบนี้ — เลื่อนวันหรือลบแล้ว slot เดิมเข้า exceptions (ค่าเริ่มต้น · entry ปกติใช้ค่านี้เสมอ)
+ *  - `series` = รอบนี้ + template ของกฎ → รอบอนาคตที่ผู้ใช้ยังไม่แตะถูกสร้างใหม่ตาม template ใหม่
+ *               (ลบ = จบกฎ · รอบที่ผ่านแล้วหรือแก้เองแล้วไม่เปลี่ยน)
+ */
+export const recurrenceScopeSchema = z.enum(['this', 'series']);
+export type RecurrenceScope = z.infer<typeof recurrenceScopeSchema>;
+
+/** `PATCH /entries/:id?scope=` และ `DELETE /entries/:id?scope=` */
+export const entryScopeQuerySchema = z.object({ scope: recurrenceScopeSchema.default('this') });
+
 export interface RecurrenceRuleDto {
   id: string;
   rrule: string;

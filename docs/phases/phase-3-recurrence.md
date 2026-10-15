@@ -6,15 +6,15 @@
 
 ## แผน (ปรับได้ระหว่างทาง)
 
-| #   | ขั้น                                                                                     | Commit    | สถานะ |
-| --- | ---------------------------------------------------------------------------------------- | --------- | ----- |
-| 1   | core: คำนวณรอบ (rrule + timezone/DST + clamp) + 7 เคสบังคับ                              | `36c9b08` | ✅    |
-| 2   | API: CRUD + pause + preview (บันทึกแล้ว / ร่าง) + ลบเฉพาะรอบ                             | `d9ffaf0` | ✅    |
-| 3   | API: lazy materialization + cron 03:00 UTC + `POST /recurrence-rules/materialize`        | `d9ffaf0` | ✅    |
-| 4   | API: แก้รอบเดียว vs ทั้ง series จากฝั่ง entry (แก้ entry ที่มี recurrenceRuleId)         |           | ⏳    |
-| 5   | Web: ตัวสร้าง rrule แบบไม่ต้องรู้ RFC 5545 + preview 10 รอบ                              |           | ⏳    |
-| 6   | Web: ปุ่ม "เพิ่มรอบบิลใหม่" ในหน้า Expenses + เปิดปุ่ม "Materialize Recurrence" ใน Today |           | ⏳    |
-| 7   | Staging: ตั้ง `CRON_SECRET` บน Vercel · บท learn 16 · ADR (floating time + clamp)        |           | ⏳    |
+| #   | ขั้น                                                                                     | Commit      | สถานะ |
+| --- | ---------------------------------------------------------------------------------------- | ----------- | ----- |
+| 1   | core: คำนวณรอบ (rrule + timezone/DST + clamp) + 7 เคสบังคับ                              | `36c9b08`   | ✅    |
+| 2   | API: CRUD + pause + preview (บันทึกแล้ว / ร่าง) + ลบเฉพาะรอบ                             | `d9ffaf0`   | ✅    |
+| 3   | API: lazy materialization + cron 03:00 UTC + `POST /recurrence-rules/materialize`        | `d9ffaf0`   | ✅    |
+| 4   | API: แก้รอบเดียว vs ทั้ง series จากฝั่ง entry (แก้ entry ที่มี recurrenceRuleId)         | (รอ commit) | ✅    |
+| 5   | Web: ตัวสร้าง rrule แบบไม่ต้องรู้ RFC 5545 + preview 10 รอบ                              |             | ⏳    |
+| 6   | Web: ปุ่ม "เพิ่มรอบบิลใหม่" ในหน้า Expenses + เปิดปุ่ม "Materialize Recurrence" ใน Today |             | ⏳    |
+| 7   | Staging: ตั้ง `CRON_SECRET` บน Vercel · บท learn 16 · ADR (floating time + clamp)        |             | ⏳    |
 
 ---
 
@@ -94,3 +94,52 @@
 - ยังไม่ได้ตั้ง `CRON_SECRET` บน Vercel staging → cron ยังตอบ 404 จนกว่าจะตั้ง (ขั้น 7)
 - Reminder ของรอบที่สร้างใหม่ (สเปกขั้น 5 ของอัลกอริทึม) รอ Reminder Engine ใน Phase 4
 - `rrule` ถูก bundle เข้า web ด้วยเพราะ web import `@nosion/core` (CJS → tree-shake ไม่ได้) — วัดขนาดในขั้น 5
+
+---
+
+## ขั้น 4 · API: แก้รอบเดียว vs ทั้ง series จากฝั่ง entry — (รอ commit)
+
+**เป้าหมาย:** ผู้ใช้แก้/ลบรายการที่มาจากกฎได้ทั้งแบบ "เฉพาะครั้งนี้" และ "ทุกรอบ" จากหน้ารายการเอง ไม่ต้องไปแก้ที่กฎ (สเปก 6.1 แถวสุดท้ายของตารางปัญหา)
+
+**สิ่งที่เปลี่ยน**
+
+- 📁 `packages/contracts/src/recurrence.ts` — `recurrenceScopeSchema` (`this` | `series`), `entryScopeQuerySchema`
+- 📁 `apps/api/src/entries/entries.controller.ts` — `PATCH /entries/:id?scope=` และ `DELETE /entries/:id?scope=` (ค่าเริ่มต้น `this` → client เดิมไม่กระทบ)
+- 📁 `apps/api/src/entries/entries.service.ts`
+  - `update(…, scope)` → `scope=series` ไปที่ `updateSeries()` · ส่วนแปลง dto เป็นข้อมูลแยกเป็น `buildUpdate()` ใช้ร่วมกัน
+  - เลื่อนวัน (`PATCH occurredAt`, `defer`, `bulk defer`) และลบ (`DELETE`, `bulk delete`) ของรอบจากกฎ → `detachFromSeries()` เพิ่ม slot เข้า exceptions ใน transaction เดียวกับการเขียน entry
+  - `remove(…, scope=series)` → ลบรายการนี้ + `endSeries()` จบกฎ
+  - แก้ tag ย้ายเข้า transaction เดียวกับการแก้ entry · `projectId` เขียนเป็น scalar แทน `connect` (updateMany ไม่รองรับ relation)
+- 📁 `apps/api/src/recurrence/recurrence.service.ts` — `excludeSlot`, `seriesTemplateFor`, `replaceTemplate`, `endSeries`, `materializeRule`
+  (เมธอดที่รับ `tx` ทำงานใน transaction ของ EntriesService) · `remove()` ใช้ `endSeries()` ร่วม
+- 📁 `entries.module.ts` import `RecurrenceModule` (ทางเดียว — recurrence ไม่รู้จัก entries จึงไม่เกิด cycle)
+
+**การตัดสินใจ**
+
+- **scope เป็น query string** ไม่ใช่ field ใน body — ใช้แบบเดียวกันได้ทั้ง PATCH และ DELETE (DELETE ไม่มี body) และไม่ปน payload ของ entry
+- **มีแค่ `this` / `series`** ไม่มี "รอบนี้และรอบถัดไป" แบบ Google Calendar — `series` ในที่นี้ก็มีผลแค่ "ตั้งแต่ตอนนี้" อยู่แล้ว
+  เพราะรอบที่ผ่านไปเป็นประวัติของผู้ใช้ (สเปก: แก้ template → entry เก่าไม่เปลี่ยน) การแยก series ออกเป็นสองกฎยังไม่จำเป็น _(ตัดสินเอง)_
+- **"เลื่อนเฉพาะครั้งนี้" = แก้ entry ตรง ๆ + slot เดิมเข้า exceptions** ตามสเปก — เพิ่ม exception เฉพาะเมื่อวันเวลาเปลี่ยนจริง
+  (แก้ชื่อ/จำนวนเงินของรอบเดียวไม่แตะ exceptions) · ผลที่เห็นได้: preview ไม่แสดงวันเดิมอีก
+- `excludeSlot` กันซ้ำด้วย `NOT exceptions has slot` ใน `updateMany` — ไม่ต้องอ่านก่อนเขียน เรียกซ้ำหรือพร้อมกันได้
+- **แก้ทั้ง series ↔ PATCH /recurrence-rules ต่างกันโดยตั้งใจ:** จาก entry = เปลี่ยน template **และ** สร้างรอบอนาคตที่ยังไม่ถูกแตะใหม่ทันที
+  (ผู้ใช้กด "แก้ทุกรอบ" คาดว่าจะเห็นเดือนหน้าเปลี่ยน ไม่ใช่อีก 90 วัน) · จากกฎ = template อย่างเดียวตามเทสต์บังคับข้อ 7 _(ตัดสินเอง)_
+- แก้ทั้ง series **ห้าม** `occurredAt` / `isAllDay` / `status` → 422 — เป็นของรอบใดรอบหนึ่ง เปลี่ยนตารางต้องทำที่ `/recurrence-rules/:id`
+- ลำดับใน `updateSeries`: ตรวจ template (404/422) **ก่อน** เปิด transaction → ใน transaction: แก้ entry ด้วย version check (แพ้ = rollback ทั้งก้อน → 409, กฎไม่เปลี่ยน)
+  → ลบรอบอนาคตที่ไม่ถูกแตะ → เขียน template + `materializedUntil = now` · materialize **หลัง** commit (พังได้โดยไม่เสียข้อมูล — cron เติมให้)
+  · entry ที่ถูกแก้มี version 2 แล้วภายใน transaction จึงไม่ถูกลบไปพร้อมรอบอนาคต
+- `bulk defer/delete` = "เฉพาะรอบนี้" ของแต่ละรายการ — หา id ก่อนอัปเดตเพื่อไม่แตะรายการที่ถูกลบไปก่อนแล้ว
+
+**วิธีตรวจ**
+
+- integration `test/recurrence.int-spec.ts` เพิ่ม 8 เคส: เลื่อนรอบเดียว (exceptions + preview), แก้ชื่อรอบเดียวไม่แตะ exceptions,
+  ลบรอบเดียวซ้ำได้และไม่ถูกสร้างกลับ, defer/bulk → exceptions, แก้ทั้ง series (ม.ค. ผ่านแล้วไม่เปลี่ยน · ก.พ. ที่กด + เม.ย. ใหม่ใช้ template ใหม่ · มี.ค. ที่แก้เองอยู่ต่อ),
+  422/409 ของ series (กฎไม่เปลี่ยนเมื่อแพ้ version), ลบทั้ง series, IDOR 404
+- integration ทั้งชุด 65/65 (Docker ในเครื่อง · engine ปกติ) · `pnpm verify` ผ่าน (lint รวมกฎ ADR-006 · prettier · typecheck · unit · build)
+
+**สิ่งที่ค้าง**
+
+- **กู้คืน (restore) รอบที่ลบไปแล้ว** ไม่ดึง slot ออกจาก exceptions — รายการกลับมา แต่ preview ยังไม่แสดงวันนั้น (ไม่กระทบการสร้าง entry เพราะ unique slot ยังถูกจองอยู่)
+- `EntryDto` ยังไม่ส่ง `recurrenceSlot` — web ใช้ `recurrenceRuleId` แยกว่าเป็นรอบจากกฎได้แล้ว จะเพิ่มถ้าขั้น 5–6 ต้องใช้
+- Web ยังไม่มีตัวเลือก "เฉพาะครั้งนี้ / ทุกรอบ" — ทำพร้อมขั้น 6
+- 📚 ความรู้เบื้องหลัง: บท 16 (ยังไม่เขียน — ขั้น 7)

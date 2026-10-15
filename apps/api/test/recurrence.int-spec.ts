@@ -1,6 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { EntriesService } from '../src/entries/entries.service';
 import { PrismaService } from '../src/infra/prisma/prisma.service';
 import { RedisService } from '../src/infra/redis/redis.service';
 import { RecurrenceService } from '../src/recurrence/recurrence.service';
@@ -18,6 +19,7 @@ describe('Recurrence Engine (API + DB จริง)', () => {
   let prisma: PrismaService;
   let redis: RedisService;
   let recurrence: RecurrenceService;
+  let entries: EntriesService;
   let alice = '';
   let aliceId = '';
   let bob = '';
@@ -28,6 +30,7 @@ describe('Recurrence Engine (API + DB จริง)', () => {
     prisma = ctx.prisma;
     redis = ctx.redis;
     recurrence = app.get(RecurrenceService);
+    entries = app.get(EntriesService);
     alice = await registerAndLogin(app, 'alice-recur');
     bob = await registerAndLogin(app, 'bob-recur');
     const me = await request(app.getHttpServer()).get('/api/v1/me').set(as(alice)).expect(200);
@@ -227,6 +230,199 @@ describe('Recurrence Engine (API + DB จริง)', () => {
       await recurrence.remove(aliceId, rule.id, now);
       expect((await entriesOf(rule.id)).map((e) => e.id)).toEqual([first!.id]);
       await api().get(`/api/v1/recurrence-rules/${rule.id}`).set(as(alice)).expect(404);
+    });
+  });
+
+  describe('แก้/ลบจากฝั่ง entry — รอบเดียว vs ทั้ง series', () => {
+    /** กฎรายสัปดาห์ที่เริ่มอีก 2 วัน — ใช้กับเทสต์ผ่าน HTTP ที่ "ตอนนี้" คือเวลาจริง */
+    const createWeekly = async () => {
+      const startsAt = new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10);
+      const res = await api()
+        .post('/api/v1/recurrence-rules')
+        .set(as(alice))
+        .send({ rrule: 'FREQ=WEEKLY', startsAt, template: internetBill })
+        .expect(201);
+      return res.body as { id: string };
+    };
+    const ruleRow = (id: string) => prisma.recurrenceRule.findUniqueOrThrow({ where: { id } });
+
+    it('เลื่อนเฉพาะครั้งนี้ → entry อื่นไม่เปลี่ยน · slot เดิมเข้า exceptions · preview ไม่แสดงวันเดิม', async () => {
+      const rule = await createWeekly();
+      const [first, second] = await entriesOf(rule.id);
+      const moved = new Date(first!.occurredAt!.getTime() + 86_400_000).toISOString();
+
+      const res = await api()
+        .patch(`/api/v1/entries/${first!.id}`)
+        .set(as(alice))
+        .send({ occurredAt: moved, version: 1 })
+        .expect(200);
+      expect(res.body.occurredAt).toBe(moved);
+
+      const saved = await ruleRow(rule.id);
+      expect(saved.exceptions).toEqual([first!.recurrenceSlot]);
+      expect(saved.template).toMatchObject({ title: 'ค่าเน็ต' });
+      expect((await entriesOf(rule.id)).find((e) => e.id === second!.id)?.version).toBe(1);
+
+      const preview = await api()
+        .post(`/api/v1/recurrence-rules/${rule.id}/preview?limit=1`)
+        .set(as(alice))
+        .expect(200);
+      expect(preview.body.occurrences).toEqual([second!.recurrenceSlot!.toISOString()]);
+    });
+
+    it('แก้ชื่อเฉพาะครั้งนี้ (ไม่เลื่อนวัน) → ไม่แตะ exceptions', async () => {
+      const rule = await createWeekly();
+      const [first] = await entriesOf(rule.id);
+      await api()
+        .patch(`/api/v1/entries/${first!.id}?scope=this`)
+        .set(as(alice))
+        .send({ title: 'ค่าเน็ต (จ่ายแล้วบางส่วน)', version: 1 })
+        .expect(200);
+      expect((await ruleRow(rule.id)).exceptions).toEqual([]);
+    });
+
+    it('ลบเฉพาะครั้งนี้ → slot เข้า exceptions และ materialize ใหม่ไม่สร้างกลับ', async () => {
+      const rule = await createWeekly();
+      const [first] = await entriesOf(rule.id);
+      await api().delete(`/api/v1/entries/${first!.id}`).set(as(alice)).expect(204);
+      await api().delete(`/api/v1/entries/${first!.id}`).set(as(alice)).expect(204); // ซ้ำได้
+
+      const saved = await ruleRow(rule.id);
+      expect(saved.exceptions).toEqual([first!.recurrenceSlot]);
+      // บังคับสร้างใหม่ตั้งแต่ต้น — slot ที่ลบต้องไม่กลับมา
+      await prisma.entry.deleteMany({ where: { id: first!.id } });
+      await recurrence.materialize({ ...saved, materializedUntil: null }, new Date());
+      expect((await entriesOf(rule.id)).map((e) => e.id)).not.toContain(first!.id);
+      expect(
+        (await entriesOf(rule.id)).some(
+          (e) => e.recurrenceSlot?.getTime() === first!.recurrenceSlot!.getTime(),
+        ),
+      ).toBe(false);
+    });
+
+    it('defer และ bulk defer/delete ของรอบจากกฎ → slot เข้า exceptions', async () => {
+      const rule = await createWeekly();
+      const [a, b, c] = await entriesOf(rule.id);
+      await api().post(`/api/v1/entries/${a!.id}/defer?to=next-week`).set(as(alice)).expect(201);
+      await api()
+        .post('/api/v1/entries/bulk')
+        .set(as(alice))
+        .send({ ids: [b!.id], action: 'defer', to: 'tomorrow' })
+        .expect(201);
+      await api()
+        .post('/api/v1/entries/bulk')
+        .set(as(alice))
+        .send({ ids: [c!.id], action: 'delete' })
+        .expect(201);
+      const saved = await ruleRow(rule.id);
+      expect(saved.exceptions.map((d) => d.getTime()).sort()).toEqual(
+        [a, b, c].map((e) => e!.recurrenceSlot!.getTime()).sort(),
+      );
+    });
+
+    it('แก้ทั้ง series → รอบนี้ + รอบอนาคตที่ไม่ถูกแตะใช้ template ใหม่ · รอบที่ผ่านแล้ว/แก้เองแล้วไม่เปลี่ยน', async () => {
+      const rule = await createAt('2027-01-01T00:00:00Z', {
+        rrule: 'FREQ=MONTHLY;BYMONTHDAY=5',
+        startsAt: '2027-01-05',
+        timezone: 'Asia/Bangkok',
+      });
+      const [jan, feb, mar] = await entriesOf(rule.id);
+      expect(await entriesOf(rule.id)).toHaveLength(3); // ม.ค. ก.พ. มี.ค. (90 วันจาก 1 ม.ค.)
+      await entries.update(aliceId, mar!.id, { title: 'แก้เอง', version: 1 });
+
+      // 20 ม.ค.: รอบ ม.ค. ผ่านไปแล้ว — ผู้ใช้กด "แก้ทุกรอบ" บนรายการเดือน ก.พ.
+      const now = new Date('2027-01-20T00:00:00Z');
+      const updated = await entries.update(
+        aliceId,
+        feb!.id,
+        { title: 'ค่าเน็ตไฟเบอร์', payload: { amountMinor: 89_900 }, version: 1 },
+        'series',
+        now,
+      );
+      expect(updated).toMatchObject({ id: feb!.id, title: 'ค่าเน็ตไฟเบอร์', version: 2 });
+
+      const after = await entriesOf(rule.id);
+      const byMonth = Object.fromEntries(
+        after.map((e) => [e.occurredAt!.toISOString().slice(0, 7), e]),
+      );
+      expect(Object.keys(byMonth)).toEqual(['2027-01', '2027-02', '2027-03', '2027-04']);
+      expect(byMonth['2027-01']).toMatchObject({ id: jan!.id, title: 'ค่าเน็ต', version: 1 });
+      expect(byMonth['2027-02']!.payload).toMatchObject({ amountMinor: 89_900 });
+      expect(byMonth['2027-03']).toMatchObject({ id: mar!.id, title: 'แก้เอง' });
+      expect(byMonth['2027-04']).toMatchObject({ title: 'ค่าเน็ตไฟเบอร์', version: 1 });
+      expect(byMonth['2027-04']!.payload).toMatchObject({ amountMinor: 89_900, isBill: true });
+
+      const saved = await ruleRow(rule.id);
+      expect(saved.template).toMatchObject({
+        title: 'ค่าเน็ตไฟเบอร์',
+        payload: { amountMinor: 89_900, category: 'utilities', isBill: true },
+      });
+      expect(saved.exceptions).toEqual([]);
+    });
+
+    it('แก้ทั้ง series: วันเวลา/สถานะ → 422 · entry ปกติ → 422 · payload ผิด → 422 · version เก่า → 409 โดยกฎไม่เปลี่ยน', async () => {
+      const rule = await createWeekly();
+      const [first] = await entriesOf(rule.id);
+      const url = `/api/v1/entries/${first!.id}?scope=series`;
+      await api()
+        .patch(url)
+        .set(as(alice))
+        .send({ occurredAt: '2030-01-01', version: 1 })
+        .expect(422);
+      await api().patch(url).set(as(alice)).send({ status: 'done', version: 1 }).expect(422);
+      await api()
+        .patch(url)
+        .set(as(alice))
+        .send({ payload: { amountMinor: 1.5 }, version: 1 })
+        .expect(422);
+      await api().patch(url).set(as(alice)).send({ title: 'ใหม่', version: 7 }).expect(409);
+      expect((await ruleRow(rule.id)).template).toMatchObject({ title: 'ค่าเน็ต' });
+      expect((await entriesOf(rule.id)).length).toBeGreaterThan(1); // รอบอนาคตไม่ถูกลบทิ้ง
+
+      const plain = await api()
+        .post('/api/v1/entries')
+        .set(as(alice))
+        .send({ module: 'task', title: 'งานธรรมดา' })
+        .expect(201);
+      await api()
+        .patch(`/api/v1/entries/${plain.body.id}?scope=series`)
+        .set(as(alice))
+        .send({ title: 'x', version: 1 })
+        .expect(422);
+      await api()
+        .delete(`/api/v1/entries/${plain.body.id}?scope=series`)
+        .set(as(alice))
+        .expect(422);
+      await api()
+        .patch(`/api/v1/entries/${first!.id}?scope=all`)
+        .set(as(alice))
+        .send({ title: 'x', version: 1 })
+        .expect(422);
+    });
+
+    it('ลบทั้ง series → รอบนี้ถูกลบ · กฎจบ · รอบอนาคตที่ไม่ถูกแตะหาย · รอบที่ทำเสร็จแล้วอยู่ต่อ', async () => {
+      const rule = await createWeekly();
+      const [first, second] = await entriesOf(rule.id);
+      await api().post(`/api/v1/entries/${first!.id}/complete`).set(as(alice)).expect(201);
+
+      await api().delete(`/api/v1/entries/${second!.id}?scope=series`).set(as(alice)).expect(204);
+      await api().get(`/api/v1/recurrence-rules/${rule.id}`).set(as(alice)).expect(404);
+      expect((await entriesOf(rule.id)).map((e) => e.id)).toEqual([first!.id]);
+      expect(
+        (await prisma.entry.findUniqueOrThrow({ where: { id: second!.id } })).deletedAt,
+      ).not.toBeNull();
+    });
+
+    it('ผู้ใช้อื่นแก้/ลบ series ของคนอื่นไม่ได้ → 404', async () => {
+      const rule = await createWeekly();
+      const [first] = await entriesOf(rule.id);
+      await api()
+        .patch(`/api/v1/entries/${first!.id}?scope=series`)
+        .set(as(bob))
+        .send({ title: 'ของบ็อบ', version: 1 })
+        .expect(404);
+      await api().delete(`/api/v1/entries/${first!.id}?scope=series`).set(as(bob)).expect(404);
+      expect((await ruleRow(rule.id)).deletedAt).toBeNull();
     });
   });
 
