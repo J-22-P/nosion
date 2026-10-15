@@ -28,7 +28,10 @@
         "VAPID_PUBLIC_KEY",
         "VAPID_PRIVATE_KEY",
         "VAPID_SUBJECT",
-        "NOTIFICATION_ACTION_SECRET"
+        "NOTIFICATION_ACTION_SECRET",
+        "MAIL_DRIVER",
+        "RESEND_API_KEY",
+        "EMAIL_FROM"
       ]
     },
     "lint": {
@@ -54,7 +57,7 @@
     "@nosion/worker#test:int": {
       "cache": false,
       "dependsOn": ["^build", "@nosion/api#test:int"],
-      "env": ["DATABASE_URL", "REDIS_URL"]
+      "env": ["DATABASE_URL", "REDIS_URL", "SMTP_URL", "MAILPIT_API_URL"]
     }
   }
 }

@@ -54,6 +54,7 @@ services:
       DATABASE_URL: postgresql://nosion:nosion@postgres:5432/nosion_dev
       REDIS_URL: redis://redis:6379
       SMTP_URL: smtp://mailpit:1025
+      MAIL_DRIVER: smtp
       # อ่านจาก .env ที่ setup:dev สุ่มไว้ — ไม่ฝังความลับลงไฟล์ที่ขึ้น git
       JWT_SECRET: ${JWT_SECRET:?ยังไม่มี JWT_SECRET ใน .env — รัน pnpm setup:dev ก่อน}
       CORS_ORIGINS: http://localhost:3000
@@ -84,6 +85,10 @@ services:
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:noreply@nosion.dev}
       NOTIFICATION_ACTION_SECRET: ${NOTIFICATION_ACTION_SECRET:-}
+      MAIL_DRIVER: smtp
+      SMTP_URL: smtp://mailpit:1025
+      APP_URL: http://localhost:3000
+      API_URL: http://localhost:3001
     volumes:
       - ./apps/worker:/app/apps/worker
       - ./packages:/app/packages

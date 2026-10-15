@@ -8,6 +8,8 @@ import { logger } from './logger';
 import { runCleanup } from './processors/cleanup.processor';
 import { LogDispatcher, type ReminderDispatcher } from './reminders/dispatcher';
 import { WebPushDispatcher } from './reminders/web-push.dispatcher';
+import { ChannelRouter, EmailDispatcher } from './reminders/email.dispatcher';
+import { createMailTransport, type MailDriver } from '@nosion/emails';
 import { startReminderPipeline } from './reminders/pipeline';
 import { DEFAULT_JOB_OPTIONS, QUEUE } from './queues';
 
@@ -73,29 +75,46 @@ async function bootstrap(): Promise<void> {
 
 function createDispatcher(): ReminderDispatcher {
   const log = new LogDispatcher();
-  const { VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT, NOTIFICATION_ACTION_SECRET } =
-    process.env;
-  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
+  const env = process.env;
+  const routes: ConstructorParameters<typeof ChannelRouter>[0] = {};
+
+  if (env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY) {
+    if (!env.NOTIFICATION_ACTION_SECRET) {
+      logger.warn(
+        'ไม่ได้ตั้ง NOTIFICATION_ACTION_SECRET — notification จะไม่มีปุ่ม "จ่ายแล้ว / เลื่อน"',
+      );
+    }
+    routes.push = new WebPushDispatcher(
+      prisma,
+      {
+        publicKey: env.VAPID_PUBLIC_KEY,
+        privateKey: env.VAPID_PRIVATE_KEY,
+        subject: env.VAPID_SUBJECT ?? 'mailto:noreply@nosion.dev',
+        actionSecret: env.NOTIFICATION_ACTION_SECRET,
+      },
+      log,
+    );
+  } else {
     logger.warn(
       'ไม่ได้ตั้ง VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY — การเตือนแบบ push จะถูกบันทึก log แทนการส่งจริง',
     );
-    return log;
   }
-  if (!NOTIFICATION_ACTION_SECRET) {
-    logger.warn(
-      'ไม่ได้ตั้ง NOTIFICATION_ACTION_SECRET — notification จะไม่มีปุ่ม "จ่ายแล้ว / เลื่อน"',
+
+  const driver = (env.MAIL_DRIVER ?? 'log') as MailDriver;
+  if (driver !== 'log') {
+    routes.email = new EmailDispatcher(
+      prisma,
+      createMailTransport({
+        driver,
+        from: env.EMAIL_FROM ?? 'NOSION <noreply@nosion.dev>',
+        smtpUrl: env.SMTP_URL,
+        resendApiKey: env.RESEND_API_KEY,
+      }),
+      env.APP_URL ?? 'http://localhost:3000',
     );
   }
-  return new WebPushDispatcher(
-    prisma,
-    {
-      publicKey: VAPID_PUBLIC_KEY,
-      privateKey: VAPID_PRIVATE_KEY,
-      subject: VAPID_SUBJECT ?? 'mailto:noreply@nosion.dev',
-      actionSecret: NOTIFICATION_ACTION_SECRET,
-    },
-    log,
-  );
+
+  return new ChannelRouter(routes, log);
 }
 
 bootstrap().catch((err: unknown) => {

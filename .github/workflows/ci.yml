@@ -56,6 +56,10 @@ jobs:
           --health-cmd "redis-cli ping" --health-interval 5s
           --health-timeout 3s --health-retries 20
         ports: ['6379:6379']
+      # อีเมลส่งจริงผ่าน SMTP แล้วอ่านกลับจาก API ของ Mailpit (ไม่ออกอินเทอร์เน็ต)
+      mailpit:
+        image: axllent/mailpit
+        ports: ['1025:1025', '8025:8025']
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup
@@ -63,6 +67,8 @@ jobs:
       - run: pnpm test:int
         env:
           REDIS_URL: redis://localhost:6379
+          SMTP_URL: smtp://localhost:1025
+          MAILPIT_API_URL: http://localhost:8025
 
   security:
     name: Security scan

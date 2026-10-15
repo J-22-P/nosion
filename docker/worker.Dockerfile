@@ -9,6 +9,7 @@ COPY apps/worker/package.json apps/worker/
 COPY apps/api/package.json apps/api/
 COPY packages/contracts/package.json packages/contracts/
 COPY packages/core/package.json packages/core/
+COPY packages/emails/package.json packages/emails/
 COPY packages/ui/package.json packages/ui/
 COPY packages/tsconfig/package.json packages/tsconfig/
 COPY packages/eslint-config/package.json packages/eslint-config/
@@ -36,6 +37,7 @@ COPY apps/worker/package.json apps/worker/
 COPY apps/api/package.json apps/api/
 COPY packages/contracts/package.json packages/contracts/
 COPY packages/core/package.json packages/core/
+COPY packages/emails/package.json packages/emails/
 COPY packages/ui/package.json packages/ui/
 COPY packages/tsconfig/package.json packages/tsconfig/
 COPY packages/eslint-config/package.json packages/eslint-config/
@@ -53,6 +55,7 @@ COPY --from=prod-deps --chown=nodeapp:nodejs /app/node_modules ./node_modules
 COPY --from=prod-deps --chown=nodeapp:nodejs /app/apps/worker/node_modules ./apps/worker/node_modules
 COPY --from=builder   --chown=nodeapp:nodejs /app/packages/contracts/dist ./packages/contracts/dist
 COPY --from=builder   --chown=nodeapp:nodejs /app/packages/core/dist ./packages/core/dist
+COPY --from=builder   --chown=nodeapp:nodejs /app/packages/emails/dist ./packages/emails/dist
 COPY --from=builder   --chown=nodeapp:nodejs /app/apps/worker/dist ./dist
 COPY --from=builder   --chown=nodeapp:nodejs /app/apps/api/prisma ./prisma
 

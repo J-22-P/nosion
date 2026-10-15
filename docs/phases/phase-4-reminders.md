@@ -6,15 +6,15 @@
 
 ## แผน (ปรับได้ระหว่างทาง)
 
-| #   | ขั้น                                                                                              | Commit                  | สถานะ |
-| --- | ------------------------------------------------------------------------------------------------- | ----------------------- | ----- |
-| 1   | API: reminder CRUD + `fireAt` ตามวันของ entry (แก้/เลื่อน) + reminder ใน template ของกฎการเกิดซ้ำ | `b8a1e31`               | ✅    |
-| 2   | Worker: sweeper ทุก 1 นาที + processor (guard, quiet hours, retry, DLQ) + integration test        | `3a3daae`               | ✅    |
-| 3   | Web Push: VAPID · subscribe · service worker · ปุ่ม "จ่ายแล้ว / เลื่อน" โดยไม่เปิดแอป             | `f2b699e` · (รอ commit) | ✅    |
-| 4   | Email: Resend + React Email 6 แบบ · Mailpit ในเครื่อง                                             |                         | ⏳    |
-| 5   | Daily digest ตามโซนผู้ใช้ (สเปก 10.2) + ตั้งค่า quiet hours / digest ในหน้า Settings              |                         | ⏳    |
-| 6   | Metrics `reminder_delivery_lag_seconds` + alert                                                   |                         | ⏳    |
-| 7   | Staging: worker + Redis บน Fly.io (region sin) · DoD บนมือถือจริง · บท learn 17 · ADR             |                         | ⏳    |
+| #   | ขั้น                                                                                              | Commit                | สถานะ |
+| --- | ------------------------------------------------------------------------------------------------- | --------------------- | ----- |
+| 1   | API: reminder CRUD + `fireAt` ตามวันของ entry (แก้/เลื่อน) + reminder ใน template ของกฎการเกิดซ้ำ | `b8a1e31`             | ✅    |
+| 2   | Worker: sweeper ทุก 1 นาที + processor (guard, quiet hours, retry, DLQ) + integration test        | `3a3daae`             | ✅    |
+| 3   | Web Push: VAPID · subscribe · service worker · ปุ่ม "จ่ายแล้ว / เลื่อน" โดยไม่เปิดแอป             | `f2b699e` · `c257537` | ✅    |
+| 4   | Email: Resend + React Email 6 แบบ · Mailpit ในเครื่อง                                             | (รอ commit)           | ✅    |
+| 5   | Daily digest ตามโซนผู้ใช้ (สเปก 10.2) + ตั้งค่า quiet hours / digest ในหน้า Settings              |                       | ⏳    |
+| 6   | Metrics `reminder_delivery_lag_seconds` + alert                                                   |                       | ⏳    |
+| 7   | Staging: worker + Redis บน Fly.io (region sin) · DoD บนมือถือจริง · บท learn 17 · ADR             |                       | ⏳    |
 
 **ตัดสินใจก่อนเริ่ม:** worker บน staging รันที่ **Fly.io** (เจ้าของบัญชีเลือก 15 ต.ค. 2026) — Vercel Cron แผนฟรีรันได้วันละครั้ง
 แต่ sweeper ต้องรันทุกนาที และ BullMQ poll Redis ตลอดเวลาจนโควตาฟรีของ Upstash ไม่พอ
@@ -135,7 +135,7 @@
 
 ---
 
-## ขั้น 3b · Web Push ฝั่งเว็บ: service worker + เปิดการแจ้งเตือน + เตือนบิล — (รอ commit)
+## ขั้น 3b · Web Push ฝั่งเว็บ: service worker + เปิดการแจ้งเตือน + เตือนบิล — `c257537`
 
 **เป้าหมาย:** ผู้ใช้เปิดการแจ้งเตือนบนเครื่องได้เอง ตั้ง "เตือนล่วงหน้า" ตอนสร้างรอบบิล และกดปุ่มใน notification ได้โดยไม่เปิดแอป
 
@@ -170,3 +170,47 @@
 
 - ยังตั้งเตือนให้งาน (Tasks) จากหน้าเว็บไม่ได้ — API พร้อมแล้ว (ขั้น 1)
 - `.env` ที่มีอยู่แล้วในเครื่องไม่ถูกเติมค่า VAPID อัตโนมัติ (`setup:dev` เติมเฉพาะตอนสร้าง .env ใหม่)
+
+---
+
+## ขั้น 4 · Email: React Email 7 แบบ + Resend / Mailpit + เลิกรับอีเมล — (รอ commit)
+
+**เป้าหมาย:** template อีเมลครบตามสเปก 10.3 ใช้ร่วมกันทั้ง API และ worker · สลับผู้ให้บริการด้วย env · ทุกอีเมลแจ้งข่าวสารเลิกรับได้จริง
+
+**สิ่งที่เปลี่ยน**
+
+- 📁 `packages/emails/` (แพ็กเกจใหม่ · server-only) — `layout.tsx` (monochrome ตาม ADR-009 · inline style · ฟอนต์ไทยสำรอง) ·
+  `templates/` 6 แบบตามสเปก (ยืนยันอีเมล · ตั้งรหัสผ่านใหม่ · แจ้งเตือนความปลอดภัย · สรุปรายวัน · สรุปสัปดาห์ · งบใกล้เต็ม/เกิน) + การเตือนทางอีเมล ·
+  `renderEmail(kind, props)` → `{ subject, html, text }` · `createMailTransport` (`log` / `smtp` / `resend`)
+- 📁 `packages/core/src/action-token.ts` — token แยกจุดประสงค์ (`action` / `unsubscribe`) · `signUnsubscribeToken` อายุ 180 วัน
+- 📁 `apps/api/src/infra/mail/mail.service.ts` ใช้ template + transport จริง · env `MAIL_DRIVER`, `RESEND_API_KEY`
+- 📁 `apps/api/src/email/` — `GET/POST /email/unsubscribe?token=` (`@Public`)
+- 📁 `apps/worker/src/reminders/email.dispatcher.ts` — `EmailDispatcher` + `ChannelRouter` (push / email / log)
+- 📁 CI integration มี service Mailpit · `docker-compose.yml`, `.env.example` (`MAIL_DRIVER=smtp`), `turbo.json`, Dockerfile ทั้งสามมี `packages/emails`
+
+**การตัดสินใจ**
+
+- **แพ็กเกจแยก `@nosion/emails`** — API ส่งอีเมลบัญชี worker ส่ง digest/การเตือน ใช้ template ชุดเดียว · ไม่ใส่ใน `core` เพราะพา React + nodemailer ไปด้วย
+- **Resend ผ่าน HTTP ตรง ๆ** ไม่ลง SDK — เรียก endpoint เดียว · 4xx (ยกเว้น 429) = ล้มถาวร ไม่ retry · 429/5xx = retry
+- **`MAIL_DRIVER` ค่าเริ่มต้น `log`** — เทสต์/CI ไม่ต่อเครือข่าย · dev ตั้ง `smtp` (Mailpit) · staging ตั้ง `resend` · ตั้ง `resend` แต่ไม่มี key = ล้มตั้งแต่ boot
+- **เลิกรับ: GET แค่แสดงหน้ายืนยัน การเลิกรับจริงเป็น POST เสมอ** — ตัวสแกนลิงก์ของผู้ให้บริการอีเมล (Outlook Safe Links ฯลฯ) กด GET เอง
+  ถ้า GET เลิกรับทันที ผู้ใช้ถูกยกเลิกโดยไม่ได้กดอะไร · POST เดียวกันรองรับ one-click ของ Gmail/Yahoo (RFC 8058 `List-Unsubscribe-Post`)
+- token เลิกรับอายุ 180 วัน (คนเปิดอีเมลเก่าแล้วกดเลิกรับต้องได้ผล) · token แยก purpose ในข้อมูลที่เซ็น → token ปุ่ม notification ใช้แทน token เลิกรับไม่ได้แม้ secret เดียวกัน
+- อีเมลธุรกรรม (ยืนยัน/รีเซ็ต/ความปลอดภัย/การเตือนที่ผู้ใช้ตั้งเอง) มีลิงก์ "ตั้งค่าการแจ้งเตือน" แทนลิงก์เลิกรับ — เลิกรับอีเมลยืนยันตัวตนไม่ได้
+- บัญชีทดลองไม่ได้รับอีเมลการเตือนจริง (สเปก 9.4) → ล้มถาวร
+- แจ้งเตือนความปลอดภัยส่งไม่สำเร็จ → log อย่างเดียว ไม่ทำให้การเพิกถอน session ล้ม
+
+**วิธีตรวจ**
+
+- unit `@nosion/emails` 13 เคส: ทั้ง 7 แบบ · กลุ่มว่างไม่แสดง · **ชื่อรายการที่มี HTML ถูก escape** · Resend: request/permanent ตามสถานะ
+- unit worker 23 (EmailDispatcher: ส่ง · demo/ลบแล้ว/ไม่พบ ไม่ส่ง · ถาวร vs ชั่วคราว · ChannelRouter) · core token 12
+- integration: **ส่งจริงผ่าน SMTP เข้า Mailpit** แล้วอ่านกลับ — หัวเรื่องไทยถูก encode, html+text, `List-Unsubscribe-Post` ถึงปลายทาง ·
+  API `email.int-spec.ts` 3 เคส (GET ไม่เปลี่ยนอะไร · POST/one-click ปิดเฉพาะชนิดนั้นและซ้ำได้ · token ผิดไม่เปลี่ยนอะไร)
+- build CJS ของแพ็กเกจ require จาก Node ได้ · integration API 80 + worker 10 · `pnpm verify`
+
+**สิ่งที่ค้าง**
+
+- ⚠️ **Docker image ของ worker build ไม่ผ่าน (มีมาก่อนขั้นนี้)** — CI build ด้วย turbo ไม่เคย build image จึงไม่มีใครเห็น:
+  stage builder ไม่มี `apps/api/node_modules` ให้ `prisma generate` และ stage runner ติดตั้ง dependency ใหม่โดยไม่ generate client → แก้พร้อม deploy Fly.io (ขั้น 7)
+- ยังไม่ได้ทดสอบกับ Resend จริง (ต้องมีบัญชี + โดเมนที่ยืนยันแล้ว — staging ขั้น 7) · หน้า `/verify-email`, `/reset-password` ฝั่งเว็บยังไม่มี (มีมาตั้งแต่ Phase 1)
+- งานส่งสรุปสัปดาห์และงบเกิน (cron/event) ยังไม่มี — template พร้อมแล้ว · สรุปรายวันทำในขั้น 5

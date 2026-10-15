@@ -24,6 +24,7 @@
     "@node-rs/argon2": "2.2.1",
     "@nosion/contracts": "workspace:*",
     "@nosion/core": "workspace:*",
+    "@nosion/emails": "workspace:*",
     "@prisma/client": "6.19.3",
     "cookie-parser": "1.4.7",
     "dotenv": "17.4.2",

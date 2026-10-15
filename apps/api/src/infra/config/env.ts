@@ -29,6 +29,9 @@ export const envSchema = z.object({
   JWT_REFRESH_TTL: z.string().default('30d'),
   ENCRYPTION_KEY: z.string().length(64).default('0'.repeat(64)),
 
+  /** log = ไม่ส่งจริง (เทสต์/CI) · smtp = Mailpit ในเครื่อง · resend = staging/production */
+  MAIL_DRIVER: z.enum(['log', 'smtp', 'resend']).default('log'),
+  RESEND_API_KEY: z.string().min(1).optional(),
   SMTP_URL: z.string().default('smtp://localhost:1025'),
   EMAIL_FROM: z.string().default('NOSION <noreply@nosion.dev>'),
 
