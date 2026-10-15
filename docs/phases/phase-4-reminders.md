@@ -375,7 +375,7 @@
 
 ---
 
-## ขั้น 8 · ส่งการเตือนจาก API บน Vercel (ระหว่างยังไม่ใช้ Fly.io) — (รอ commit)
+## ขั้น 8 · ส่งการเตือนจาก API บน Vercel (ระหว่างยังไม่ใช้ Fly.io) — `0630fde`
 
 **เป้าหมาย:** เจ้าของเลือกใช้ Vercel ไปก่อน (16 ต.ค. 2026) — แต่ Vercel Cron แผน Hobby รันได้วันละครั้ง (คลาดได้ ±59 นาที) ไม่พอสำหรับการเตือน
 จึงให้ **cron-job.org (ฟรี) เรียก endpoint ของ API ทุก 1 นาที** แทน worker
@@ -413,5 +413,18 @@
 
 **สิ่งที่ค้าง (ทำโดยเจ้าของบัญชี)**
 
-- [ ] push โค้ดนี้ขึ้น main แล้วรัน `bash scripts/vercel-cron-setup.sh`
+- [x] push + ตั้ง env บน Vercel + cron-job.org 2 งาน (16 ต.ค. 2026) — ดู "ขึ้น staging" ด้านล่าง
 - [ ] DoD บนมือถือ: `/settings` → เปิดการแจ้งเตือน → "ส่งทดสอบ" → เด้งภายใน 2–3 นาที → กด "เสร็จแล้ว" โดยไม่เปิดแอป
+
+### ขึ้น staging (16 ต.ค. 2026) — สิ่งที่เจอ
+
+- **API ล่มทั้งตัวหลังเพิ่ม env** (`FUNCTION_INVOCATION_FAILED` ทุก endpoint) — `vercel logs --json` บอกว่า `MAIL_DRIVER` มีค่า `"v MAIL_DRIVER"`
+  (วางตัวคำสั่งคัดลอกแทนผลของคำสั่ง) · การตรวจ env ตอน boot ทำงานตามที่ออกแบบ: ไม่ยอมขึ้นแทนที่จะทำงานผิดเงียบ ๆ
+  · แก้: ตั้ง env ใหม่ทั้ง 5 ตัว + `CRON_SECRET` จาก `.env.staging.fly` ผ่าน Vercel CLI ทาง stdin · ค่าที่ไม่ลับตั้งเป็น Config แล้วตรวจเทียบได้ว่าตรง
+- **deploy ใหม่ผ่านแต่โดเมนยังชี้ deployment เก่า** — หลัง Instant Rollback Vercel หยุดย้ายโดเมนอัตโนมัติ → `vercel promote` deployment ใหม่
+- `VAPID_SUBJECT` เคยเป็น `mailto:N` (ตอบ "N" ตอน wizard ถามอีเมล) — Apple ปฏิเสธ push ที่ subject ไม่ใช่อีเมลจริง · wizard ตรวจรูปแบบอีเมลแล้ว (`4956f0b`)
+- ปุ่ม Redeploy ของ Vercel ใช้กับ deployment แบบ prebuilt ไม่ได้ — สั่ง `gh workflow run "Deploy staging"` · CI ล้มรอบหนึ่งจาก race ในเทสต์ worker + smoke ของ image (`c68f921`)
+
+**ตรวจบน staging จริง** (ทุกอย่างผ่าน URL ของเว็บ): `/internal/cron/reminders`, `/digest`, `/recurrence` → 200 · `/push/config` ส่ง public key ตรงกับที่สร้าง ·
+`/email/unsubscribe` แสดงหน้าของเรา (ไม่ใช่ 404) · **end-to-end ผ่าน cron-job.org:** `POST /push/test` (fireAt 18:58:00Z) → ถูกหยิบภายในไม่กี่วินาที → `failed`
+"ผู้ใช้ยังไม่ได้เปิดการแจ้งเตือนบนเครื่องใดเลย" (ถูกต้องสำหรับบัญชีทดลอง) · รอบที่อยู่ในช่วงห้ามรบกวน (01:55 น.) ถูกเลื่อนไป 07:00 ตามที่ออกแบบ
