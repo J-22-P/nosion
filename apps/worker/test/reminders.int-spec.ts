@@ -34,6 +34,9 @@ const connection = new IORedis(process.env.REDIS_URL ?? 'redis://localhost:6379'
 });
 const userIds: string[] = [];
 
+const statusOf = async (id: string) =>
+  (await prisma.reminder.findUniqueOrThrow({ where: { id } })).status;
+
 async function until(check: () => Promise<boolean>, timeoutMs = 10_000): Promise<void> {
   const start = Date.now();
   while (!(await check())) {
@@ -127,10 +130,18 @@ describe('Reminder Engine · worker (PostgreSQL + Redis จริง)', () => {
       tag: `entry-${reminder.entryId}`,
     });
 
+    // processor บันทึก sent ลง DB "หลัง" ส่งเสร็จ และ pipeline บันทึก metric หลังจากนั้นอีกที —
+    // ต้องรอ ไม่ใช่อ่านทันที (CI ช้ากว่าเครื่อง dev จนเทสต์ล้มเป็นครั้งคราว)
+    await until(async () => (await statusOf(reminder.id)) === 'sent');
     const saved = await prisma.reminder.findUniqueOrThrow({ where: { id: reminder.id } });
     expect(saved).toMatchObject({ status: 'sent', jobId: jobIdFor(reminder.id, fireAt) });
 
     // metric สำคัญที่สุด (สเปก 14.3) ถูกบันทึกด้วยค่าจริง ติดป้ายช่องทาง
+    const lagCount = async () =>
+      (await metrics.reminderLag.get()).values.find(
+        (v) => v.metricName === 'reminder_delivery_lag_seconds_count',
+      )?.value ?? 0;
+    await until(async () => (await lagCount()) === 1);
     const lagMetric = (await metrics.reminderLag.get()).values;
     expect(
       lagMetric.find((v) => v.metricName === 'reminder_delivery_lag_seconds_count'),
@@ -160,7 +171,7 @@ describe('Reminder Engine · worker (PostgreSQL + Redis จริง)', () => {
     dispatcher.failTimes = 2;
     const reminder = await seed(new Date());
     await pipeline.sweep();
-    await until(async () => dispatcher.sent.length === 1);
+    await until(async () => (await statusOf(reminder.id)) === 'sent');
     const saved = await prisma.reminder.findUniqueOrThrow({ where: { id: reminder.id } });
     expect(saved).toMatchObject({ status: 'sent', attempts: 2, lastError: null });
     expect(dispatcher.calls).toBe(3);
