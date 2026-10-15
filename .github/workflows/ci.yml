@@ -70,6 +70,35 @@ jobs:
           SMTP_URL: smtp://localhost:1025
           MAILPIT_API_URL: http://localhost:8025
 
+  # image ที่ deploy ขึ้น Fly.io — เดิม CI build แค่ด้วย turbo จึงไม่มีใครเห็นว่า image พังมาตลอด (Phase 4 ขั้น 7)
+  worker-image:
+    name: Docker image (worker)
+    needs: [lint, unit]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - name: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/worker.Dockerfile
+          tags: nosion-worker:ci
+          load: true
+          cache-from: type=gha,scope=worker
+          cache-to: type=gha,mode=max,scope=worker
+      # require ทุก dependency ที่ main.js ใช้ + Prisma client ที่ generate แล้ว — พังตรงนี้ = deploy แล้วพังตอนรัน
+      - name: smoke
+        run: |
+          docker run --rm --entrypoint node nosion-worker:ci -e "
+            require('bullmq'); require('web-push'); require('prom-client');
+            require('@nosion/core'); require('@nosion/emails');
+            const { Prisma } = require('@prisma/client');
+            if (!Prisma.ModelName.Reminder) throw new Error('Prisma client ไม่ได้ generate');
+            require('fs').accessSync('dist/main.js');
+            console.log('worker image ok');
+          "
+
   # กฎ alert ของ Prometheus (สเปก 14.4) — ตรวจไวยากรณ์และ unit test ด้วย promtool (ไม่ต้องมี Prometheus จริง)
   alerts:
     name: Alert rules

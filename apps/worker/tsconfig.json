@@ -1,6 +1,12 @@
 {
   "extends": "@nosion/tsconfig/library.json",
-  "compilerOptions": { "outDir": "dist", "rootDir": "src", "types": ["node"] },
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "types": ["node"],
+    // buildinfo อยู่ใน dist: ลบ/ไม่มี dist เมื่อไร buildinfo หายตาม → tsc ไม่เข้าใจผิดว่า emit ไว้แล้ว (เคยทำให้ image ไม่มี .js)
+    "tsBuildInfoFile": "dist/.tsbuildinfo"
+  },
   "include": ["src/**/*.ts"],
   "exclude": ["dist", "node_modules", "**/*.spec.ts"]
 }

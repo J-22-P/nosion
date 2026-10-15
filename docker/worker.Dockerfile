@@ -1,70 +1,45 @@
 # syntax=docker/dockerfile:1.7
-# ── Stage 1: ติดตั้ง dependency ทั้งหมด (มี cache mount) ──────────────
-FROM node:22-alpine AS deps
-RUN corepack enable
-WORKDIR /app
+# Worker image (Fly.io) — build ทั้ง monorepo แล้ว `pnpm deploy` เฉพาะ worker ออกมาเป็นโฟลเดอร์ที่มีทุกอย่างในตัว
+#
+# ทำไมไม่คัดลอก node_modules ทีละส่วนแบบเดิม: pnpm เก็บ dependency ไว้ที่ node_modules ของแต่ละ package (symlink เข้า .pnpm)
+# คัดลอก dist ไปไว้ที่อื่นแล้ว Node หา bullmq / @nosion/core (และ rrule / react ของมัน) ไม่เจอ
+# และ install --prod ใหม่ก็ไม่มี Prisma client ที่ generate แล้ว — `pnpm deploy` + generate ในโฟลเดอร์ปลายทางแก้ทั้งหมด
+
+FROM node:22-alpine AS base
+# Prisma ต้องมี openssl ทั้งตอน generate (ตรวจเวอร์ชันเพื่อเลือก engine) และตอนรัน
+RUN apk add --no-cache openssl && corepack enable
 ENV PNPM_HOME=/pnpm
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc ./
-COPY apps/worker/package.json apps/worker/
-COPY apps/api/package.json apps/api/
-COPY packages/contracts/package.json packages/contracts/
-COPY packages/core/package.json packages/core/
-COPY packages/emails/package.json packages/emails/
-COPY packages/ui/package.json packages/ui/
-COPY packages/tsconfig/package.json packages/tsconfig/
-COPY packages/eslint-config/package.json packages/eslint-config/
+WORKDIR /app
+
+# ── Stage 1: install + build ──────────────────────────────────────────
+FROM base AS builder
+COPY . .
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
     pnpm install --frozen-lockfile
-
-# ── Stage 2: build ────────────────────────────────────────────────────
-FROM node:22-alpine AS builder
-RUN corepack enable
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/apps/worker/node_modules ./apps/worker/node_modules
-COPY --from=deps /app/packages ./packages
-COPY . .
 RUN pnpm exec prisma generate --schema apps/api/prisma/schema.prisma
-RUN pnpm turbo run build --filter=@nosion/worker
+RUN pnpm turbo run build --filter=@nosion/worker...
 
-# ── Stage 3: dependency เฉพาะ production ──────────────────────────────
-FROM node:22-alpine AS prod-deps
-RUN corepack enable
-WORKDIR /app
-ENV PNPM_HOME=/pnpm
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc ./
-COPY apps/worker/package.json apps/worker/
-COPY apps/api/package.json apps/api/
-COPY packages/contracts/package.json packages/contracts/
-COPY packages/core/package.json packages/core/
-COPY packages/emails/package.json packages/emails/
-COPY packages/ui/package.json packages/ui/
-COPY packages/tsconfig/package.json packages/tsconfig/
-COPY packages/eslint-config/package.json packages/eslint-config/
+# worker + dependency production + แพ็กเกจ workspace (คัดลอกทั้งโฟลเดอร์รวม dist) → /out
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-    pnpm install --frozen-lockfile --prod
+    pnpm --filter @nosion/worker deploy --prod --legacy /out
+# generate client ลง node_modules ของ /out เอง (schema อยู่ที่ API — แหล่งความจริงเดียว)
+RUN mkdir -p /out/prisma && cp apps/api/prisma/schema.prisma /out/prisma/ && \
+    ./node_modules/.bin/prisma generate --schema /out/prisma/schema.prisma
 
-# ── Stage 4: runtime — เล็กที่สุด ─────────────────────────────────────
+# ── Stage 2: runtime ─────────────────────────────────────────────────
 FROM node:22-alpine AS runner
-RUN apk add --no-cache dumb-init curl && \
+RUN apk add --no-cache dumb-init openssl curl && \
     addgroup -g 1001 nodejs && adduser -u 1001 -G nodejs -S nodeapp
 WORKDIR /app
 ENV NODE_ENV=production
-
-COPY --from=prod-deps --chown=nodeapp:nodejs /app/node_modules ./node_modules
-COPY --from=prod-deps --chown=nodeapp:nodejs /app/apps/worker/node_modules ./apps/worker/node_modules
-COPY --from=builder   --chown=nodeapp:nodejs /app/packages/contracts/dist ./packages/contracts/dist
-COPY --from=builder   --chown=nodeapp:nodejs /app/packages/core/dist ./packages/core/dist
-COPY --from=builder   --chown=nodeapp:nodejs /app/packages/emails/dist ./packages/emails/dist
-COPY --from=builder   --chown=nodeapp:nodejs /app/apps/worker/dist ./dist
-COPY --from=builder   --chown=nodeapp:nodejs /app/apps/api/prisma ./prisma
-
+COPY --from=builder --chown=nodeapp:nodejs /out ./
 USER nodeapp
 
+# /metrics · /healthz · /readyz (apps/worker/src/server.ts)
+EXPOSE 9464
+HEALTHCHECK --interval=30s --timeout=3s --start-period=20s --retries=3 \
+  CMD curl -fsS http://localhost:9464/healthz || exit 1
 
-# worker ไม่เปิดพอร์ต HTTP — สุขภาพวัดจาก job ที่ค้างในคิวผ่าน metrics แทน
-HEALTHCHECK NONE
-
-# dumb-init ทำให้ SIGTERM ถูกส่งถึง node จริง → graceful shutdown ทำงาน
+# dumb-init ส่ง SIGTERM ถึง node จริง → graceful shutdown ทำงาน (job ที่ทำค้างจบก่อน)
 ENTRYPOINT ["dumb-init", "--"]
 CMD ["node", "dist/main.js"]

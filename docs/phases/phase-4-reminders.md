@@ -290,3 +290,37 @@
 **สิ่งที่ค้าง**
 
 - ยังไม่มี Prometheus/Grafana จริง — ต่อกับ Fly.io managed Prometheus + ช่องทางแจ้ง (Discord) ในขั้น 7
+
+---
+
+## ขั้น 7a · แก้ Docker image ของ worker (พังมาตั้งแต่ก่อน Phase 4) — (รอ commit)
+
+**เป้าหมาย:** image ที่จะขึ้น Fly.io build ได้และรันได้จริง · CI จับได้ถ้าพังอีก
+
+**ปัญหาที่พบ (4 จุด)** — CI build ด้วย turbo อย่างเดียว ไม่เคย build image จึงไม่มีใครเห็น
+
+1. stage builder ไม่มี `apps/api/node_modules` → `prisma generate` หา `@prisma/client` ไม่เจอ (build ล้ม)
+2. stage runner `install --prod` ใหม่ แต่ไม่ generate Prisma client
+3. `dist/` ถูกวางที่ `/app/dist` แต่ dependency ของ worker อยู่ที่ `/app/apps/worker/node_modules` → หา `bullmq` ไม่เจอตอนรัน
+4. แพ็กเกจ workspace ถูกคัดลอกแค่ `dist` — ไม่มี `package.json` และ dependency ของมันเอง (`rrule`, `react`)
+5. (เจอระหว่างแก้) `apps/worker/tsconfig.tsbuildinfo` ติดเข้า image → tsc แบบ incremental คิดว่า build แล้ว จึงไม่ emit `.js` เลย
+
+**สิ่งที่เปลี่ยน**
+
+- 📁 `docker/worker.Dockerfile` เขียนใหม่: install ทั้ง repo → generate → build → **`pnpm deploy --prod --legacy /out`** (worker + dependency production + แพ็กเกจ workspace ในตัว)
+  → generate Prisma client ลง `/out` → runtime คัดลอกแค่ `/out` · มี openssl (Prisma) · `HEALTHCHECK` ที่ `/healthz` พอร์ต 9464
+- 📁 `apps/worker/tsconfig.json` — buildinfo ไปอยู่ใน `dist/` (แบบเดียวกับ core) · `.dockerignore` ไม่เอา `*.tsbuildinfo`
+- 📁 `"files": ["dist"]` ใน worker, core, contracts, emails — `pnpm deploy` ไม่พา `src/` และเทสต์เข้า image
+- 📁 CI job "Docker image (worker)" — build จริง (cache ผ่าน GitHub Actions) แล้ว require ทุก dependency + ตรวจว่า Prisma client generate แล้ว
+
+**วิธีตรวจ**
+
+- build ผ่าน · **รัน container จริงต่อ PostgreSQL + Redis ในเครื่อง**: `/readyz` = ready · `/metrics` มี `queue_depth` ทุกคิว
+- **end-to-end ข้ามนาทีจริง (ค้างจากขั้น 2):** ใส่การเตือน fireAt +20 วินาทีลงฐาน → job scheduler ทุก 1 นาทีใน container หยิบเอง (15:26:30)
+  → ส่งตรง fireAt (15:26:36) · `reminder_delivery_lag_seconds_sum = 0.15` · สถานะใน DB = sent
+- `docker compose build worker` (dev ใช้ stage builder) ยังใช้ได้ · `pnpm verify`
+
+**สิ่งที่ค้าง**
+
+- `docker/api.Dockerfile` มีปัญหาข้อ 2–4 แบบเดียวกัน — ยังไม่แก้เพราะ API รันบน Vercel ไม่ได้ใช้ image (แก้ด้วยวิธีเดียวกันเมื่อจะใช้)
+- image 704 MB (Prisma engine 2 แบบ: musl + rhel สำหรับ Vercel) — ลดได้ด้วย `binaryTargets` เฉพาะ image ภายหลัง
