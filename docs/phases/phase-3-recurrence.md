@@ -2,7 +2,7 @@
 
 > เป้าหมาย: กฎการเกิดซ้ำที่ถูกต้องเรื่องโซนเวลา DST และวันสิ้นเดือน แล้วแปลงเป็น entry จริงแบบ lazy และ idempotent — สเปก 6.1, 15 Phase 3
 > **DoD:** ตั้งบิลค่าเน็ตทุกวันที่ 31 → เห็นรายการเดือน ก.พ. เป็นวันที่ 28 ถูกต้อง
-> ความรู้เบื้องหลัง: บท 16 (ยังไม่เขียน — ดู "สิ่งที่ค้าง")
+> ความรู้เบื้องหลัง: [บท 16](../learn/16-phase3-recurrence-floating-time-and-materialization.md) · [ADR-010](../adr/010-floating-time-and-month-end-clamp.md)
 
 ## แผน (ปรับได้ระหว่างทาง)
 
@@ -13,8 +13,8 @@
 | 3   | API: lazy materialization + cron 03:00 UTC + `POST /recurrence-rules/materialize`        | `2f36fa3`   | ✅    |
 | 4   | API: แก้รอบเดียว vs ทั้ง series จากฝั่ง entry (แก้ entry ที่มี recurrenceRuleId)         | `5686937`   | ✅    |
 | 5   | Web: ตัวสร้าง rrule แบบไม่ต้องรู้ RFC 5545 + preview 10 รอบ                              | `2af62d8`   | ✅    |
-| 6   | Web: ปุ่ม "เพิ่มรอบบิลใหม่" ในหน้า Expenses + เปิดปุ่ม "Materialize Recurrence" ใน Today | (รอ commit) | ✅    |
-| 7   | Staging: ตั้ง `CRON_SECRET` บน Vercel · บท learn 16 · ADR (floating time + clamp)        |             | ⏳    |
+| 6   | Web: ปุ่ม "เพิ่มรอบบิลใหม่" ในหน้า Expenses + เปิดปุ่ม "Materialize Recurrence" ใน Today | `180d47c`   | ✅    |
+| 7   | Staging: ตั้ง `CRON_SECRET` บน Vercel · บท learn 16 · ADR (floating time + clamp)        | (รอ commit) | 🟡    |
 
 ---
 
@@ -142,7 +142,7 @@
 - **กู้คืน (restore) รอบที่ลบไปแล้ว** ไม่ดึง slot ออกจาก exceptions — รายการกลับมา แต่ preview ยังไม่แสดงวันนั้น (ไม่กระทบการสร้าง entry เพราะ unique slot ยังถูกจองอยู่)
 - `EntryDto` ยังไม่ส่ง `recurrenceSlot` — web ใช้ `recurrenceRuleId` แยกว่าเป็นรอบจากกฎได้แล้ว จะเพิ่มถ้าขั้น 5–6 ต้องใช้
 - Web ยังไม่มีตัวเลือก "เฉพาะครั้งนี้ / ทุกรอบ" — ทำพร้อมขั้น 6
-- 📚 ความรู้เบื้องหลัง: บท 16 (ยังไม่เขียน — ขั้น 7)
+- ~~📚 บท 16~~ → เขียนแล้วในขั้น 7
 
 ---
 
@@ -182,11 +182,11 @@
 **สิ่งที่ค้าง**
 
 - ยังไม่รองรับ "วันจันทร์แรกของเดือน" (BYDAY + BYSETPOS) — engine รองรับแล้ว แต่ UI ยังไม่มีตัวเลือก
-- 📚 บท 16 (ขั้น 7)
+- ~~📚 บท 16~~ → เขียนแล้วในขั้น 7
 
 ---
 
-## ขั้น 6 · Web: "เพิ่มรอบบิลใหม่" + ปุ่ม Materialize ใน Today — (รอ commit)
+## ขั้น 6 · Web: "เพิ่มรอบบิลใหม่" + ปุ่ม Materialize ใน Today — `180d47c`
 
 **เป้าหมาย:** บิลรายเดือนใช้งานได้ครบวงจรจากหน้าเว็บ (สเปก 8.11.3 · 15 Phase 3) และปุ่ม Developer Quick Action ที่ปิดไว้ตั้งแต่ Phase 2 ใช้ได้จริง
 
@@ -223,3 +223,29 @@
 
 - ยังไม่มีหน้า/เมนูจัดการกฎ (ดูรายการกฎ · หยุด · ลบ) และตัวเลือก "เฉพาะครั้งนี้ / ทุกรอบ" ตอนแก้หรือลบบิล — API พร้อมแล้ว (ขั้น 2, 4)
 - quick capture "ค่าเน็ต 799 ทุกวันที่ 5" ยังสร้างรายการเดียว ไม่สร้างกฎ (NL parser อยู่ Phase 5)
+
+---
+
+## ขั้น 7 · ปิด Phase: เอกสาร + staging cron — (รอ commit)
+
+**เป้าหมาย:** บันทึก "ทำไม" ของ engine ให้อ่านทีหลังได้ และให้ cron ทำงานจริงบน staging
+
+**สิ่งที่เปลี่ยน**
+
+- 📁 `docs/adr/010-floating-time-and-month-end-clamp.md` — ADR-010 (ทางเลือกที่ไม่เลือก + ข้อเสียที่ยอมรับ)
+- 📁 `docs/learn/16-phase3-recurrence-floating-time-and-materialization.md` — บท 16 (9 หัวข้อ + แบบฝึกหัด 15 ข้อ) · ลงใน `00-how-to-read.md` และ `index.html`
+- 📁 `docs/adr/README.md` · 📁 `NOSION-SPEC.md` roadmap Phase 3 ✅
+
+**การตัดสินใจ**
+
+- ADR ใช้เลข 010 — 007/008 ยังจองไว้ตามสเปกภาคผนวก
+
+**Staging**
+
+- [x] ตั้ง `CRON_SECRET` ใน Vercel → project API (เจ้าของบัญชีตั้งเอง 15 ต.ค. 2026)
+- [x] push Phase 3 ขึ้น main (`180d47c`) — CI รอบแรกแดงที่ Security scan จาก advisory ใหม่ของ handlebars (dev) → `bbfdd87`
+- [ ] หลัง Deploy staging: `GET /api/v1/internal/cron/recurrence` ไม่มี header → **401** (ก่อน deploy ได้ 404 เพราะ staging ยังไม่มี endpoint นี้)
+- [ ] ลองตั้งบิลทุกวันที่ 31 บน staging → รายการเดือน ก.พ. เป็นวันที่ 28
+- [ ] ดู log ของ Cron Job ใน Vercel หลัง 03:00 UTC (10:00 น. เวลาไทย) วันถัดไป
+
+> ✅ Phase 3 เสร็จฝั่งโค้ด (15 ต.ค. 2026) — เหลือตรวจบน staging ด้านบน
