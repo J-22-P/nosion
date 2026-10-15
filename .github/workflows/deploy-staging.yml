@@ -87,6 +87,29 @@ jobs:
           echo "url=$url" >> "$GITHUB_OUTPUT"
           echo "### ${{ matrix.app }} → $url" >> "$GITHUB_STEP_SUMMARY"
 
+  # worker บน Fly.io (Phase 4) — รันหลัง migrate เหมือน api/web · ยังไม่ตั้ง FLY_API_TOKEN = ข้าม (ไม่ทำให้แดง)
+  # secrets ของ worker เก็บที่ Fly (scripts/fly-staging-setup.sh) ไม่ผ่าน GitHub
+  worker:
+    needs: migrate
+    runs-on: ubuntu-24.04
+    environment: staging
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+    steps:
+      - id: token
+        run: |
+          if [ -n "$FLY_API_TOKEN" ]; then echo "ready=true" >> "$GITHUB_OUTPUT"
+          else echo "::notice::ยังไม่ได้ตั้ง FLY_API_TOKEN — ข้ามการ deploy worker"; echo "ready=false" >> "$GITHUB_OUTPUT"; fi
+      - if: steps.token.outputs.ready == 'true'
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - if: steps.token.outputs.ready == 'true'
+        uses: superfly/flyctl-actions/setup-flyctl@master
+      # build บน builder ของ Fly (--remote-only) · rolling deploy: เครื่องใหม่ผ่าน /readyz ก่อนเครื่องเก่าปิด
+      - if: steps.token.outputs.ready == 'true'
+        run: flyctl deploy . --config ops/fly/worker.fly.toml --dockerfile docker/worker.Dockerfile --remote-only --ha=false
+
   # smoke test หลัง deploy: API ตอบ และ demo login ผ่าน proxy ของ web ได้จริง
   smoke:
     needs: deploy

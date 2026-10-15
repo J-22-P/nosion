@@ -1,0 +1,14 @@
+# Redis ของ worker — เข้าถึงได้เฉพาะในเครือข่ายภายในของ Fly (nosion-staging-redis.internal:6379)
+#   flyctl deploy . --config ops/fly/redis.fly.toml --dockerfile ops/fly/redis.Dockerfile --remote-only  (รันจากรากของ repo)
+app = "nosion-staging-redis"
+primary_region = "sin"
+
+
+# ไม่มี [http_service] / [[services]] = ไม่เปิดพอร์ตสู่อินเทอร์เน็ต
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
+
+[mounts]
+  source = "redis_data"
+  destination = "/data"

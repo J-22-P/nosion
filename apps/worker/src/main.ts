@@ -18,6 +18,8 @@ import { DEFAULT_JOB_OPTIONS, QUEUE } from './queues';
 
 const connection = new IORedis(process.env.REDIS_URL ?? 'redis://localhost:6379', {
   maxRetriesPerRequest: null, // BullMQ ต้องการค่านี้เป็น null เพื่อให้ blocking command ทำงาน
+  // 0 = IPv4 หรือ IPv6 — เครือข่ายภายในของ Fly.io (*.internal) มีแต่ IPv6 แต่ ioredis ค่าเริ่มต้นหาแค่ IPv4
+  family: 0,
 });
 const prisma = new PrismaClient();
 const metrics = createMetrics();

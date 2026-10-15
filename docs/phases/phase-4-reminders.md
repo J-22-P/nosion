@@ -13,7 +13,7 @@
 | 3   | Web Push: VAPID · subscribe · service worker · ปุ่ม "จ่ายแล้ว / เลื่อน" โดยไม่เปิดแอป             | `f2b699e` · `c257537` | ✅    |
 | 4   | Email: Resend + React Email 6 แบบ · Mailpit ในเครื่อง                                             | `7e58335`             | ✅    |
 | 5   | Daily digest ตามโซนผู้ใช้ (สเปก 10.2) + ตั้งค่า quiet hours / digest ในหน้า Settings              | `aea4a10`             | ✅    |
-| 6   | Metrics `reminder_delivery_lag_seconds` + alert                                                   | (รอ commit)           | ✅    |
+| 6   | Metrics `reminder_delivery_lag_seconds` + alert                                                   | `07f048d`             | ✅    |
 | 7   | Staging: worker + Redis บน Fly.io (region sin) · DoD บนมือถือจริง · บท learn 17 · ADR             |                       | ⏳    |
 
 **ตัดสินใจก่อนเริ่ม:** worker บน staging รันที่ **Fly.io** (เจ้าของบัญชีเลือก 15 ต.ค. 2026) — Vercel Cron แผนฟรีรันได้วันละครั้ง
@@ -256,7 +256,7 @@
 
 ---
 
-## ขั้น 6 · Metrics `reminder_delivery_lag_seconds` + alert — (รอ commit)
+## ขั้น 6 · Metrics `reminder_delivery_lag_seconds` + alert — `07f048d`
 
 **เป้าหมาย:** วัดได้ว่าการเตือน "ช้ากว่ากำหนดกี่วินาที" (metric สำคัญที่สุดตามสเปก 14.3) และมีกฎ alert ที่ทดสอบแล้วว่าดังถูกเวลา
 
@@ -293,7 +293,7 @@
 
 ---
 
-## ขั้น 7a · แก้ Docker image ของ worker (พังมาตั้งแต่ก่อน Phase 4) — (รอ commit)
+## ขั้น 7a · แก้ Docker image ของ worker (พังมาตั้งแต่ก่อน Phase 4) — `aa4f460`
 
 **เป้าหมาย:** image ที่จะขึ้น Fly.io build ได้และรันได้จริง · CI จับได้ถ้าพังอีก
 
@@ -324,3 +324,40 @@
 
 - `docker/api.Dockerfile` มีปัญหาข้อ 2–4 แบบเดียวกัน — ยังไม่แก้เพราะ API รันบน Vercel ไม่ได้ใช้ image (แก้ด้วยวิธีเดียวกันเมื่อจะใช้)
 - image 704 MB (Prisma engine 2 แบบ: musl + rhel สำหรับ Vercel) — ลดได้ด้วย `binaryTargets` เฉพาะ image ภายหลัง
+
+---
+
+## ขั้น 7b · ตั้งค่า Fly.io (worker + Redis) + wizard + deploy อัตโนมัติ — (รอ commit)
+
+**เป้าหมาย:** เตรียมทุกอย่างที่ deploy worker ได้ในคำสั่งเดียว ส่วนที่ต้องใช้บัญชีของเจ้าของ (Fly / Vercel / Supabase / Resend) รวมไว้ใน wizard
+
+**สิ่งที่เปลี่ยน**
+
+- 📁 `ops/fly/worker.fly.toml` — region `sin` · 512 MB · ไม่มี URL สาธารณะ · check `/readyz` · `[metrics]` ให้ Fly scrape · SIGTERM + 30 วินาที
+- 📁 `ops/fly/redis.fly.toml` + `redis.Dockerfile` — Redis ของ worker เท่านั้น · ภายใน 6PN · appendonly บน volume · `requirepass` · `noeviction`
+- 📁 `.github/workflows/deploy-staging.yml` — job `worker`: `flyctl deploy` หลัง migrate (ไม่มี `FLY_API_TOKEN` = ข้ามเงียบ)
+- 📁 `scripts/fly-staging-setup.sh` — wizard 10 ขั้น (สร้างจาก template ของ /wizard) · 📁 `docs/deploy/staging-vercel-supabase.md` หัวข้อ 6
+- 📁 `apps/worker/src/main.ts` — ioredis `family: 0`
+
+**การตัดสินใจ**
+
+- **Redis ของ worker แยกจาก Upstash ของ API** — API ไม่เคย enqueue (worker ดึงจาก PostgreSQL เอง) จึงไม่ต้องใช้ Redis ตัวเดียวกัน
+  และ BullMQ poll ตลอดเวลาจนโควตาคำสั่งฟรีของ Upstash หมดในไม่กี่ชั่วโมง · Redis นี้หายทั้งก้อนก็แค่ sweeper ส่งเข้าคิวใหม่รอบถัดไป
+- **ioredis `family: 0`** — เครือข่ายภายในของ Fly (`*.internal`) มีแต่ IPv6 · ioredis หา IPv4 อย่างเดียวโดยค่าเริ่มต้น → ต่อไม่ติดแบบไม่บอกเหตุผล
+- `DATABASE_URL` ของ worker = Supabase **Session pooler 5432** — worker เป็น process ค้าง ใช้ prepared statement ได้ ต่างจาก Vercel Function ที่ต้องใช้ transaction pooler
+- **`--ha=false`** — worker เครื่องเดียวพอสำหรับ staging (สองเครื่องก็ปลอดภัยเพราะ jobId กันซ้ำ แต่เสียเงินเปล่า)
+- **`fly deploy .` จากราก repo** — Dockerfile ต้องเห็นทั้ง monorepo · ระบุ `--dockerfile` บน CLI ไม่ใส่ใน toml (path ใน toml อิงตำแหน่งที่กำกวม)
+- wizard ส่ง secrets ด้วย `flyctl secrets import` ทาง stdin (ไม่โผล่ใน process list / shell history) · `--stage` แล้ว deploy ทีเดียว
+  · ค่าที่สร้าง (VAPID, secret, รหัส Redis) เก็บใน `.env.staging.fly` (gitignore · 0600) → รันซ้ำได้โดยไม่สร้างกุญแจใหม่ (เปลี่ยนกุญแจ VAPID = ทุกเครื่องต้อง subscribe ใหม่)
+  · `FLY_API_TOKEN` ตั้งลง **environment `staging`** ของ GitHub (ที่ workflow อ่าน) ไม่ใช่ระดับ repo · token จำกัดแค่แอป worker อายุ 1 ปี
+
+**วิธีตรวจ**
+
+- TOML parse ผ่าน (เจอ `kill_signal` ตกไปอยู่ในตาราง `[[vm]]` → ย้ายขึ้นระดับบน) · YAML ของ workflow ผ่าน · `bash -n` ของ wizard ผ่าน และ library ตรงกับ template ทุกบรรทัด
+- flag ของ flyctl ทุกตัวที่ใช้ตรวจกับเอกสารของ Fly แล้ว (`secrets import --stage`, `tokens create deploy -x`, `deploy --ha/--dockerfile/--config/--remote-only`, `logs --no-tail`, `checks list -a`)
+- ⚠️ **ยังไม่ได้รันกับ Fly จริง** — เครื่องนี้ยังไม่มี flyctl/บัญชี · shellcheck ไม่มีในเครื่อง
+
+**สิ่งที่ค้าง (ทำโดยเจ้าของบัญชี)**
+
+- [ ] รัน `bash scripts/fly-staging-setup.sh`
+- [ ] DoD บนมือถือจริง: เปิดการแจ้งเตือนที่ `/settings` → ตั้งบิลเตือนล่วงหน้า → ได้ push ตรงเวลา ±60 วินาที → กด "จ่ายแล้ว" โดยไม่เปิดแอป

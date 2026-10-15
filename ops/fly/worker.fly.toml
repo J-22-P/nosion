@@ -1,0 +1,35 @@
+# Worker บน Fly.io (Phase 4 ขั้น 7) — deploy จากรากของ repo:
+#   flyctl deploy . --config ops/fly/worker.fly.toml --dockerfile docker/worker.Dockerfile --remote-only  (รันจากรากของ repo)
+# secrets ตั้งด้วย scripts/fly-staging-setup.sh (DATABASE_URL, REDIS_URL, VAPID_*, NOTIFICATION_ACTION_SECRET, MAIL_*, APP_URL, API_URL)
+app = "nosion-staging-worker"
+primary_region = "sin" # ใกล้ Supabase / Upstash (ap-southeast-1) ที่ staging ใช้อยู่
+# ให้ job ที่ทำค้างจบก่อน (graceful shutdown ใน main.ts) — BullMQ คืน job ที่ยังไม่จบเข้าคิวเองถ้าเกินเวลา
+kill_signal = "SIGTERM"
+kill_timeout = "30s"
+
+
+[env]
+  NODE_ENV = "production"
+  LOG_LEVEL = "info"
+  METRICS_PORT = "9464"
+
+# worker ไม่รับ traffic — ไม่มี [http_service] จึงไม่มี URL สาธารณะ
+# ต้องรันค้างตลอด (sweeper ทุกนาที) → ห้ามให้ Fly ปิดเครื่องเองเหมือน web app
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+
+# readiness: DB + Redis ต่อติด — fail = Fly แจ้งสถานะ ไม่รีสตาร์ทเครื่อง (สเปก 14.5)
+[checks]
+  [checks.ready]
+    type = "http"
+    port = 9464
+    path = "/readyz"
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "30s"
+
+# Fly managed Prometheus scrape ให้เอง → ดูใน Grafana ของ Fly (fly-metrics.net) · กฎ alert: ops/prometheus/alerts.yml
+[metrics]
+  port = 9464
+  path = "/metrics"
