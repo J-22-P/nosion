@@ -85,3 +85,102 @@ test.describe('Today · standup sheet', () => {
     await expect(page).not.toHaveURL(/standup=1/);
   });
 });
+
+test.describe('Expenses · เพิ่มรอบบิลใหม่ (Phase 3)', () => {
+  for (const theme of THEMES) {
+    test(`DoD: บิลทุกวันที่ 31 → preview เดือน ก.พ. เป็นวันที่ 28 · บันทึกส่ง rrule ถูก · axe ผ่าน (${theme})`, async ({
+      page,
+    }) => {
+      test.slow();
+      await page.emulateMedia({ colorScheme: theme });
+      let created: Record<string, unknown> | null = null;
+      // route ที่ลงทะเบียนทีหลังถูกเลือกก่อน — ดักเฉพาะการสร้างกฎเพื่อตรวจ body
+      await page.route('**/api/v1/recurrence-rules', async (route) => {
+        created = route.request().postDataJSON() as Record<string, unknown>;
+        await route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          body: JSON.stringify({ id: 'rule-new', ...created }),
+        });
+      });
+
+      await page.goto('/expenses');
+      await expect(page.getByText('AIS Fibre').first()).toBeVisible({ timeout: 15_000 });
+      await page.getByRole('button', { name: 'เพิ่มรอบบิลใหม่' }).click();
+
+      const dialog = page.getByRole('dialog', { name: 'เพิ่มรอบบิลใหม่' });
+      await expect(dialog).toBeVisible();
+      await expect(dialog.getByLabel('ชื่อบิล')).toBeFocused();
+
+      // ส่งทั้งที่ยังว่าง → บอกข้อผิดพลาด ไม่ยิง API
+      await dialog.getByRole('button', { name: 'ตั้งรอบบิล' }).click();
+      await expect(dialog.getByText('ใส่ชื่อบิล')).toBeVisible();
+      expect(created).toBeNull();
+
+      await dialog.getByLabel('ชื่อบิล').fill('ค่าเน็ต');
+      await dialog.getByLabel('จำนวนเงิน (บาท)').fill('799');
+      await dialog.getByLabel('เริ่มวันที่').fill('2027-01-31');
+      await expect(dialog.getByLabel('วันที่ของเดือน')).toHaveValue('31');
+      await expect(
+        dialog.getByText('เดือนที่ไม่มีวันที่ 31 จะใช้วันสุดท้ายของเดือนแทน'),
+      ).toBeVisible();
+
+      const preview = dialog.getByRole('region', { name: '10 รอบถัดไป' });
+      await expect(preview.getByRole('listitem')).toHaveCount(10);
+      await expect(preview.getByRole('listitem').nth(1)).toContainText('28 ก.พ. 2027');
+      await expect(preview).toContainText('RRULE:FREQ=MONTHLY;BYMONTHDAY=31');
+
+      const results = await new AxeBuilder({ page }).include('dialog').analyze();
+      expect(
+        results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical'),
+      ).toEqual([]);
+
+      await dialog.getByRole('button', { name: 'ตั้งรอบบิล' }).click();
+      await expect(dialog).toBeHidden();
+      expect(created).toMatchObject({
+        rrule: 'FREQ=MONTHLY;BYMONTHDAY=31',
+        startsAt: '2027-01-31',
+        endType: 'never',
+        template: {
+          module: 'expense',
+          title: 'ค่าเน็ต',
+          payload: { amountMinor: 79_900, isBill: true, costType: 'fixed' },
+        },
+      });
+    });
+  }
+
+  test('รายสัปดาห์: เลือกวันแล้ว preview ตาม · กดวันสุดท้ายออกไม่ได้', async ({ page }) => {
+    await page.goto('/expenses');
+    await expect(page.getByText('AIS Fibre').first()).toBeVisible({ timeout: 15_000 });
+    await page.getByRole('button', { name: 'เพิ่มรอบบิลใหม่' }).click();
+    const dialog = page.getByRole('dialog', { name: 'เพิ่มรอบบิลใหม่' });
+    await dialog.getByLabel('เริ่มวันที่').fill('2027-02-01'); // วันจันทร์
+    await dialog.getByRole('radio', { name: 'รายสัปดาห์' }).click();
+
+    const monday = dialog.getByRole('button', { name: 'จันทร์' });
+    await expect(monday).toHaveAttribute('aria-pressed', 'true');
+    await monday.click(); // วันเดียวที่เหลือ — กดออกไม่ได้
+    await expect(monday).toHaveAttribute('aria-pressed', 'true');
+
+    await dialog.getByRole('button', { name: 'พฤหัสบดี' }).click();
+    const preview = dialog.getByRole('region', { name: '10 รอบถัดไป' });
+    await expect(preview).toContainText('RRULE:FREQ=WEEKLY;BYDAY=MO,TH');
+    await expect(preview.getByRole('listitem').nth(1)).toContainText('4 ก.พ. 2027');
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+  });
+});
+
+test.describe('Today · Materialize Recurrence (Phase 3)', () => {
+  test('ปุ่มใช้ได้แล้ว → เรียก API และแจ้งผล', async ({ page }) => {
+    await page.goto('/today');
+    await expect(page.getByRole('heading', { name: 'สวัสดีตอนบ่าย Jay' })).toBeVisible({
+      timeout: 15_000,
+    });
+    const button = page.getByRole('button', { name: /Materialize Recurrence/ });
+    await expect(button).toBeEnabled();
+    await button.click();
+    await expect(page.getByText('สร้างรายการใหม่ 3 รายการ')).toBeVisible();
+  });
+});

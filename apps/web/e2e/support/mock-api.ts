@@ -1,4 +1,6 @@
 import type { Page, Route } from '@playwright/test';
+import { nextOccurrences, toFloating } from '@nosion/core/recurrence';
+import { resolveDateInput } from '@nosion/core/time';
 import {
   ACTIVE_TASKS,
   BILLS,
@@ -61,7 +63,49 @@ export async function mockApi(page: Page, options: { authenticated?: boolean } =
       return json({ data, pageInfo: { hasMore: false, nextCursor: null } });
     }
 
+    // preview ใช้ engine จริง — UI test เห็นผล clamp/วันในสัปดาห์เหมือน API จริง (โซนผู้ใช้ = เวลาไทย)
+    if (method === 'POST' && path === '/recurrence-rules/preview') {
+      return json(previewOf(route.request().postDataJSON() as PreviewBody));
+    }
+    if (method === 'POST' && path === '/recurrence-rules/materialize') {
+      return json({ rules: 2, created: 3 });
+    }
+    if (method === 'POST' && path === '/recurrence-rules') {
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      return json({ id: 'rule-new', exceptions: [], isPaused: false, ...body }, 201);
+    }
+
     console.warn(`[mock-api] ไม่มี mock สำหรับ ${method} ${path}`);
     return json({ type: 'about:blank', title: 'Not mocked', status: 404, detail: path }, 404);
   });
+}
+
+interface PreviewBody {
+  rrule: string;
+  startsAt: string;
+  endType: 'never' | 'onDate' | 'afterCount';
+  endsAt?: string;
+  maxCount?: number;
+  limit?: number;
+}
+
+function previewOf(body: PreviewBody) {
+  const timezone = SETTINGS.timezone;
+  const startsAt = resolveDateInput(body.startsAt, timezone);
+  const end =
+    body.endType === 'onDate' && body.endsAt
+      ? { type: 'onDate' as const, endsAt: resolveDateInput(body.endsAt, timezone) }
+      : body.endType === 'afterCount' && body.maxCount
+        ? { type: 'afterCount' as const, maxCount: body.maxCount }
+        : { type: 'never' as const };
+  const dates = nextOccurrences(
+    { rrule: body.rrule, startsAt, timezone, end },
+    new Date(startsAt.getTime() - 1),
+    body.limit ?? 10,
+  );
+  return {
+    timezone,
+    occurrences: dates.map((d) => d.toISOString()),
+    localDates: dates.map((d) => toFloating(d, timezone).toISOString().slice(0, 10)),
+  };
 }

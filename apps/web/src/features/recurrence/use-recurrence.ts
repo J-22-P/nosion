@@ -1,7 +1,10 @@
 'use client';
 
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import type { CreateRecurrenceRuleInput } from '@nosion/contracts';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
+import { ApiError } from '@/lib/api-client';
 import { recurrenceApi } from './api';
 import { toRuleInput, validateDraft, type RecurrenceDraft } from './builder';
 
@@ -23,12 +26,40 @@ export function useDraftPreview(draft: RecurrenceDraft, enabled = true) {
   const settled = useDebounced(draft);
   const valid = Object.keys(validateDraft(settled)).length === 0;
   const input = { ...toRuleInput(settled), limit: 10 };
-  return useQuery({
+  const query = useQuery({
     queryKey: ['recurrence', 'preview', input],
     queryFn: () => recurrenceApi.previewDraft(input),
     enabled: enabled && valid,
     placeholderData: keepPreviousData,
     staleTime: 60_000,
     retry: false,
+  });
+  // ระหว่างรอ debounce key ยังไม่เปลี่ยน (isPlaceholderData ยังเป็น false) แต่รายการที่เห็นเป็นของค่าเก่าแล้ว
+  return { ...query, isOutdated: settled !== draft || query.isPlaceholderData };
+}
+
+/** สร้างกฎ — API materialize ล่วงหน้า 90 วันทันที รายการจึงโผล่ในทุกการ์ดที่ฟัง ['entries'] */
+export function useCreateRule() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateRecurrenceRuleInput) => recurrenceApi.create(input),
+    onSettled: () => void queryClient.invalidateQueries({ queryKey: ['entries'] }),
+  });
+}
+
+/** ปุ่ม "Materialize Recurrence" ใน Today — idempotent กดซ้ำได้ (จำกัด 6 ครั้ง/นาทีที่ API) */
+export function useMaterialize() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: recurrenceApi.materialize,
+    onSuccess: ({ rules, created }) =>
+      toast.success(created > 0 ? `สร้างรายการใหม่ ${created} รายการ` : 'รายการล่วงหน้าครบแล้ว', {
+        description: `ตรวจ ${rules} กฎการเกิดซ้ำ · 7 วันข้างหน้า`,
+      }),
+    onError: (error) =>
+      toast.error('Materialize ไม่สำเร็จ', {
+        description: error instanceof ApiError ? error.message : undefined,
+      }),
+    onSettled: () => void queryClient.invalidateQueries({ queryKey: ['entries'] }),
   });
 }

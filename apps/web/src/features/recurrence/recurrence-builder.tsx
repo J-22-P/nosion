@@ -252,15 +252,13 @@ function PreviewPanel({
   preview: ReturnType<typeof useDraftPreview>;
   invalid: boolean;
 }) {
+  const titleId = useId();
   return (
     <section
-      aria-labelledby="recurrence-preview-title"
+      aria-labelledby={titleId}
       className="min-w-0 rounded-panel border border-hairline bg-sunken p-4"
     >
-      <h3
-        id="recurrence-preview-title"
-        className="flex items-center gap-2 text-[13px] font-semibold"
-      >
+      <h3 id={titleId} className="flex items-center gap-2 text-[13px] font-semibold">
         <CalendarClock size={14} aria-hidden="true" /> 10 รอบถัดไป
       </h3>
       <p className="mt-1 text-xs text-fg-secondary">
@@ -268,7 +266,7 @@ function PreviewPanel({
       </p>
 
       {/* อ่านให้ screen reader เมื่อรายการเปลี่ยน — ผู้ใช้รู้ผลของตัวเลือกโดยไม่ต้องย้าย focus */}
-      <div aria-live="polite" aria-busy={preview.isFetching} className="mt-3">
+      <div aria-live="polite" aria-busy={preview.isOutdated || preview.isFetching} className="mt-3">
         {invalid ? null : preview.isPending ? (
           <div className="space-y-2">
             {Array.from({ length: 5 }, (_, i) => (
@@ -285,12 +283,12 @@ function PreviewPanel({
           <ol
             className={cn(
               'space-y-1 font-mono text-[13px] transition-opacity',
-              preview.isPlaceholderData && 'opacity-60',
+              preview.isOutdated && 'opacity-50',
             )}
           >
             {preview.data.localDates.map((ymd, i) => (
               <li key={ymd} className="flex gap-3">
-                <span className="w-5 text-right text-fg-tertiary">{i + 1}</span>
+                <span className="w-5 text-right text-fg-secondary">{i + 1}</span>
                 <span className="w-6 text-fg-secondary">{SHORT_WEEKDAY[weekdayOf(ymd)]}</span>
                 <span>{formatLocalDate(ymd)}</span>
               </li>
@@ -299,7 +297,7 @@ function PreviewPanel({
         )}
       </div>
 
-      <p className="mt-3 break-all border-t border-hairline pt-2 font-mono text-[11px] text-fg-tertiary">
+      <p className="mt-3 break-all border-t border-hairline pt-2 font-mono text-[11px] text-fg-secondary">
         RRULE:{invalid ? '—' : buildRrule(draft)}
       </p>
     </section>

@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Kbd } from '@/components/ui/kbd';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusPill } from '@/components/ui/status-pill';
+import { useMaterialize } from '@/features/recurrence/use-recurrence';
 import { useOnlineStatus } from '@/lib/use-online-status';
 import { todayApi } from './api';
 import { desktopSpan, isTypingTarget } from './layout';
@@ -40,6 +41,7 @@ function zoneLabel(timeZone: string): string {
 export function TodayView() {
   const query = useToday();
   const online = useOnlineStatus();
+  const materialize = useMaterialize();
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -192,10 +194,11 @@ export function TodayView() {
               onClick={copyStandup}
             />
             <QuickAction
-              icon={<RefreshCw size={18} />}
+              icon={<RefreshCw size={18} className={cn(materialize.isPending && 'animate-spin')} />}
               title="Materialize Recurrence"
-              description="ใช้ได้ใน Phase 3 (Recurrence Engine)"
-              disabled
+              description="สร้างรอบที่เกิดซ้ำล่วงหน้า 7 วันทันที"
+              onClick={() => materialize.mutate()}
+              disabled={materialize.isPending}
             />
             <QuickAction
               icon={<Inbox size={18} />}

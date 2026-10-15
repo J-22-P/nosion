@@ -3,6 +3,7 @@
 import type { BillDto } from '@nosion/contracts';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Check, PlusCircle, Receipt } from 'lucide-react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { cn } from '@nosion/ui';
 import { EmptyState, ErrorState } from '@/components/shared/states';
@@ -12,6 +13,7 @@ import { entriesApi } from '@/features/entries/api';
 import { ApiError } from '@/lib/api-client';
 import { PAYMENT_LABEL } from './categories';
 import { bahtExact, shortDate } from './format';
+import { NewBillDialog } from './new-bill-dialog';
 import { useBills } from './use-expense-queries';
 
 function dueText(b: BillDto): string {
@@ -25,6 +27,7 @@ function dueText(b: BillDto): string {
 /** บิลและค่าใช้จ่ายประจำ (สเปก 8.11.3) — กดปุ่มสถานะ = จ่ายแล้ว (POST /entries/:id/complete) */
 export function BillsCard({ className }: { className?: string }) {
   const query = useBills();
+  const [adding, setAdding] = useState(false);
   const queryClient = useQueryClient();
   const pay = useMutation({
     mutationFn: (id: string) => entriesApi.complete(id),
@@ -55,7 +58,7 @@ export function BillsCard({ className }: { className?: string }) {
         ) : query.data.bills.length === 0 ? (
           <EmptyState
             title="ยังไม่มีบิลประจำ"
-            description="พิมพ์ในช่องบันทึกด่วน เช่น “ค่าเน็ต 799 ทุกวันที่ 5”"
+            description="ตั้งรอบบิลด้านล่าง แล้วรายการจะถูกสร้างให้ทุกเดือนเอง"
           />
         ) : (
           <ul className="space-y-2">
@@ -109,19 +112,20 @@ export function BillsCard({ className }: { className?: string }) {
                 </div>
               </ListRow>
             ))}
-            {/* rrule builder มาใน Phase 3 — แสดงไว้ตาม mockup แต่กดไม่ได้ พร้อมบอกเหตุผล */}
-            <li>
-              <button
-                type="button"
-                disabled
-                className="flex h-11 w-full cursor-not-allowed items-center justify-center gap-2 rounded-row border border-dashed border-hairline-strong text-[13px] text-fg-secondary"
-              >
-                <PlusCircle size={16} aria-hidden="true" /> เพิ่มรอบบิลใหม่ (Phase 3)
-              </button>
-            </li>
           </ul>
         )}
+        {/* ปุ่มอยู่นอกรายการ — ยังไม่มีบิลก็ตั้งรอบแรกได้จากตรงนี้ */}
+        {query.isPending ? null : (
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            className="mt-2 flex h-11 w-full items-center justify-center gap-2 rounded-row border border-dashed border-hairline-strong text-[13px] text-fg-secondary transition-colors hover:bg-wash hover:text-fg focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
+          >
+            <PlusCircle size={16} aria-hidden="true" /> เพิ่มรอบบิลใหม่
+          </button>
+        )}
       </CardContent>
+      <NewBillDialog open={adding} onClose={() => setAdding(false)} />
     </Card>
   );
 }

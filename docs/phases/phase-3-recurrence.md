@@ -12,8 +12,8 @@
 | 2   | API: CRUD + pause + preview (บันทึกแล้ว / ร่าง) + ลบเฉพาะรอบ                             | `2f36fa3`   | ✅    |
 | 3   | API: lazy materialization + cron 03:00 UTC + `POST /recurrence-rules/materialize`        | `2f36fa3`   | ✅    |
 | 4   | API: แก้รอบเดียว vs ทั้ง series จากฝั่ง entry (แก้ entry ที่มี recurrenceRuleId)         | `5686937`   | ✅    |
-| 5   | Web: ตัวสร้าง rrule แบบไม่ต้องรู้ RFC 5545 + preview 10 รอบ                              | (รอ commit) | ✅    |
-| 6   | Web: ปุ่ม "เพิ่มรอบบิลใหม่" ในหน้า Expenses + เปิดปุ่ม "Materialize Recurrence" ใน Today |             | ⏳    |
+| 5   | Web: ตัวสร้าง rrule แบบไม่ต้องรู้ RFC 5545 + preview 10 รอบ                              | `2af62d8`   | ✅    |
+| 6   | Web: ปุ่ม "เพิ่มรอบบิลใหม่" ในหน้า Expenses + เปิดปุ่ม "Materialize Recurrence" ใน Today | (รอ commit) | ✅    |
 | 7   | Staging: ตั้ง `CRON_SECRET` บน Vercel · บท learn 16 · ADR (floating time + clamp)        |             | ⏳    |
 
 ---
@@ -146,7 +146,7 @@
 
 ---
 
-## ขั้น 5 · Web: ตัวสร้าง rrule + preview 10 รอบ — (รอ commit)
+## ขั้น 5 · Web: ตัวสร้าง rrule + preview 10 รอบ — `2af62d8`
 
 **เป้าหมาย:** ผู้ใช้ตั้งการเกิดซ้ำได้ด้วยตัวเลือกภาษาคน ไม่ต้องรู้ RFC 5545 และเห็น 10 รอบถัดไปจริงก่อนบันทึก
 
@@ -177,9 +177,49 @@
   และ rrule ทุกแบบที่ builder สร้างผ่าน `parseRecurrenceRule`
 - `next build` แล้ว grep chunk — ไม่พบโค้ด rrule ใน `.next/static` · กฎ lint ใหม่ทดสอบด้วยไฟล์ตัวอย่าง (จับได้)
 - web unit 65/65 · lint · typecheck
-- ⚠️ ยังไม่ได้เปิดดูในเบราว์เซอร์ — component ยังไม่ถูกวางในหน้าใด (ขั้น 6)
+- ⚠️ ยังไม่ได้เปิดดูในเบราว์เซอร์ — component ยังไม่ถูกวางในหน้าใด (ตรวจในขั้น 6 แล้ว — ดูด้านล่าง)
 
 **สิ่งที่ค้าง**
 
 - ยังไม่รองรับ "วันจันทร์แรกของเดือน" (BYDAY + BYSETPOS) — engine รองรับแล้ว แต่ UI ยังไม่มีตัวเลือก
 - 📚 บท 16 (ขั้น 7)
+
+---
+
+## ขั้น 6 · Web: "เพิ่มรอบบิลใหม่" + ปุ่ม Materialize ใน Today — (รอ commit)
+
+**เป้าหมาย:** บิลรายเดือนใช้งานได้ครบวงจรจากหน้าเว็บ (สเปก 8.11.3 · 15 Phase 3) และปุ่ม Developer Quick Action ที่ปิดไว้ตั้งแต่ Phase 2 ใช้ได้จริง
+
+**สิ่งที่เปลี่ยน**
+
+- 📁 `apps/web/src/features/expenses/new-bill-dialog.tsx` — `<dialog>` ชื่อบิล · จำนวนเงิน · หมวด · วิธีจ่าย + `RecurrenceBuilder`
+  → `POST /recurrence-rules` ด้วย template `expense` (`isBill: true`, `costType: 'fixed'`)
+- 📁 `bills-card.tsx` — ปุ่ม "เพิ่มรอบบิลใหม่" ใช้ได้ และอยู่นอกรายการ (ยังไม่มีบิลก็กดได้) · ข้อความ empty state ใหม่
+- 📁 `today-view.tsx` — "Materialize Recurrence" เรียก `POST /recurrence-rules/materialize` แล้ว toast จำนวนที่สร้าง
+- 📁 `features/recurrence/use-recurrence.ts` — `useCreateRule`, `useMaterialize` · `useDraftPreview` คืน `isOutdated`
+- 📁 `e2e/support/mock-api.ts` — mock preview ด้วย engine จริง (`@nosion/core/recurrence`) · create · materialize
+- 📁 `e2e/a11y.spec.ts` — 4 เคสใหม่ · baseline visual ของ /expenses และ /today (linux) อัปเดตผ่าน `test:ui:docker`
+
+**การตัดสินใจ**
+
+- หลังบันทึกไม่ต้องทำอะไรเพิ่ม — API materialize 90 วันทันที และ mutation invalidate `['entries']` การ์ดบิล/KPI/Today จึงสดเอง
+- วันเริ่มเริ่มต้น = วันนี้ตามโซนผู้ใช้ (`Intl` + `DEFAULT_TIME_ZONE`) ไม่ใช่วันที่ของเครื่อง
+- **โฟกัสแรกของ dialog:** `autoFocus` ของ React ทำงานตอน mount ก่อน `showModal()` แล้วเบราว์เซอร์ย้ายโฟกัสไปปุ่มปิด
+  → โฟกัส `[data-autofocus]` เองหลัง `showModal()` (e2e จับได้)
+- **preview ระหว่าง debounce:** key ของ query ยังไม่เปลี่ยน รายการที่เห็นเป็นของค่าเก่าโดยไม่มีสัญญาณ (เห็นจาก screenshot)
+  → `isOutdated = ค่าที่ debounce แล้ว !== ค่าปัจจุบัน || isPlaceholderData` ทำให้รายการจางลงทันทีที่แก้
+- ข้อความรองในแผง preview ใช้ `fg-secondary` — `fg-tertiary` บนพื้น sunken ได้ contrast 3.3:1 (axe จับได้)
+
+**วิธีตรวจ**
+
+- Playwright `ui` (API ปลอม): **DoD ในหน้าเว็บ** — ตั้งบิลวันที่ 31 → preview รอบที่ 2 = 28 ก.พ. 2027 · body ที่ส่งมี
+  `FREQ=MONTHLY;BYMONTHDAY=31` และ payload บิลครบ · ฟอร์มว่างไม่ยิง API · axe ใน dialog ทั้ง 2 ธีม ·
+  รายสัปดาห์ (กดวันสุดท้ายออกไม่ได้ · BYDAY ตาม) · ปุ่ม Materialize เรียก API แล้วแจ้งผล → a11y 21/21 บน macOS
+- Linux container (`test:ui:docker`) 41/41 · เปลี่ยน baseline เฉพาะ /expenses และ /today ตามที่คาด — ตรวจภาพด้วยตาแล้ว
+- ดู screenshot dialog desktop/mobile ทั้ง 2 ธีมด้วยตา · `pnpm verify` ผ่าน
+- ⚠️ ยังไม่ได้ลองกับ API + DB จริงในเบราว์เซอร์ (smoke) — ฝั่ง API ครอบด้วย integration ของขั้น 2–4 แล้ว
+
+**สิ่งที่ค้าง**
+
+- ยังไม่มีหน้า/เมนูจัดการกฎ (ดูรายการกฎ · หยุด · ลบ) และตัวเลือก "เฉพาะครั้งนี้ / ทุกรอบ" ตอนแก้หรือลบบิล — API พร้อมแล้ว (ขั้น 2, 4)
+- quick capture "ค่าเน็ต 799 ทุกวันที่ 5" ยังสร้างรายการเดียว ไม่สร้างกฎ (NL parser อยู่ Phase 5)
