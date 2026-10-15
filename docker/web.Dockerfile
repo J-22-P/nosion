@@ -7,6 +7,7 @@ COPY apps/web/package.json apps/web/
 COPY packages/contracts/package.json packages/contracts/
 COPY packages/core/package.json packages/core/
 COPY packages/emails/package.json packages/emails/
+COPY packages/notifications/package.json packages/notifications/
 COPY packages/ui/package.json packages/ui/
 COPY packages/tsconfig/package.json packages/tsconfig/
 COPY packages/eslint-config/package.json packages/eslint-config/

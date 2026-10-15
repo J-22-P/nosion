@@ -64,6 +64,24 @@ export class PushController {
   }
 
   /**
+   * ปุ่ม "ส่งทดสอบ" ในหน้า Settings — สร้างงานทดสอบที่ครบกำหนดในอีก 2 นาทีพร้อมการเตือนแบบ push
+   * วิ่งผ่านเส้นทางจริงทั้งหมด (sweeper/cron → Web Push → ปุ่ม "เสร็จแล้ว") ไม่ใช่ทางลัดที่ส่งทันที
+   */
+  @Post('push/test')
+  @RateLimit({ limit: 5, windowSeconds: 600, by: 'user' })
+  async test(@CurrentUser('userId') userId: string): Promise<{ entryId: string; fireAt: string }> {
+    const fireAt = new Date(Math.ceil((Date.now() + 2 * 60_000) / 60_000) * 60_000); // ปัดขึ้นเป็นนาทีเต็ม
+    const entry = await this.entries.create(userId, {
+      module: 'task',
+      title: 'ทดสอบการแจ้งเตือน',
+      occurredAt: fireAt,
+      isAllDay: false,
+      reminders: [{ channel: 'push', offsetMinutes: 0 }],
+    });
+    return { entryId: entry.id, fireAt: fireAt.toISOString() };
+  }
+
+  /**
    * ปุ่ม "จ่ายแล้ว / เลื่อน 1 วัน" ใน notification (สเปก 10.3) — service worker เรียกโดยไม่มี access token
    * ยืนยันตัวตนด้วย action token ที่ worker เซ็นไว้ (ผูก user + entry · หมดอายุ 7 วัน)
    */

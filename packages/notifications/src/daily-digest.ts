@@ -1,8 +1,8 @@
 import { dayBoundsInTimeZone, formatMoney, signUnsubscribeToken } from '@nosion/core';
 import { renderEmail, type DigestItem, type MailTransport } from '@nosion/emails';
 import { Prisma, type PrismaClient } from '@prisma/client';
-import { logger } from '../logger';
-import { dueText } from '../reminders/message';
+import { logger } from './logger';
+import { dueText } from './message';
 
 /** ส่งได้ภายในกี่นาทีหลังเวลาที่ตั้ง — cron รันทุก 15 นาที ถ้า worker ล่มช่วงสั้น ๆ ยังส่งทัน แต่ไม่ส่ง "สรุปเช้า" ตอนบ่าย */
 export const DIGEST_WINDOW_MINUTES = 180;

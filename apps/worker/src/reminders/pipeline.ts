@@ -3,9 +3,13 @@ import { Queue, Worker, type ConnectionOptions, type Job } from 'bullmq';
 import { logger } from '../logger';
 import type { WorkerMetrics } from '../metrics';
 import { QUEUE, REMINDER_JOB_OPTIONS } from '../queues';
-import type { ReminderDispatcher } from './dispatcher';
-import { RetryableDeliveryError, processReminder } from './processor';
-import { sweepReminders, type ReminderJobData } from './sweeper';
+import {
+  RetryableDeliveryError,
+  processReminder,
+  sweepReminders,
+  type ReminderDispatcher,
+  type ReminderJobData,
+} from '@nosion/notifications';
 
 export interface ReminderPipelineOptions {
   connection: ConnectionOptions;

@@ -1,7 +1,7 @@
 import { signActionToken } from '@nosion/core';
 import type { PrismaClient, ReminderChannel } from '@prisma/client';
 import webpush from 'web-push';
-import { logger } from '../logger';
+import { logger } from './logger';
 import {
   PermanentDeliveryError,
   type ReminderDispatcher,

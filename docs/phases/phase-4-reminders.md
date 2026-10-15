@@ -6,15 +6,16 @@
 
 ## แผน (ปรับได้ระหว่างทาง)
 
-| #   | ขั้น                                                                                              | Commit                              | สถานะ                 |
-| --- | ------------------------------------------------------------------------------------------------- | ----------------------------------- | --------------------- |
-| 1   | API: reminder CRUD + `fireAt` ตามวันของ entry (แก้/เลื่อน) + reminder ใน template ของกฎการเกิดซ้ำ | `b8a1e31`                           | ✅                    |
-| 2   | Worker: sweeper ทุก 1 นาที + processor (guard, quiet hours, retry, DLQ) + integration test        | `3a3daae`                           | ✅                    |
-| 3   | Web Push: VAPID · subscribe · service worker · ปุ่ม "จ่ายแล้ว / เลื่อน" โดยไม่เปิดแอป             | `f2b699e` · `c257537`               | ✅                    |
-| 4   | Email: Resend + React Email 6 แบบ · Mailpit ในเครื่อง                                             | `7e58335`                           | ✅                    |
-| 5   | Daily digest ตามโซนผู้ใช้ (สเปก 10.2) + ตั้งค่า quiet hours / digest ในหน้า Settings              | `aea4a10`                           | ✅                    |
-| 6   | Metrics `reminder_delivery_lag_seconds` + alert                                                   | `07f048d`                           | ✅                    |
-| 7   | Staging: worker + Redis บน Fly.io (region sin) · DoD บนมือถือจริง · บท learn 17 · ADR             | `aa4f460` · `bc0dd63` · (รอ commit) | 🟡 รอรัน wizard + DoD |
+| #   | ขั้น                                                                                              | Commit                            | สถานะ                 |
+| --- | ------------------------------------------------------------------------------------------------- | --------------------------------- | --------------------- |
+| 1   | API: reminder CRUD + `fireAt` ตามวันของ entry (แก้/เลื่อน) + reminder ใน template ของกฎการเกิดซ้ำ | `b8a1e31`                         | ✅                    |
+| 2   | Worker: sweeper ทุก 1 นาที + processor (guard, quiet hours, retry, DLQ) + integration test        | `3a3daae`                         | ✅                    |
+| 3   | Web Push: VAPID · subscribe · service worker · ปุ่ม "จ่ายแล้ว / เลื่อน" โดยไม่เปิดแอป             | `f2b699e` · `c257537`             | ✅                    |
+| 4   | Email: Resend + React Email 6 แบบ · Mailpit ในเครื่อง                                             | `7e58335`                         | ✅                    |
+| 5   | Daily digest ตามโซนผู้ใช้ (สเปก 10.2) + ตั้งค่า quiet hours / digest ในหน้า Settings              | `aea4a10`                         | ✅                    |
+| 6   | Metrics `reminder_delivery_lag_seconds` + alert                                                   | `07f048d`                         | ✅                    |
+| 8   | Staging ทางเลือก: ส่งการเตือนจาก API บน Vercel + cron-job.org ทุกนาที (ระหว่างยังไม่มี worker)    | (รอ commit)                       | 🟡 รอรัน wizard + DoD |
+| 7   | Staging: worker + Redis บน Fly.io (region sin) · DoD บนมือถือจริง · บท learn 17 · ADR             | `aa4f460` · `bc0dd63` · `50af101` | 🟡 รอรัน wizard + DoD |
 
 **ตัดสินใจก่อนเริ่ม:** worker บน staging รันที่ **Fly.io** (เจ้าของบัญชีเลือก 15 ต.ค. 2026) — Vercel Cron แผนฟรีรันได้วันละครั้ง
 แต่ sweeper ต้องรันทุกนาที และ BullMQ poll Redis ตลอดเวลาจนโควตาฟรีของ Upstash ไม่พอ
@@ -364,10 +365,53 @@
 
 ---
 
-## ขั้น 7c · บท learn 17 + ADR-011 — (รอ commit)
+## ขั้น 7c · บท learn 17 + ADR-011 — `50af101`
 
 - 📁 `docs/learn/17-phase4-reminders-push-email-and-worker.md` — 10 หัวข้อ + ข้อเสียที่ยอมรับ + แบบฝึกหัด 12 ข้อ · ลงสารบัญ `00-how-to-read.md` และ `index.html`
 - 📁 `docs/adr/011-reminders-outbox-polling.md` — ทำไม PostgreSQL + sweeper แทน enqueue พร้อม delay (ทางเลือกที่ไม่เลือก + ข้อเสีย)
 - ADR ใช้เลข 011 — 007/008 ยังจองไว้ตามสเปกภาคผนวก
 
 > ✅ Phase 4 เสร็จฝั่งโค้ด (15 ต.ค. 2026) — เหลือรัน `scripts/fly-staging-setup.sh` และตรวจ DoD บนมือถือจริง
+
+---
+
+## ขั้น 8 · ส่งการเตือนจาก API บน Vercel (ระหว่างยังไม่ใช้ Fly.io) — (รอ commit)
+
+**เป้าหมาย:** เจ้าของเลือกใช้ Vercel ไปก่อน (16 ต.ค. 2026) — แต่ Vercel Cron แผน Hobby รันได้วันละครั้ง (คลาดได้ ±59 นาที) ไม่พอสำหรับการเตือน
+จึงให้ **cron-job.org (ฟรี) เรียก endpoint ของ API ทุก 1 นาที** แทน worker
+
+**สิ่งที่เปลี่ยน**
+
+- 📁 `packages/notifications/` (แพ็กเกจใหม่) — ย้าย `processor`, `message`, `dispatcher`, `web-push.dispatcher`, `email.dispatcher`, `sweeper`, `daily-digest`
+  ออกจาก `apps/worker` (git mv · เทสต์ย้ายตามมา 20 เคส) · `logger` รับจากผู้ใช้ (worker: pino · API: Logger ของ Nest) · `@prisma/client` เป็น peer
+  · **`due-reminders.ts`** — `runDueReminders`: ส่งที่ถึงเวลาในคำขอเดียว ไม่มีคิว
+- 📁 `apps/api/src/notifications/` — `GET /internal/cron/reminders` (ทุกนาที) · `GET /internal/cron/digest` (ทุก 15 นาที) · ป้องกันด้วย `CRON_SECRET` ตัวเดียวกับ Phase 3
+  · env ใหม่ `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`
+- 📁 `POST /push/test` + ปุ่ม **"ส่งทดสอบ"** ในการ์ดแจ้งเตือน — สร้างงานทดสอบครบกำหนดในอีก 2 นาทีพร้อมการเตือน (วิ่งผ่านเส้นทางจริงทั้งหมด)
+- 📁 `scripts/vercel-cron-setup.sh` — wizard 6 ขั้น (VAPID/secret · CRON_SECRET · อีเมล · env ของ Vercel · redeploy + ตรวจจากภายนอก · cron-job.org)
+- `apps/worker` ใช้ `@nosion/notifications` · Dockerfile ทั้งสามมีแพ็กเกจใหม่ · CI smoke ของ worker image require แพ็กเกจนี้ด้วย
+
+**การตัดสินใจ**
+
+- **แพ็กเกจกลางแทนการคัดลอก** — worker และ API ต้องส่งการเตือนเหมือนกันทุกอย่าง (guard, ช่วงห้ามรบกวน, ข้อความ, 404/410) สองชุดจะค่อย ๆ ไม่ตรงกัน
+- **ไม่มีคิว → ส่งรายการที่ fireAt ≤ ตอนนี้ + 30 วินาที** — เรียกทุกนาทีจึงเร็ว/ช้าได้ราว ±30 วินาที อยู่ใน DoD ±60
+- **retry = นาทีถัดไป** — ล้มชั่วคราวแล้ว processor นับ attempts สถานะยัง scheduled · ครบ 5 = failed (เหมือน worker แต่ backoff คงที่ 1 นาที)
+- **lease ใน `jobId` (`cron:<epoch ms>`)** — จองสิทธิ์ใน WHERE เดียว: การเรียกซ้อนกัน (cron-job.org retry ตอน timeout / function สองตัวทับ) ส่งครั้งเดียว ·
+  function ตายกลางทาง lease หมดใน 2 นาทีแล้วรอบถัดไปหยิบใหม่ · epoch ms ยาว 13 หลักคงที่ → เทียบแบบสตริงได้
+- งบเวลา 20 วินาที/คำขอ ทีละ 100 รายการ — เหลือเวลาให้ function จบก่อน timeout · ที่เหลือรอบนาทีถัดไป
+- **worker กับ endpoint นี้ทำงานแทนกัน ไม่ใช่คู่กัน** — เปิด Fly worker เมื่อไรให้ปิดงานบน cron-job.org (jobId สองรูปแบบไม่ได้ออกแบบให้แย่งกัน)
+- wizard ใช้ไฟล์เก็บค่า `.env.staging.fly` ร่วมกับ wizard ของ Fly → กุญแจ VAPID ชุดเดียวกัน ย้ายไป worker ภายหลังผู้ใช้ไม่ต้องเปิดการแจ้งเตือนใหม่
+- **ปุ่ม "ส่งทดสอบ" ไม่ส่งทันที** — สร้างการเตือนจริงแล้วรอ cron จึงทดสอบเส้นทางเดียวกับการใช้งานจริง (ตัวเลือกเตือนของบิลเป็น 09:00 ของวัน ทดสอบภายในไม่กี่นาทีไม่ได้)
+
+**วิธีตรวจ**
+
+- integration API `notifications-cron.int-spec.ts` 6 เคส: ส่งเฉพาะที่ถึงเวลา (+25 วินาทีส่ง · +90 วินาทีรอ) · **เรียกซ้อน 3 ครั้งส่งครั้งเดียว** ·
+  ล้มชั่วคราวแล้วนาทีถัดไปส่ง · lease ค้างไม่แย่งภายใน 2 นาที/เกินแล้วหยิบใหม่ · พลาดเกิน 1 ชม. · endpoint 401/200 · `/push/test` 1 เคส
+- integration API 87 + worker 19 · `pnpm verify` · Playwright `ui` 24/24
+- worker image build ใหม่ — แพ็กเกจ resolve `@prisma/client` ตัวที่ generate แล้วใน image (peer dependency ทำงานกับ `pnpm deploy`)
+- ⚠️ ยังไม่ได้ตั้งค่าและรันบน staging จริง (ต้องใช้บัญชี Vercel + cron-job.org) · ยังไม่ได้ลองบนมือถือจริง
+
+**สิ่งที่ค้าง (ทำโดยเจ้าของบัญชี)**
+
+- [ ] push โค้ดนี้ขึ้น main แล้วรัน `bash scripts/vercel-cron-setup.sh`
+- [ ] DoD บนมือถือ: `/settings` → เปิดการแจ้งเตือน → "ส่งทดสอบ" → เด้งภายใน 2–3 นาที → กด "เสร็จแล้ว" โดยไม่เปิดแอป

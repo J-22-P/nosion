@@ -15,7 +15,8 @@ import { APP_CONFIG, type AppConfig } from '../config/env';
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
-  private readonly transport: MailTransport;
+  /** ใช้ร่วมกับงานส่งการเตือน/สรุปรายวันใน API (notifications-cron) */
+  readonly transport: MailTransport;
 
   constructor(@Inject(APP_CONFIG) private readonly config: AppConfig) {
     this.transport = createMailTransport({

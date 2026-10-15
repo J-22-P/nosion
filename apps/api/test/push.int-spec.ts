@@ -70,6 +70,28 @@ describe('Web Push + ปุ่มใน notification (API + DB จริง)', (
         .expect(201)
     ).body as { id: string; occurredAt: string };
 
+  it('POST /push/test → งานทดสอบครบกำหนดในอีก 2–3 นาที (นาทีเต็ม) พร้อมการเตือน push ที่ fireAt เดียวกัน', async () => {
+    const res = await api().post('/api/v1/push/test').set(as(alice)).expect(201);
+    const fireAt = new Date(res.body.fireAt);
+    const ahead = fireAt.getTime() - Date.now();
+    expect(ahead).toBeGreaterThan(110_000);
+    expect(ahead).toBeLessThanOrEqual(180_000);
+    expect(fireAt.getUTCSeconds()).toBe(0);
+    const entry = await prisma.entry.findUniqueOrThrow({
+      where: { id: res.body.entryId },
+      include: { reminders: true },
+    });
+    expect(entry).toMatchObject({
+      userId: aliceId,
+      module: 'task',
+      isAllDay: false,
+      status: 'pending',
+    });
+    expect(entry.reminders).toEqual([
+      expect.objectContaining({ channel: 'push', offsetMinutes: 0, fireAt, status: 'scheduled' }),
+    ]);
+  });
+
   it('GET /push/config ให้ VAPID public key', async () => {
     const res = await api().get('/api/v1/push/config').set(as(alice)).expect(200);
     expect(res.body).toEqual({ publicKey: VAPID_PUBLIC });

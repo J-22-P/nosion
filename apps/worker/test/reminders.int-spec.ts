@@ -5,11 +5,10 @@ import {
   PermanentDeliveryError,
   type ReminderDispatcher,
   type ReminderMessage,
-} from '../src/reminders/dispatcher';
+} from '@nosion/notifications';
 import { createMetrics, type WorkerMetrics } from '../src/metrics';
 import { startReminderPipeline } from '../src/reminders/pipeline';
-import { processReminder } from '../src/reminders/processor';
-import { jobIdFor, sweepReminders } from '../src/reminders/sweeper';
+import { jobIdFor, processReminder, sweepReminders } from '@nosion/notifications';
 
 /** dispatcher ปลอม — จดว่าส่งอะไรเมื่อไร และกำหนดให้ล้มได้ */
 class FakeDispatcher implements ReminderDispatcher {

@@ -1,5 +1,5 @@
 import type { ReminderChannel } from '@prisma/client';
-import { logger } from '../logger';
+import { logger } from './logger';
 
 /** สิ่งที่ช่องทางไหนก็ส่งได้ — push ใช้ทุกช่อง, email/webhook ใช้บางส่วน */
 export interface ReminderMessage {

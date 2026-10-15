@@ -8,11 +8,16 @@ import { logger } from './logger';
 import { createMetrics } from './metrics';
 import { startServer } from './server';
 import { runCleanup } from './processors/cleanup.processor';
-import { LogDispatcher, type ReminderDispatcher } from './reminders/dispatcher';
-import { WebPushDispatcher } from './reminders/web-push.dispatcher';
-import { ChannelRouter, EmailDispatcher } from './reminders/email.dispatcher';
+import {
+  ChannelRouter,
+  EmailDispatcher,
+  LogDispatcher,
+  WebPushDispatcher,
+  configureNotifyLogger,
+  runDailyDigest,
+  type ReminderDispatcher,
+} from '@nosion/notifications';
 import { createMailTransport, type MailDriver, type MailTransport } from '@nosion/emails';
-import { runDailyDigest } from './digest/daily-digest';
 import { startReminderPipeline } from './reminders/pipeline';
 import { DEFAULT_JOB_OPTIONS, QUEUE } from './queues';
 
@@ -22,6 +27,7 @@ const connection = new IORedis(process.env.REDIS_URL ?? 'redis://localhost:6379'
   family: 0,
 });
 const prisma = new PrismaClient();
+configureNotifyLogger(logger);
 const metrics = createMetrics();
 const APP_URL = process.env.APP_URL ?? 'http://localhost:3000';
 const API_URL = process.env.API_URL ?? 'http://localhost:3001';

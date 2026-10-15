@@ -52,6 +52,7 @@ export const pushApi = {
   config: () => apiFetch<PushConfigDto>('/push/config'),
   subscribe: (input: PushSubscribeInput) =>
     apiFetch<void>('/push/subscribe', { method: 'POST', body: input }),
+  test: () => apiFetch<{ entryId: string; fireAt: string }>('/push/test', { method: 'POST' }),
   unsubscribe: (endpoint: string) =>
     apiFetch<void>('/push/unsubscribe', { method: 'DELETE', body: { endpoint } }),
 };

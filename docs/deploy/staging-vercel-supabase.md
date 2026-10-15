@@ -104,6 +104,19 @@ GitHub → **Actions → Deploy staging → Run workflow** (หรือ push �
 
 เปิด `https://nosion-staging-web.vercel.app` → **ลองใช้ทันที** → ได้ข้อมูลชุด mockup
 
+## 5b. การเตือนบน Vercel + cron-job.org (ใช้อยู่ตอนนี้ แทน worker)
+
+Vercel Cron แผน Hobby รันได้วันละครั้ง — ให้ [cron-job.org](https://cron-job.org) (ฟรี) เรียก endpoint ของ API แทน:
+
+| งาน        | URL (`Authorization: Bearer <CRON_SECRET>`)                            | รอบ         |
+| ---------- | ---------------------------------------------------------------------- | ----------- |
+| การเตือน   | `https://nosion-staging-web.vercel.app/api/v1/internal/cron/reminders` | ทุก 1 นาที  |
+| สรุปรายวัน | `https://nosion-staging-web.vercel.app/api/v1/internal/cron/digest`    | ทุก 15 นาที |
+
+ตั้งค่าด้วย `bash scripts/vercel-cron-setup.sh` (env ของ project API: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`,
+`NOTIFICATION_ACTION_SECRET`, `MAIL_DRIVER`, `APP_URL` = `API_URL` = โดเมนของเว็บ) · ทดสอบ: `/settings` → เปิดการแจ้งเตือน → "ส่งทดสอบ"
+· ย้ายไป worker บน Fly.io (หัวข้อ 6) เมื่อไร **ปิดสองงานนี้บน cron-job.org** — ทำงานแทนกัน ไม่ใช่คู่กัน
+
 ## 6. Worker + Redis บน Fly.io (Phase 4)
 
 ```

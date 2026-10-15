@@ -25,6 +25,7 @@
     "@nosion/contracts": "workspace:*",
     "@nosion/core": "workspace:*",
     "@nosion/emails": "workspace:*",
+    "@nosion/notifications": "workspace:*",
     "@prisma/client": "6.19.3",
     "cookie-parser": "1.4.7",
     "dotenv": "17.4.2",

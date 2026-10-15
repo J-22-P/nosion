@@ -42,6 +42,9 @@ export const envSchema = z.object({
 
   /** Web Push (สเปก 10.3) — public key ส่งให้เบราว์เซอร์ใช้ subscribe · ไม่ตั้ง = ปิด push */
   VAPID_PUBLIC_KEY: z.string().min(1).optional(),
+  /** ใช้เมื่อ API ส่งการเตือนเอง (GET /internal/cron/reminders บน Vercel แทน worker) */
+  VAPID_PRIVATE_KEY: z.string().min(1).optional(),
+  VAPID_SUBJECT: z.string().default('mailto:noreply@nosion.dev'),
   /** ลายเซ็นของปุ่มใน notification — ต้องตรงกับของ worker · ไม่ตั้ง = endpoint ปุ่มปิด (404) */
   NOTIFICATION_ACTION_SECRET: z
     .string()

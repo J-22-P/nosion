@@ -9,6 +9,7 @@ import { RecurrenceModule } from './recurrence/recurrence.module';
 import { RemindersModule } from './reminders/reminders.module';
 import { PushModule } from './push/push.module';
 import { EmailModule } from './email/email.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { RegistryModule } from './core/registry/registry.module';
 import { TodayModule } from './entries/today/today.module';
 import { EntriesModule } from './entries/entries.module';
@@ -43,6 +44,7 @@ import { UsersModule } from './users/users.module';
     RemindersModule,
     PushModule,
     EmailModule,
+    NotificationsModule,
 
     HealthModule,
   ],

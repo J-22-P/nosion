@@ -92,7 +92,7 @@ jobs:
         run: |
           docker run --rm --entrypoint node nosion-worker:ci -e "
             require('bullmq'); require('web-push'); require('prom-client');
-            require('@nosion/core'); require('@nosion/emails');
+            require('@nosion/core'); require('@nosion/emails'); require('@nosion/notifications');
             const { Prisma } = require('@prisma/client');
             if (!Prisma.ModelName.Reminder) throw new Error('Prisma client ไม่ได้ generate');
             require('fs').accessSync('dist/main.js');

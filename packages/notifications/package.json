@@ -1,0 +1,41 @@
+{
+  "name": "@nosion/notifications",
+  "version": "0.1.0",
+  "private": true,
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch --preserveWatchOutput",
+    "typecheck": "tsc -p tsconfig.json --noEmit --incremental false",
+    "lint": "eslint src",
+    "test": "vitest run",
+    "test:unit": "vitest run"
+  },
+  "dependencies": {
+    "@nosion/core": "workspace:*",
+    "@nosion/emails": "workspace:*",
+    "web-push": "3.6.7"
+  },
+  "peerDependencies": {
+    "@prisma/client": "6.19.3"
+  },
+  "devDependencies": {
+    "@nosion/eslint-config": "workspace:*",
+    "@nosion/tsconfig": "workspace:*",
+    "@prisma/client": "6.19.3",
+    "@types/node": "22.20.3",
+    "@types/web-push": "3.6.4",
+    "typescript": "5.9.3",
+    "vitest": "3.2.7"
+  }
+}

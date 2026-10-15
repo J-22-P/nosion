@@ -2,7 +2,7 @@ import type { MailTransport, OutgoingMail } from '@nosion/emails';
 import { verifyUnsubscribeToken } from '@nosion/core';
 import { PrismaClient } from '@prisma/client';
 import { afterAll, describe, expect, it } from 'vitest';
-import { claimDigest, findDueDigests, runDailyDigest } from '../src/digest/daily-digest';
+import { claimDigest, findDueDigests, runDailyDigest } from '@nosion/notifications';
 
 const prisma = new PrismaClient();
 const SECRET = 'd'.repeat(48);
