@@ -251,14 +251,23 @@ write_env NOTIFICATION_ACTION_SECRET "$NOTIFICATION_ACTION_SECRET"
 pause
 
 # ── 2 ────────────────────────────────────────────────────────────────────
-stage "CRON_SECRET (ค่าเดียวกับที่ตั้งบน Vercel ไว้แล้วตอน Phase 3)"
-say "cron-job.org ต้องส่งค่านี้มาใน header — endpoint ใหม่ใช้ secret ตัวเดียวกับ cron ของรอบบิล"
-open_url "https://vercel.com/dashboard"
-step "project API → Settings → Environment Variables → CRON_SECRET → กดไอคอนตาเพื่อดูค่า แล้วคัดลอก"
-ask_secret CRON_SECRET "วาง CRON_SECRET (ซ่อนอยู่):"
-(( ${#CRON_SECRET} >= 32 )) || warn "สั้นกว่า 32 ตัว — API จะไม่ยอมรับค่านี้ (ตรวจว่าคัดลอกครบ)"
+stage "CRON_SECRET — สร้างใหม่แล้วตั้งบน Vercel (Production)"
+say "ค่าเดิมเป็นแบบ Sensitive — Vercel ไม่ให้เปิดดูหลังบันทึก จึงสร้างค่าใหม่ แล้วใช้ค่าเดียวกันทั้ง Vercel และ cron-job.org"
+note "ปลอดภัย: Vercel Cron ของรอบบิล (/internal/cron/recurrence) อ่านค่าจาก env เอง ไม่มีที่อื่นต้องตามแก้"
+CRON_SECRET=$(_existing CRON_SECRET || true)
+if [[ -n "$CRON_SECRET" ]] && ! confirm "มี CRON_SECRET ที่ wizard สร้างไว้แล้ว — สร้างใหม่ทับไหม (ตอบ N = ใช้ค่าเดิม)"; then
+  note "ใช้ค่าเดิมจาก $ENV_FILE"
+else
+  CRON_SECRET=$(openssl rand -hex 32)
+  note "สร้างค่าใหม่แล้ว (64 ตัว)"
+fi
 write_env CRON_SECRET "$CRON_SECRET"
-pause
+open_url "https://vercel.com/dashboard"
+step "project nosion-staging-api → Settings → Environment Variables → แถว CRON_SECRET → ⋯ → Edit"
+step "Environments: ติ๊ก ${BOLD}Production${RESET} (และ Preview ได้) — ตอนนี้ติ๊กแค่ Preview ทำให้ staging ไม่เห็นค่า"
+step "Value: ลบค่าเดิมแล้ววางค่าใหม่ · ยังเป็นแบบ Sensitive ได้ · กด Save"
+copy "$CRON_SECRET" && note "(ค่าใหม่คัดลอกลง clipboard แล้ว)" || note "ค่า: $CRON_SECRET"
+pause "บันทึกแล้วกด Enter"
 
 # ── 3 ────────────────────────────────────────────────────────────────────
 stage "อีเมล: log หรือ Resend"
