@@ -8,17 +8,17 @@
 
 | #   | ขั้น                                                                                     | Commit      | สถานะ |
 | --- | ---------------------------------------------------------------------------------------- | ----------- | ----- |
-| 1   | core: คำนวณรอบ (rrule + timezone/DST + clamp) + 7 เคสบังคับ                              | `36c9b08`   | ✅    |
-| 2   | API: CRUD + pause + preview (บันทึกแล้ว / ร่าง) + ลบเฉพาะรอบ                             | `d9ffaf0`   | ✅    |
-| 3   | API: lazy materialization + cron 03:00 UTC + `POST /recurrence-rules/materialize`        | `d9ffaf0`   | ✅    |
-| 4   | API: แก้รอบเดียว vs ทั้ง series จากฝั่ง entry (แก้ entry ที่มี recurrenceRuleId)         | (รอ commit) | ✅    |
-| 5   | Web: ตัวสร้าง rrule แบบไม่ต้องรู้ RFC 5545 + preview 10 รอบ                              |             | ⏳    |
+| 1   | core: คำนวณรอบ (rrule + timezone/DST + clamp) + 7 เคสบังคับ                              | `8b66813`   | ✅    |
+| 2   | API: CRUD + pause + preview (บันทึกแล้ว / ร่าง) + ลบเฉพาะรอบ                             | `2f36fa3`   | ✅    |
+| 3   | API: lazy materialization + cron 03:00 UTC + `POST /recurrence-rules/materialize`        | `2f36fa3`   | ✅    |
+| 4   | API: แก้รอบเดียว vs ทั้ง series จากฝั่ง entry (แก้ entry ที่มี recurrenceRuleId)         | `5686937`   | ✅    |
+| 5   | Web: ตัวสร้าง rrule แบบไม่ต้องรู้ RFC 5545 + preview 10 รอบ                              | (รอ commit) | ✅    |
 | 6   | Web: ปุ่ม "เพิ่มรอบบิลใหม่" ในหน้า Expenses + เปิดปุ่ม "Materialize Recurrence" ใน Today |             | ⏳    |
 | 7   | Staging: ตั้ง `CRON_SECRET` บน Vercel · บท learn 16 · ADR (floating time + clamp)        |             | ⏳    |
 
 ---
 
-## ขั้น 1 · core: คำนวณรอบ — `36c9b08`
+## ขั้น 1 · core: คำนวณรอบ — `8b66813`
 
 **เป้าหมาย:** ฟังก์ชันล้วน (ไม่แตะ DB) ที่ตอบได้ว่า rule หนึ่ง "เกิดเวลา UTC ไหนบ้าง" ในช่วงที่ขอ
 
@@ -48,7 +48,7 @@
 
 ---
 
-## ขั้น 2–3 · API: CRUD + lazy materialization — `d9ffaf0`
+## ขั้น 2–3 · API: CRUD + lazy materialization — `2f36fa3`
 
 **เป้าหมาย:** endpoint ครบตามตาราง "Recurrence & Reminder" (สเปก 7.x) และ entry ถูกสร้างล่วงหน้า 90 วันโดยไม่ซ้ำ
 
@@ -97,7 +97,7 @@
 
 ---
 
-## ขั้น 4 · API: แก้รอบเดียว vs ทั้ง series จากฝั่ง entry — (รอ commit)
+## ขั้น 4 · API: แก้รอบเดียว vs ทั้ง series จากฝั่ง entry — `5686937`
 
 **เป้าหมาย:** ผู้ใช้แก้/ลบรายการที่มาจากกฎได้ทั้งแบบ "เฉพาะครั้งนี้" และ "ทุกรอบ" จากหน้ารายการเอง ไม่ต้องไปแก้ที่กฎ (สเปก 6.1 แถวสุดท้ายของตารางปัญหา)
 
@@ -143,3 +143,43 @@
 - `EntryDto` ยังไม่ส่ง `recurrenceSlot` — web ใช้ `recurrenceRuleId` แยกว่าเป็นรอบจากกฎได้แล้ว จะเพิ่มถ้าขั้น 5–6 ต้องใช้
 - Web ยังไม่มีตัวเลือก "เฉพาะครั้งนี้ / ทุกรอบ" — ทำพร้อมขั้น 6
 - 📚 ความรู้เบื้องหลัง: บท 16 (ยังไม่เขียน — ขั้น 7)
+
+---
+
+## ขั้น 5 · Web: ตัวสร้าง rrule + preview 10 รอบ — (รอ commit)
+
+**เป้าหมาย:** ผู้ใช้ตั้งการเกิดซ้ำได้ด้วยตัวเลือกภาษาคน ไม่ต้องรู้ RFC 5545 และเห็น 10 รอบถัดไปจริงก่อนบันทึก
+
+**สิ่งที่เปลี่ยน**
+
+- 📁 `apps/web/src/features/recurrence/builder.ts` — ฟังก์ชันล้วน: `RecurrenceDraft` → `buildRrule()`, `validateDraft()`, `toRuleInput()`,
+  `describeDraft()` (สรุปเป็นประโยค "ทุกเดือน วันที่ 31 · ไม่มีวันสิ้นสุด"), `weekdayOf()`, `formatLocalDate()`
+- 📁 `recurrence-builder.tsx` — controlled component: วันเริ่ม · ความถี่ (segmented) · ทุก n หน่วย · วันในสัปดาห์ (toggle) ·
+  วันที่ของเดือน · เงื่อนไขสิ้นสุด + แผง preview (`aria-live`) และ RRULE ดิบตัวเล็กใต้แผง
+- 📁 `api.ts` (`recurrenceApi`: list / create / previewDraft / materialize) · `use-recurrence.ts` (`useDraftPreview` debounce 300ms)
+- 📁 `packages/core/package.json` — subpath `@nosion/core/money`, `/time`, `/recurrence` ·
+  📁 `packages/eslint-config/next.mjs` — ห้าม import `@nosion/core` ตัว index ในฝั่ง web
+
+**การตัดสินใจ**
+
+- **preview คำนวณที่ API (`POST /recurrence-rules/preview`) ไม่ใช่ในเบราว์เซอร์** — engine ตัวเดียวกับตอน materialize จริง
+  ผลจึงตรงกันแน่นอน (โซนเวลาผู้ใช้ / DST / clamp) และ web ไม่ต้องโหลด rrule · debounce 300ms + `keepPreviousData` ไม่ให้รายการกระพริบ
+- **ไม่มีตัวเลือก "วันสุดท้ายของเดือน" แยก** — เลือกวันที่ 31 ก็คือวันสุดท้ายอยู่แล้วเพราะ engine clamp (บอกผู้ใช้ใต้ช่องเมื่อเลือก 29–31)
+- weekly ที่ไม่เลือกวัน = วันเดียวกับวันเริ่ม · กดวันสุดท้ายออกไม่ได้ (กฎต้องมีอย่างน้อยหนึ่งวัน) · BYDAY เรียงตามสัปดาห์เสมอ
+- yearly ไม่ส่ง BYMONTH/BYMONTHDAY — engine ใช้วันของ startsAt และ clamp 29 ก.พ. เอง
+- ค่าเริ่มต้นเหมาะกับบิล: รายเดือน วันเดียวกับวันเริ่ม ไม่มีวันจบ · วันที่ของเดือนตามวันเริ่มไปจนกว่าผู้ใช้จะเลือกเอง
+- **ปิดเรื่องค้างของขั้น 1 (rrule ใน bundle web):** วัดแล้ว rrule ~45 kB (13 kB gzip) ติดไปทุกหน้าที่ใช้ `formatMoney`
+  เพราะ index ของ core เป็น CJS → แยก subpath export + กฎ lint · First Load: /expenses 189 → 173 kB, /today 188 → 171 kB
+
+**วิธีตรวจ**
+
+- `builder.test.ts` 29 เคส รวม **DoD ฝั่ง web**: rrule ที่ builder สร้างจากวันที่ 31 → engine จริงให้ 31 ม.ค., 28 ก.พ., 31 มี.ค.
+  และ rrule ทุกแบบที่ builder สร้างผ่าน `parseRecurrenceRule`
+- `next build` แล้ว grep chunk — ไม่พบโค้ด rrule ใน `.next/static` · กฎ lint ใหม่ทดสอบด้วยไฟล์ตัวอย่าง (จับได้)
+- web unit 65/65 · lint · typecheck
+- ⚠️ ยังไม่ได้เปิดดูในเบราว์เซอร์ — component ยังไม่ถูกวางในหน้าใด (ขั้น 6)
+
+**สิ่งที่ค้าง**
+
+- ยังไม่รองรับ "วันจันทร์แรกของเดือน" (BYDAY + BYSETPOS) — engine รองรับแล้ว แต่ UI ยังไม่มีตัวเลือก
+- 📚 บท 16 (ขั้น 7)

@@ -1,4 +1,4 @@
-import { formatMoney } from '@nosion/core';
+import { formatMoney } from '@nosion/core/money';
 import { DEFAULT_TIME_ZONE } from '@/lib/format';
 
 /** KPI: ไม่มีทศนิยม · ตาราง/บิล: ทศนิยมเต็ม (สเปก 8.11.3) — กติกาเดียวกับ API */

@@ -1,7 +1,7 @@
 'use client';
 
 import type { BudgetTone } from '@nosion/contracts';
-import { parseAmountToMinor } from '@nosion/core';
+import { parseAmountToMinor } from '@nosion/core/money';
 import { AlertTriangle, CheckCircle2, OctagonAlert, CalendarClock } from 'lucide-react';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
