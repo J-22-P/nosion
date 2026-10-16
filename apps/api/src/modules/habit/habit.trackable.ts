@@ -126,8 +126,15 @@ export class HabitTrackableModule implements TrackableModule<HabitPayload> {
     };
   }
 
-  summarizeWeek(entries: Entry[], _ctx: UserContext): WeeklySection {
-    const counted = entries.filter((e) => e.status !== 'skipped' && e.status !== 'cancelled');
+  summarizeWeek(entries: Entry[], ctx: UserContext): WeeklySection {
+    // นับเฉพาะรอบที่ถึงวันแล้ว — รอบล่วงหน้าของวันที่ยังมาไม่ถึงไม่ใช่ "ยังไม่ทำ" (Review ของสัปดาห์นี้กลางสัปดาห์)
+    const today = formatInTimeZone(ctx.now ?? new Date(), ctx.timezone);
+    const counted = entries.filter(
+      (e) =>
+        e.status !== 'skipped' &&
+        e.status !== 'cancelled' &&
+        (!e.occurredAt || formatInTimeZone(e.occurredAt, ctx.timezone) <= today),
+    );
     const done = counted.filter(isDone);
     const rate = counted.length ? Math.round((done.length / counted.length) * 100) : 0;
 

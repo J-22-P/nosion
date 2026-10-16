@@ -6,6 +6,7 @@ import type {
   CalendarEventDto,
   HabitDto,
   HabitListDto,
+  WeeklyReviewDto,
   ParsedEntryDto,
   ParseResultDto,
   EntryDto,
@@ -878,3 +879,55 @@ export const HABITS: HabitListDto = {
     },
   ],
 };
+
+// ── สรุปสัปดาห์ (Phase 6) — ส่วนของแต่ละโมดูลมาจาก summarizeWeek() ──
+export function reviewFor(week: string | null): WeeklyReviewDto {
+  const current = !week || week === '2026-W40';
+  return {
+    week: week ?? '2026-W40',
+    from: current ? '2026-09-28' : '2026-09-21',
+    to: current ? '2026-10-04' : '2026-09-27',
+    timezone: 'Asia/Bangkok',
+    previousWeek: current ? '2026-W39' : '2026-W38',
+    nextWeek: current ? '2026-W41' : '2026-W40',
+    failedModules: [],
+    sections: [
+      {
+        module: 'task',
+        title: 'งาน',
+        order: 10,
+        stats: [
+          { label: 'ทำเสร็จ', value: current ? '6/9' : '4/7' },
+          { label: 'เวลาที่ประเมิน', value: '12 ชม.' },
+          { label: 'เวลาที่ใช้จริง', value: '14 ชม.' },
+        ],
+        highlights: [
+          'ปิดงานได้ 6 รายการ',
+          'งานที่ผัดบ่อยที่สุด: "Sync สถาปัตยกรรม Local-First" (3 ครั้ง)',
+        ],
+      },
+      {
+        module: 'expense',
+        title: 'การเงิน',
+        order: 20,
+        stats: [
+          { label: 'รายจ่าย', value: '฿3,820' },
+          { label: 'รายรับ', value: '฿0' },
+          { label: 'จำนวนรายการ', value: '14' },
+        ],
+        highlights: ['ใช้กับอาหารมากที่สุด ฿1,640 (43%)'],
+      },
+      {
+        module: 'habit',
+        title: 'นิสัย',
+        order: 30,
+        stats: [
+          { label: 'ทำสำเร็จ', value: '11/14' },
+          { label: 'อัตราความสำเร็จ', value: '79%' },
+          { label: 'จำนวนนิสัย', value: '4' },
+        ],
+        highlights: ['ทำสม่ำเสมอที่สุด: อ่านหนังสือ (3/3)', 'ควรใส่ใจ: นอน (1/3)'],
+      },
+    ],
+  };
+}

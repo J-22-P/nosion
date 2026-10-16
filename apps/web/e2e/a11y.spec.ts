@@ -19,6 +19,7 @@ const PAGES = [
   { path: '/expenses/analytics', ready: 'สัดส่วนตามหมวดหมู่' },
   { path: '/calendar', ready: 'Quick Snapshot' },
   { path: '/habits', ready: 'ดื่มน้ำ' },
+  { path: '/review', ready: 'ทำสม่ำเสมอที่สุด' },
   { path: '/hub', ready: 'Workouts' },
   { path: '/settings', ready: 'การแสดงผล' },
 ] as const;
@@ -770,5 +771,21 @@ test.describe('นิสัย (Phase 6)', () => {
     await expect
       .poll(() => calls.at(-1))
       .toBe('PATCH /me/settings {"enabledModules":["task","expense"]}');
+  });
+});
+
+test.describe('สรุปสัปดาห์ (Phase 6)', () => {
+  test('ทุกโมดูลที่เปิดมีส่วนของตัวเอง · เลื่อนสัปดาห์ด้วย ‹ › และ URL', async ({ page }) => {
+    await page.goto('/review');
+    await expect(page.getByText('2026-W40')).toBeVisible({ timeout: 15_000 });
+    for (const title of ['งาน', 'การเงิน', 'นิสัย']) {
+      await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
+    }
+    await expect(page.getByText('79%')).toBeVisible();
+    await page.getByRole('button', { name: 'สัปดาห์ก่อน' }).click();
+    await expect(page).toHaveURL(/week=2026-W39/);
+    await expect(page.getByText('4/7')).toBeVisible();
+    await page.getByRole('button', { name: 'สัปดาห์นี้' }).click();
+    await expect(page).toHaveURL(/\/review$/);
   });
 });

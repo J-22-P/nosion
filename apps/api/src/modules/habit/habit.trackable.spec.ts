@@ -121,9 +121,14 @@ describe('HabitTrackableModule — Today / ปฏิทิน / สัปดา�
     expect(habit.calendarActions(entry({ currentValue: 8 }))).toEqual([]);
   });
 
-  it('สรุปสัปดาห์: อัตราความสำเร็จ (ข้ามโดยตั้งใจไม่นับ)', () => {
+  it('สรุปสัปดาห์: อัตราความสำเร็จ (ข้ามโดยตั้งใจไม่นับ · รอบของวันที่ยังมาไม่ถึงไม่นับ)', () => {
     const s = habit.summarizeWeek(
-      [entry({ currentValue: 8 }), entry({ currentValue: 1 }), entry({}, { status: 'skipped' })],
+      [
+        entry({ currentValue: 8 }),
+        entry({ currentValue: 1 }),
+        entry({}, { status: 'skipped' }),
+        entry({}, { id: 'tomorrow', occurredAt: new Date('2026-10-16T17:00:00Z') }),
+      ],
       ctx,
     );
     expect(s.stats).toEqual([

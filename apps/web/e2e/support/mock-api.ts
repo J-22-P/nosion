@@ -7,6 +7,7 @@ import {
   BUDGET_STATUS,
   CALENDAR_FEED,
   HABITS,
+  reviewFor,
   calendarFor,
   parseFor,
   DONE_TASKS,
@@ -109,6 +110,8 @@ export async function mockApi(page: Page, options: { authenticated?: boolean } =
       return json({ affected: ids.length });
     }
     if (method === 'GET' && path === '/habits') return json(HABITS);
+    if (method === 'GET' && path === '/review/weekly')
+      return json(reviewFor(url.searchParams.get('week')));
     const habitAction = /^\/habits\/([^/]+)\/(increment|check)$/.exec(path);
     if (method === 'POST' && habitAction) {
       const habit = HABITS.habits.find((h) => h.today?.entryId === habitAction[1]);

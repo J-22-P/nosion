@@ -7,21 +7,21 @@
 
 ## แผน (ปรับได้ระหว่างทาง)
 
-| #   | ขั้น                                                                                                | Commit      | สถานะ |
-| --- | --------------------------------------------------------------------------------------------------- | ----------- | ----- |
-| 1   | API: HabitModule — trackable (Today/Calendar/Week/NL) · streak · `/habits` (list, increment, check) | (รอ commit) | ✅    |
-| 2   | เว็บ: หน้า `/habits` + สร้างนิสัย · เปิด/ปิดโมดูลในหน้าตั้งค่า · เมนู                               | (รอ commit) | ✅    |
-| 3   | การ์ดนิสัยในหน้า Today (count −1/+1 · check · before_time) + นิสัยบนปฏิทิน                          | (รอ commit) | ✅    |
-| 4   | Weekly Review รวมทุกโมดูล — `GET /review/weekly` + หน้า `/review`                                   | —           | ⬜    |
-| 5   | demo มีนิสัย · นับบรรทัดที่แก้ใน `core/` · README                                                   | —           | ⬜    |
-| 6   | บท learn 19 + ADR-013                                                                               | —           | ⬜    |
+| #   | ขั้น                                                                                                | Commit    | สถานะ |
+| --- | --------------------------------------------------------------------------------------------------- | --------- | ----- |
+| 1   | API: HabitModule — trackable (Today/Calendar/Week/NL) · streak · `/habits` (list, increment, check) | `02e62c5` | ✅    |
+| 2   | เว็บ: หน้า `/habits` + สร้างนิสัย · เปิด/ปิดโมดูลในหน้าตั้งค่า · เมนู                               | `02e62c5` | ✅    |
+| 3   | การ์ดนิสัยในหน้า Today (count −1/+1 · check · before_time) + นิสัยบนปฏิทิน                          | `02e62c5` | ✅    |
+| 4   | Weekly Review รวมทุกโมดูล — `GET /review/weekly` + หน้า `/review`                                   | —         | ⬜    |
+| 5   | demo มีนิสัย · นับบรรทัดที่แก้ใน `core/` · README                                                   | —         | ⬜    |
+| 6   | บท learn 19 + ADR-013                                                                               | —         | ⬜    |
 
 **การออกแบบหลัก:** นิสัยหนึ่งตัว = **กฎการเกิดซ้ำ** (template `module: habit`) · หนึ่งรอบ (วัน) = **entry** ที่ถือ `currentValue` ของวันนั้น
 → ใช้ Recurrence Engine (Phase 3), การเตือน (Phase 4), ปฏิทิน / ⌘K / parser (Phase 5) ที่มีอยู่ทั้งหมด
 
 ---
 
-## ขั้น 1–3 · HabitModule (API) + หน้า `/habits` + การ์ด Today — (รอ commit)
+## ขั้น 1–3 · HabitModule (API) + หน้า `/habits` + การ์ด Today — `02e62c5`
 
 **สิ่งที่เปลี่ยน**
 
@@ -66,3 +66,16 @@
   `colima stop` จึง ssh เข้า VM ที่ตายแล้วรอไม่จบ · แก้: `pkill -f limactl` แล้ว start ใหม่ (CPU 4 · RAM 8 GiB) · ดิสก์ Mac เหลือ 7.5 GB (97%)
   — น่าจะเป็นเหตุให้ VM ดับ · ข้อมูลเก่าของ Docker Desktop 22 GB
 - Docker Desktop เปิดขึ้นมาเองแล้วเปลี่ยน docker context กลับเป็น `desktop-linux` — ต้อง `docker context use colima`
+
+---
+
+## ขั้น 4 · Weekly Review รวมทุกโมดูล — (รอ commit)
+
+- 📁 `apps/api/src/entries/review/` — `GET /review/weekly?week=2026-W42` · entry ทุกโมดูลของสัปดาห์ใน query เดียว
+  ("ของสัปดาห์นี้" = เกิดในสัปดาห์ **หรือ** ทำเสร็จในสัปดาห์) แล้ว `summarizeWeek()` ของแต่ละโมดูล · ส่วนหนึ่งพังไม่ลากทั้งหน้า (`failedModules`)
+  · ไม่มีชื่อโมดูลในไฟล์ (เหมือน Today) · `iso-week.ts` (pure): วันที่ ↔ สัปดาห์ ISO รวมข้ามปี (2027-01-01 = 2026-W53) · สัปดาห์ที่ไม่มีจริง 422
+- 📁 `packages/contracts/src/review.ts` · เว็บ `features/review/` หน้า `/review` — การ์ดต่อโมดูล (stats + highlights) · ‹ สัปดาห์นี้ › ผ่าน `?week=` · เมนูเปิดใช้
+- **บั๊กที่ integration จับได้:** ส่วนของนิสัยนับรอบล่วงหน้าของวันที่ยังมาไม่ถึง (materialize แล้ว) เป็น "ยังไม่ทำ" → กลางสัปดาห์ได้ 1/7 แทน 1/1 ·
+  แก้ใน `HabitTrackableModule.summarizeWeek` ให้นับเฉพาะรอบถึงวันนี้
+- ตรวจ: unit ISO week 3 · integration 2 (งาน/การเงิน/นิสัยครบ เรียงตาม order · สัปดาห์ก่อนว่าง · previous/next ต่อกัน · 422) — API 110 + worker 19 ·
+  e2e: axe `/review` 2 ธีม + เลื่อนสัปดาห์ — UI 51/51 · `pnpm verify` exit 0
