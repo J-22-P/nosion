@@ -1,0 +1,52 @@
+name: Check staging config
+
+# ตรวจค่าตั้งของ staging ที่อยู่บน Vercel dashboard (ไม่อยู่ใน repo) โดยไม่เปิดเผย secret
+# เกิดจาก Phase 8 ขั้น 2: staging API ล่มเมื่อ pooler แน่น — ต้องรู้ว่า DATABASE_URL เป็น transaction pooler ตามคู่มือหรือไม่
+# พิมพ์เฉพาะ "รูปร่าง" ของค่า (พอร์ต · พารามิเตอร์ · โดเมนท้าย) — ไม่พิมพ์ user / password / host เต็ม
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  api-env:
+    runs-on: ubuntu-24.04
+    environment: staging
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_API }}
+    steps:
+      - run: npx vercel@63.1.0 pull --yes --environment=production --token="$VERCEL_TOKEN" >/dev/null
+      - name: DATABASE_URL (รูปร่างเท่านั้น)
+        run: |
+          node -e '
+            const fs = require("fs");
+            const file = ".vercel/.env.production.local";
+            const env = Object.fromEntries(
+              fs.readFileSync(file, "utf8").split("\n")
+                .map((l) => l.match(/^([A-Z0-9_]+)="?(.*?)"?$/)).filter(Boolean).map((m) => [m[1], m[2]]),
+            );
+            const raw = env.DATABASE_URL;
+            if (!raw) { console.log("DATABASE_URL: ไม่มีค่า (ไม่ได้ตั้ง หรือเป็น Sensitive ที่ CLI อ่านไม่ได้)"); process.exit(0); }
+            const u = new URL(raw);
+            const domain = u.hostname.split(".").slice(-3).join(".");
+            const params = Object.fromEntries(u.searchParams);
+            const verdict =
+              u.port === "6543" && params.pgbouncer === "true" && params.connection_limit === "1"
+                ? "✅ transaction pooler ตามคู่มือ"
+                : u.port === "5432"
+                  ? "⚠️ พอร์ต 5432 (session pooler/direct) — serverless ถือ connection จริงต่อ instance · ควรเป็น 6543"
+                  : "⚠️ ไม่ตรงคู่มือ — ตรวจ pgbouncer=true และ connection_limit=1";
+            const lines = [
+              `protocol: ${u.protocol}`,
+              `domain: *.${domain}`,
+              `port: ${u.port || "(default)"}`,
+              `params: ${JSON.stringify(params)}`,
+              `verdict: ${verdict}`,
+            ];
+            console.log(lines.join("\n"));
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, "### DATABASE_URL (staging API)\n\n" + lines.map((l) => "- " + l).join("\n") + "\n");
+          '
+          rm -f .vercel/.env.production.local
