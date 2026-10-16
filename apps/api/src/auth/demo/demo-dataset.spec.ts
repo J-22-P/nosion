@@ -101,4 +101,13 @@ describe('buildDemoDataset', () => {
       '2026-09-29T16:59:00.000Z',
     );
   });
+
+  it('นิสัย (Phase 6): payload ผ่าน schema · ประวัติ 15 วัน · slot 22 วันเรียงกันวันละรอบ (เที่ยงคืนเวลาไทย)', () => {
+    const d = buildDemoDataset(new Date('2026-10-16T03:00:00Z'), 'Asia/Bangkok');
+    expect(d.habits.map((h) => h.title)).toEqual(['ดื่มน้ำ', 'อ่านหนังสือ', 'นอน', 'วิ่ง']);
+    for (const h of d.habits) expect(h.history).toHaveLength(15);
+    expect(d.habitDays).toHaveLength(22);
+    expect(d.habitDays[14]!.toISOString()).toBe('2026-10-15T17:00:00.000Z'); // วันนี้ 00:00 ไทย
+    expect(d.habitDays[1]!.getTime() - d.habitDays[0]!.getTime()).toBe(86_400_000);
+  });
 });

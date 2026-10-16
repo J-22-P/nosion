@@ -50,7 +50,7 @@ async function main(): Promise<void> {
 
   console.log(`✓ seed เสร็จแล้ว — เข้าสู่ระบบด้วย ${DEMO_EMAIL} / ${DEMO_PASSWORD}`);
   console.log(
-    `  งาน ${counts.tasks} · รายการเงิน ${counts.expenses} · งบ ${counts.budgets} · รอบโฟกัส ${counts.focusSessions}`,
+    `  งาน ${counts.tasks} · รายการเงิน ${counts.expenses} · งบ ${counts.budgets} · รอบโฟกัส ${counts.focusSessions} · นิสัย ${counts.habits}`,
   );
 }
 

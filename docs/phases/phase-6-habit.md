@@ -69,7 +69,7 @@
 
 ---
 
-## ขั้น 4 · Weekly Review รวมทุกโมดูล — (รอ commit)
+## ขั้น 4 · Weekly Review รวมทุกโมดูล — `0fd0354`
 
 - 📁 `apps/api/src/entries/review/` — `GET /review/weekly?week=2026-W42` · entry ทุกโมดูลของสัปดาห์ใน query เดียว
   ("ของสัปดาห์นี้" = เกิดในสัปดาห์ **หรือ** ทำเสร็จในสัปดาห์) แล้ว `summarizeWeek()` ของแต่ละโมดูล · ส่วนหนึ่งพังไม่ลากทั้งหน้า (`failedModules`)
@@ -79,3 +79,20 @@
   แก้ใน `HabitTrackableModule.summarizeWeek` ให้นับเฉพาะรอบถึงวันนี้
 - ตรวจ: unit ISO week 3 · integration 2 (งาน/การเงิน/นิสัยครบ เรียงตาม order · สัปดาห์ก่อนว่าง · previous/next ต่อกัน · 422) — API 110 + worker 19 ·
   e2e: axe `/review` 2 ธีม + เลื่อนสัปดาห์ — UI 51/51 · `pnpm verify` exit 0
+
+---
+
+## ขั้น 5 · demo มีนิสัย · นับบรรทัดที่แก้ใน `core/` · README — (รอ commit)
+
+- 📁 `auth/demo/` — นิสัย 4 ตัว (ดื่มน้ำ 5/8 · อ่านหนังสือทำแล้ว · นอนก่อน 23:45 · วิ่ง 3 ครั้ง/สัปดาห์) พร้อมประวัติ 14 วัน + รอบล่วงหน้า 7 วัน ·
+  `materializedUntil` ตั้งตามรอบสุดท้าย — cron/ปุ่ม Materialize สร้างต่อเองเหมือนกฎของผู้ใช้จริง · บัญชี demo เปิดโมดูลนิสัยให้
+- **ตัวเลขพิสูจน์สถาปัตยกรรม** (`git diff --numstat ca4f3e4` — ก่อนเริ่ม Phase 6):
+  | ส่วน                                             | บรรทัด                                                             |
+  | ------------------------------------------------ | ------------------------------------------------------------------ |
+  | `apps/api/src/core` + `packages/core/src`        | **0**                                                              |
+  | `AppModule`                                      | +2 (import + ลงทะเบียน)                                            |
+  | `entries/` `calendar/` `parse/` เพื่อรองรับนิสัย | 0 (`today.module.ts` +5 เป็นของ Weekly Review ซึ่งเป็นฟีเจอร์ใหม่) |
+  | HabitModule (API)                                | 662 · เทสต์ 213 unit + 175 integration                             |
+  | เว็บ `features/habits`                           | 832 (หน้า `/habits` + การ์ด Today — UI ของโมดูลเป็นของโมดูล)       |
+- README: สถานะ Phase 0–6 · สิ่งที่ใช้งานได้ · ตัวเลขข้างบนในหัวข้อ Plugin Architecture · checklist ของแผน
+- ตรวจ: unit demo 18 (+1) · integration "บัญชี demo: 4 นิสัยพร้อม streak ตามประวัติ (4 · 15 · 2 · …) และ Today มีการ์ดนิสัย" — API 111 + worker 19

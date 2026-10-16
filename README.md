@@ -3,9 +3,8 @@
 ระบบจัดการชีวิตที่ต่อโมดูลเพิ่มได้ — งาน การเงิน ออกกำลังกาย และนิสัย
 อยู่บนโครงสร้างข้อมูลเดียวกัน จึงดูรวมกันได้ในหน้าเดียวโดยไม่ต้องสลับแอป
 
-> **สถานะปัจจุบัน:** Phase 0 (Foundation) และ Phase 1 (Auth + Core Entry + Task Module) เสร็จแล้ว
-> Phase 2–8 (Expense, Recurrence Engine, Reminder Engine, Calendar, ⌘K, Offline sync) อยู่ในแผน
-> — ดู [แผนงานเต็ม](#ทำอะไรต่อ) ท้ายเอกสาร
+> **สถานะปัจจุบัน:** Phase 0–6 เสร็จแล้ว (Phase 6 ทำเฉพาะ Habit — ตัด Workout) · กำลังทำ Phase 7 (Offline sync) → 8 (Polish)
+> — ดู [แผนงานเต็ม](#ทำอะไรต่อ) ท้ายเอกสาร · บันทึกรายขั้นที่ [docs/phases](docs/phases/README.md)
 
 ---
 
@@ -20,6 +19,10 @@ To-do list เป็นโปรเจกต์ที่ถูกทำซ้ำ
 - บัญชีทดลอง — กดปุ่มเดียวจากหน้าแรก เข้าใช้ได้ทันทีพร้อมข้อมูลตัวอย่าง
 - จัดการงาน: สร้าง ค้นหา กรอง เรียง ทำเสร็จ เลื่อน ลบ กู้คืน พร้อม optimistic update
 - โปรเจกต์และแท็ก, การตั้งค่าผู้ใช้ (โซนเวลา ภาษา สกุลเงิน โมดูลที่เปิด)
+- การเงิน: บันทึกด่วน "กาแฟ 65", งบประมาณ, บิลประจำ, คาดการณ์สิ้นเดือน, กราฟย้อนหลัง
+- การเกิดซ้ำ (RRULE + timezone + DST + วันสิ้นเดือน) และการเตือนผ่าน Web Push / อีเมล
+- ปฏิทินรวมทุกโมดูล + iCal feed · Command Palette ⌘K สร้างรายการจากประโยคภาษาไทย/อังกฤษ · ปุ่มลัดครบ
+- นิสัย: นับจำนวน / ติ๊ก / ก่อนเวลา / รายสัปดาห์ พร้อม streak · สรุปรายสัปดาห์รวมทุกโมดูล
 - API มี Swagger, health check แยก liveness/readiness, error ตามมาตรฐาน RFC 9457
 
 ---
@@ -37,6 +40,12 @@ To-do list เป็นโปรเจกต์ที่ถูกทำซ้ำ
 
 การเพิ่มโมดูลใหม่ = สร้างไฟล์ใหม่หนึ่งชุดใน `apps/api/src/modules/<ชื่อ>/` แล้วเพิ่ม
 หนึ่งบรรทัดใน `AppModule` เท่านั้น
+
+**พิสูจน์แล้วด้วยโมดูลที่สาม (Phase 6):** เพิ่ม **HabitModule (API 662 บรรทัด + เทสต์ 388 บรรทัด)** โดยแก้โค้ดใน `core/`
+(`apps/api/src/core` + `packages/core`) **0 บรรทัด** — แตะโค้ดเดิมแค่ `AppModule` 2 บรรทัด
+แล้วหน้า Today, ปฏิทินรวม, iCal, Weekly Review, ⌘K และ NL parser รองรับนิสัยทันที
+(integration test ยืนยัน: ปิดโมดูล → parser ไม่เสนอนิสัย · เปิด → "ดื่มน้ำ 8 แก้ว ทุกวัน" กลายเป็นนิสัยและขึ้นทุกหน้า)
+— ตัวเลขนับด้วย `git diff --numstat` เทียบก่อนเริ่ม Phase 6 · ดู [docs/phases/phase-6-habit.md](docs/phases/phase-6-habit.md)
 
 ### 2. กฎสถาปัตยกรรมที่ CI บังคับให้ ไม่ใช่แค่เขียนไว้ใน README
 
@@ -221,11 +230,11 @@ cascade และ transaction ซึ่ง mock จับไม่ได้
 
 - [x] **Phase 0** — monorepo, lint boundaries, docker-compose, Prisma schema, CI
 - [x] **Phase 1** — auth เต็มรูปแบบ, ModuleRegistry, entry CRUD, TaskModule, หน้า Tasks
-- [ ] **Phase 2** — ExpenseModule, budget, หน้า Today ที่ประกอบจาก widget ของทุกโมดูล
-- [ ] **Phase 3** — Recurrence Engine (RRULE + timezone + DST + edge case สิ้นเดือน)
-- [ ] **Phase 4** — Reminder Engine (idempotency, retry, DLQ, quiet hours)
-- [ ] **Phase 5** — Calendar รวมทุกโมดูล, NL Parser, Command Palette (⌘K)
-- [ ] **Phase 6** — WorkoutModule + HabitModule (บททดสอบจริงของ "แก้โค้ดเดิม 0 บรรทัด")
+- [x] **Phase 2** — ExpenseModule, budget, หน้า Today ที่ประกอบจาก widget ของทุกโมดูล
+- [x] **Phase 3** — Recurrence Engine (RRULE + timezone + DST + edge case สิ้นเดือน)
+- [x] **Phase 4** — Reminder Engine (idempotency, retry, DLQ, quiet hours) _(รอทดสอบ push บนมือถือจริง)_
+- [x] **Phase 5** — Calendar รวมทุกโมดูล, NL Parser, Command Palette (⌘K)
+- [x] **Phase 6** — HabitModule + Weekly Review (บททดสอบจริงของ "แก้ core 0 บรรทัด") · _ตัด WorkoutModule_
 - [ ] **Phase 7** — Offline-first sync พร้อมการแก้ conflict
 - [ ] **Phase 8** — Polish, Lighthouse ≥ 90, deploy production
 

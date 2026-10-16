@@ -30,4 +30,4 @@
 | 3     | [phase-3-recurrence.md](./phase-3-recurrence.md)                   | 🟡 รอดู cron log บน staging                 |
 | 4     | [phase-4-reminders.md](./phase-4-reminders.md)                     | 🟡 รอ DoD บนมือถือจริง                      |
 | 5     | [phase-5-calendar-nl-palette.md](./phase-5-calendar-nl-palette.md) | ✅ 10/10 · DoD ผ่าน · ขึ้น staging แล้ว     |
-| 6     | [phase-6-habit.md](./phase-6-habit.md)                             | ▶ ขั้น 4/6 · Habit อย่างเดียว (ตัด Workout) |
+| 6     | [phase-6-habit.md](./phase-6-habit.md)                             | ▶ ขั้น 5/6 · Habit อย่างเดียว (ตัด Workout) |

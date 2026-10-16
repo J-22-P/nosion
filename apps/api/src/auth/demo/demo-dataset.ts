@@ -1,5 +1,7 @@
 import {
   expensePayloadSchema,
+  habitPayloadSchema,
+  type HabitPayload,
   taskPayloadSchema,
   type ExpenseCategory,
   type ExpensePayload,
@@ -59,6 +61,19 @@ export interface DemoFocusSession {
   endedAt: Date;
   durationSeconds: number;
 }
+/**
+ * นิสัย (Phase 6) = กฎการเกิดซ้ำรายวัน + รอบย้อนหลัง 14 วันถึงล่วงหน้า 7 วัน
+ * `done[i]` = รอบของวัน `HABIT_HISTORY_DAYS - i` วันก่อน (ตัวสุดท้าย = วันนี้) · ทำแล้วหรือยัง / ค่าที่นับได้
+ */
+export interface DemoHabit {
+  title: string;
+  payload: HabitPayload;
+  /** ค่า currentValue ของแต่ละวันย้อนหลัง (เก่า → วันนี้) · null = ข้ามโดยตั้งใจ */
+  history: (number | null)[];
+}
+export const HABIT_HISTORY_DAYS = 14;
+export const HABIT_AHEAD_DAYS = 7;
+
 export interface DemoDataset {
   projects: DemoProject[];
   tags: DemoTag[];
@@ -66,6 +81,9 @@ export interface DemoDataset {
   expenses: DemoExpense[];
   budgets: DemoBudget[];
   focusSessions: DemoFocusSession[];
+  habits: DemoHabit[];
+  /** เที่ยงคืนตามโซนผู้ใช้ของ 14 วันก่อน → 7 วันข้างหน้า (22 วัน) — slot ของรอบนิสัยแต่ละวัน */
+  habitDays: Date[];
 }
 
 const MINUTE = 60_000;
@@ -404,5 +422,52 @@ export function buildDemoDataset(now: Date, timeZone: string): DemoDataset {
       { category: 'shopping', amountMinor: baht(2500) },
     ],
     focusSessions,
+    habits: demoHabits(),
+    habitDays: Array.from({ length: HABIT_HISTORY_DAYS + HABIT_AHEAD_DAYS + 1 }, (_, i) =>
+      at(i - HABIT_HISTORY_DAYS),
+    ),
   };
+}
+
+/** ประวัติ 15 ค่า (14 วันก่อน → วันนี้) · ชุดเดียวกับการ์ดนิสัยใน mockup: ดื่มน้ำ 5/8 · อ่านหนังสือทำแล้ว · นอนยังไม่ถึงเวลา */
+function demoHabits(): DemoHabit[] {
+  const habit = (title: string, payload: Partial<HabitPayload>, history: (number | null)[]) => ({
+    title,
+    payload: habitPayloadSchema.parse(payload),
+    history,
+  });
+  return [
+    // พลาดเมื่อ 5 วันก่อน → streak 4 วัน · วันนี้ 5/8
+    habit(
+      'ดื่มน้ำ',
+      { kind: 'count', targetValue: 8, unit: 'แก้ว' },
+      [8, 8, 6, 8, 8, 8, 8, 8, 8, 3, 8, 8, 8, 8, 5],
+    ),
+    // ครบทุกวัน → streak 15
+    habit('อ่านหนังสือ', { kind: 'check', subtitle: 'Staff Engineer Path' }, Array(15).fill(1)),
+    // ก่อนเวลา: วันนี้ยังไม่ทำ · ข้ามโดยตั้งใจ 1 วัน
+    habit('นอน', { kind: 'before_time', deadlineLocalTime: '23:45' }, [
+      1,
+      1,
+      0,
+      1,
+      1,
+      null,
+      1,
+      0,
+      1,
+      1,
+      1,
+      0,
+      1,
+      1,
+      0,
+    ]),
+    // 3 ครั้งต่อสัปดาห์
+    habit(
+      'วิ่ง',
+      { kind: 'check', cadence: 'weekly', weeklyTarget: 3 },
+      [1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 0],
+    ),
+  ];
 }

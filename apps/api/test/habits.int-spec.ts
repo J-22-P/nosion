@@ -158,4 +158,18 @@ describe('Habit module', () => {
       .send({ delta: 5 })
       .expect(422);
   });
+
+  it('บัญชี demo: เปิดโมดูลนิสัยไว้ · 4 นิสัยพร้อม streak ตามประวัติ', async () => {
+    const demo = await api().post('/api/v1/auth/demo').expect(200);
+    const list = await habits(demo.body.accessToken);
+    expect(list.map((h) => [h.title, h.streak.current])).toEqual([
+      ['ดื่มน้ำ', 4],
+      ['อ่านหนังสือ', 15],
+      ['นอน', 2], // วันนี้ยังไม่ทำ (ไม่ตัด) · 2 วันก่อนทำ · ก่อนหน้านั้นพลาด
+      ['วิ่ง', expect.any(Number)],
+    ]);
+    expect(list[0]!.today).toMatchObject({ currentValue: 5, status: 'pending' });
+    const today = await api().get('/api/v1/today').set(as(demo.body.accessToken)).expect(200);
+    expect(today.body.widgets.map((w: { module: string }) => w.module)).toContain('habit');
+  });
 });
