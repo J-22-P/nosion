@@ -57,6 +57,11 @@ export async function mockApi(page: Page, options: { authenticated?: boolean } =
     if (method === 'GET' && path === '/expenses/bills/upcoming') return json(BILLS);
     if (method === 'GET' && path === '/expenses/trends') return json(TRENDS);
     if (method === 'GET' && path === '/expenses/summary') return json(SUMMARY);
+    // บันทึกด่วนหน้า Expenses — ใช้ best ของ /parse เมื่อเป็นรายจ่าย
+    if (method === 'POST' && path === '/expenses/parse') {
+      const best = parseFor((route.request().postDataJSON() as { text: string }).text).best;
+      return json({ result: best?.module === 'expense' ? best : null });
+    }
     if (method === 'POST' && path === '/parse') {
       return json(parseFor((route.request().postDataJSON() as { text: string }).text));
     }

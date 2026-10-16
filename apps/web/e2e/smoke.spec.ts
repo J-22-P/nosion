@@ -59,3 +59,19 @@ test('⌘K: "ค่าเน็ต 799 ทุกวันที่ 5" → บิ
   await page.goto(`/calendar?date=${dayBefore}`);
   await expect(page.getByText('Push 09:00 · รอส่ง')).toBeVisible();
 });
+
+test('บันทึกด่วนหน้า Expenses: บิลรายเดือนเป็นกฎ + การเตือน (ก่อนขั้น 8 ได้แค่รายการเดียว)', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /ลองใช้ทันที/ }).click();
+  await page.waitForURL('**/tasks');
+  await expect(page.getByLabel('ชื่องานใหม่')).toBeVisible();
+
+  await page.goto('/expenses');
+  const input = page.getByLabel('บันทึกรายจ่ายด้วยข้อความ');
+  await input.fill('ค่าน้ำ 150 ทุกวันที่ 20');
+  await expect(page.getByText('บิลประจำ · เตือนล่วงหน้า 1 วัน')).toBeVisible();
+  await input.press('Enter');
+  await expect(page.getByText('ตั้งบิลประจำแล้ว')).toBeVisible();
+});

@@ -148,6 +148,33 @@ describe('NL Parser (/parse)', () => {
     await api().post('/api/v1/parse').set(as(alice)).send({ text: '   ' }).expect(422);
   });
 
+  it('รายจ่ายทั่วไปบันทึกเป็น done (เกิดขึ้นแล้ว) · บิลเป็น pending · payloadPatch แก้หมวดได้แต่ต้องผ่าน schema', async () => {
+    const coffee = await api()
+      .post('/api/v1/parse/commit')
+      .set(as(alice))
+      .send({ text: 'ขนมปัง 45', payloadPatch: { category: 'shopping' } })
+      .expect(201);
+    expect(coffee.body.entry).toMatchObject({
+      module: 'expense',
+      status: 'done',
+      payload: { amountMinor: 4500, category: 'shopping' },
+    });
+
+    // หมวดที่ไม่มีจริง → 422 จาก payloadSchema ของโมดูล ไม่บันทึกอะไร
+    await api()
+      .post('/api/v1/parse/commit')
+      .set(as(alice))
+      .send({ text: 'ขนมปัง 45', payloadPatch: { category: 'pets' } })
+      .expect(422);
+
+    const preview = await api()
+      .post('/api/v1/parse')
+      .set(as(alice))
+      .send({ text: 'ค่าน้ำ 150 ทุกเดือน' })
+      .expect(200);
+    expect(preview.body.best).toMatchObject({ module: 'expense', status: 'pending' });
+  });
+
   it('ต้องล็อกอิน', async () => {
     await api().post('/api/v1/parse').send({ text: 'กาแฟ 65' }).expect(401);
   });

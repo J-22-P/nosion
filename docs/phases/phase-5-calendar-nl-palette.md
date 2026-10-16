@@ -13,8 +13,8 @@
 | 4   | iCal feed `GET /calendar/:token.ics` + rotate token                                                         | `bf26ac8`   | ✅    |
 | 5   | หน้า `/calendar` — month / week / agenda · module filter · day panel · Quick Snapshot                       | `598b289`   | ✅    |
 | 6   | ลากรายการเปลี่ยนวัน (optimistic + rollback)                                                                 | `fe52eef`   | ✅    |
-| 7   | Command Palette ⌘K 3 โหมด (ค้นหา / คำสั่ง / สร้าง) — **DoD**                                                | (รอ commit) | ✅    |
-| 8   | `<QuickCapture>` ใน Tasks/Expenses ใช้ parser เต็ม + chip แก้ได้                                            | —           | ⬜    |
+| 7   | Command Palette ⌘K 3 โหมด (ค้นหา / คำสั่ง / สร้าง) — **DoD**                                                | `a797d05`   | ✅    |
+| 8   | `<QuickCapture>` ใน Tasks/Expenses ใช้ parser เต็ม + chip แก้ได้                                            | (รอ commit) | ✅    |
 | 9   | Keyboard shortcut ครบตาม 8.4 + หน้าต่าง `?`                                                                 | —           | ⬜    |
 | 10  | บท learn 18 + ADR-012 (parser แบบ mask-and-scan)                                                            | —           | ⬜    |
 
@@ -247,7 +247,7 @@
 
 ---
 
-## ขั้น 7 · Command Palette ⌘K 3 โหมด — **DoD** — (รอ commit)
+## ขั้น 7 · Command Palette ⌘K 3 โหมด — **DoD** — `a797d05`
 
 **เป้าหมาย:** DoD ของ Phase 5 — พิมพ์ "ค่าเน็ต 799 ทุกวันที่ 5" ใน ⌘K แล้วได้บิลรายเดือนพร้อมการเตือน ครบในคำสั่งเดียว (สเปก 8.3)
 
@@ -289,3 +289,41 @@
 - มี **Redis ของ Homebrew** ฟังอยู่ที่ `127.0.0.1:6379` บังตัวใน Docker — โปรเซสในเครื่องที่ต่อ `localhost:6379` ได้ Redis ของ Homebrew
   (rate limit ของ `/auth/demo` 5 ครั้ง/ชม. จึงค้างอยู่ที่นั่น) · ไม่ได้แก้อะไร — แจ้งเจ้าของเครื่อง
 - smoke เดิมกด "ลองใช้ทันที" แล้ว `waitForURL` — URL เปลี่ยนก่อน shell mount ปุ่มลัดที่กดทันทีจึงหายได้ → รอช่อง "ชื่องานใหม่" ก่อน
+
+---
+
+## ขั้น 8 · `<QuickCapture>` ของ Tasks / Expenses ใช้ parser เต็ม + chip แก้ได้ — (รอ commit)
+
+**เป้าหมาย:** แทน regex ก่อน Phase 5 (`!priority #tag +project` เท่านั้น) ด้วย NL parser ตัวเดียวกับ ⌘K ·
+chip ที่ parse ได้แก้ไขได้ (วันที่ เวลา priority แท็ก โปรเจกต์ หมวด) — สเปก 8.11.2 · 8.11.3 · 15 Phase 5
+
+**สิ่งที่เปลี่ยน**
+
+- 📁 `apps/web/src/features/capture/`
+  - `nl-chips.ts` (pure) — `buildChips` จาก token ของ `@nosion/core/nl` · `replaceSpan` (แทน/ลบตามตำแหน่ง — ใช้กับไทยที่ไม่เว้นวรรคได้) ·
+    `rawFor` (ค่าที่แก้ → ข้อความที่ parser อ่านกลับได้ชนิดเดิม: วันที่ `9/10/2026`, เวลา `09:30`, `!low`, `#a-b`) · `withDate` · `sameName`
+  - `parsed-chips.tsx` — แถว "PARSED:" · กด chip = ตัวแก้ในที่ (date / time / select / text) · Enter ยืนยัน · Esc ยกเลิก (ไม่ล้างทั้งช่อง) · × ลบ
+- **Tasks** (`quick-capture.tsx`) — chip วัน/เวลา/การเกิดซ้ำ/priority/แท็ก/โปรเจกต์/ระยะเวลา · ตัวเลือกวันที่ข้างช่องเขียนลงข้อความ ·
+  บันทึกผ่าน `POST /parse/commit` (`module: task`) — server สร้างแท็ก/โปรเจกต์ที่ยังไม่มี, กฎการเกิดซ้ำ, การเตือนเอง
+  (ลบโค้ด resolve แท็ก/โปรเจกต์ฝั่ง client และ `quick-capture-parser.ts` + เทสต์ของมัน)
+- **Expenses** (`expense-capture.tsx`) — chip เงิน/วัน/การเกิดซ้ำ/แท็ก/โปรเจกต์ + หมวดที่ server เดาเป็น select ·
+  บันทึกผ่าน `POST /parse/commit` (`module: expense`, `payloadPatch: { category }` เมื่อเปลี่ยนหมวด) —
+  **"ค่าน้ำ 150 ทุกวันที่ 20" ได้กฎบิลรายเดือน + การเตือน** (เดิมได้รายการเดียว ไม่เกิดซ้ำ)
+- API: `POST /parse/commit` รับ `payloadPatch` (merge ทับ payload แล้วตรวจด้วย payloadSchema ของโมดูล) ·
+  `ParsedEntry.status` — โมดูลกำหนดสถานะตอนบันทึก: **รายจ่ายทั่วไป = `done`** บิล = `pending`
+  (แก้บั๊กของขั้น 2: "กาแฟ 65" จาก ⌘K เคยเป็น `pending` ต่างจากบันทึกด่วนหน้า Expenses ที่เป็น `done`)
+
+**การตัดสินใจ**
+
+- **ข้อความคือแหล่งความจริงเดียว** — แก้ chip / เลือกวันจาก date picker = เขียนข้อความส่วนนั้นใหม่ · server parse ข้อความเดียวกัน
+  สิ่งที่เห็นใน chip จึงเป็นสิ่งที่ถูกบันทึก ไม่มี state สองชุดให้ไม่ตรงกัน · ข้อยกเว้นเดียวคือหมวด (ไม่ได้มาจากข้อความ) → `payloadPatch`
+- เงิน/ปริมาณไม่เป็น chip ของงาน ("ซื้อของ 500" = ชื่องาน) — กติกาเดียวกับ task module ฝั่ง API
+- หน้า Expenses ยังขอ preview จาก `/expenses/parse` (หมวด, บิล, รายรับ) — `/parse` คืนหลายโมดูลซึ่งหน้านี้ไม่ต้องใช้
+
+**วิธีตรวจ**
+
+- unit `nl-chips.test.ts` 5 เคส — **round-trip**: แก้ chip แล้ว parse ข้อความใหม่ได้ค่าใหม่ชนิดเดิม · ลบในไทยไม่เว้นวรรค · date picker แทน/ต่อท้าย/ลบ
+- e2e (mock) +2: Tasks — chip, แก้เวลาใน chip, ลบ priority, date picker เขียนลงข้อความ, ↵ ส่ง `{ text, module: task }` · Expenses — เปลี่ยนหมวด → `payloadPatch`
+- integration +1: รายจ่ายทั่วไป `done` · `payloadPatch` แก้หมวดได้ · หมวดที่ไม่มีจริง 422 · บิล `pending` — API 103 + worker 19
+- **smoke (API จริง) 4/4** — รวมบันทึกงานจากหน้า Tasks ผ่าน `/parse/commit` และบิลรายเดือนจากหน้า Expenses → "ตั้งบิลประจำแล้ว"
+- visual baseline (Docker) 63/63 — 6 ภาพเปลี่ยนเฉพาะ placeholder ของช่องบันทึกด่วน (ตรวจ diff แล้ว) · `pnpm verify` ผ่าน

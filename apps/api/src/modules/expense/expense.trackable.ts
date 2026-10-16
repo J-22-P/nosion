@@ -134,6 +134,8 @@ export class ExpenseTrackableModule implements TrackableModule<ExpensePayload> {
       // บิล = วันครบกำหนด (ทั้งวัน) · ระบุวันเอง ("เมื่อวาน") = วันนั้น · ไม่ระบุ = ตอนนี้
       occurredAt: parsed.dueAt ?? parsed.occurredAt ?? now,
       isAllDay: parsed.isBill || (parsed.occurredAt !== null && text.isAllDay),
+      // บิล = ยังไม่จ่าย · รายจ่าย/รายรับทั่วไป = เกิดขึ้นแล้ว (เหมือนบันทึกด่วนหน้า Expenses)
+      status: parsed.isBill ? 'pending' : 'done',
       payload: expensePayloadSchema.parse({
         amountMinor: parsed.amountMinor,
         currency: ctx.currency,

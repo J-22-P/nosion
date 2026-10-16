@@ -507,3 +507,78 @@ test.describe('Command palette ⌘K (Phase 5 ขั้น 7)', () => {
     });
   }
 });
+
+test.describe('บันทึกด่วนด้วย NL parser เต็ม (Phase 5 ขั้น 8)', () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  async function captureCommit(page: import('@playwright/test').Page) {
+    const bodies: Record<string, unknown>[] = [];
+    await page.route('**/api/v1/parse/commit', async (route) => {
+      bodies.push(route.request().postDataJSON() as Record<string, unknown>);
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({ entry: ACTIVE_TASKS[0], rule: null }),
+      });
+    });
+    return bodies;
+  }
+
+  test('Tasks: chip จาก parser · แก้เวลาใน chip · ลบ priority · ↵ ส่งข้อความไป /parse/commit', async ({
+    page,
+  }) => {
+    const bodies = await captureCommit(page);
+    await page.goto('/tasks');
+    const input = page.getByLabel('ชื่องานใหม่');
+    await input.fill('ส่งรายงาน พรุ่งนี้ 5 โมง !high #dev', { timeout: 15_000 });
+
+    // วันนี้ของเทสต์ = 30 ก.ย. → "พรุ่งนี้"
+    await expect(page.getByRole('button', { name: 'แก้ พรุ่งนี้' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'แก้ !สูง' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'แก้ #dev' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'แก้ 17:00' }).click();
+    await page.getByLabel('แก้ 17:00').fill('09:30');
+    await page.getByLabel('แก้ 17:00').press('Enter');
+    await expect(input).toHaveValue('ส่งรายงาน พรุ่งนี้ 09:30 !high #dev');
+
+    await page.getByRole('button', { name: 'ลบ !high' }).click();
+    await expect(input).toHaveValue('ส่งรายงาน พรุ่งนี้ 09:30 #dev');
+
+    // ตัวเลือกวันที่ข้างช่องพิมพ์เขียนลงข้อความ (แทน "พรุ่งนี้")
+    const form = page.locator('form').filter({ has: input });
+    await form.getByLabel('กำหนดส่ง').fill('2026-10-09');
+    await expect(input).toHaveValue('ส่งรายงาน 9/10/2026 09:30 #dev');
+
+    await input.press('Enter');
+    await expect
+      .poll(() => bodies)
+      .toEqual([
+        expect.objectContaining({ text: 'ส่งรายงาน 9/10/2026 09:30 #dev', module: 'task' }),
+      ]);
+    await expect(page.getByText('เพิ่มงานแล้ว')).toBeVisible();
+    await expect(input).toHaveValue('');
+  });
+
+  test('Expenses: หมวดที่เดาเปลี่ยนได้ → ส่งเป็น payloadPatch', async ({ page }) => {
+    const bodies = await captureCommit(page);
+    await page.goto('/expenses');
+    const input = page.getByLabel('บันทึกรายจ่ายด้วยข้อความ');
+    await input.fill('กาแฟ 65', { timeout: 15_000 });
+    const category = page.locator('form').filter({ has: input }).getByLabel('หมวด');
+    await expect(category).toHaveValue('food');
+    await expect(page.getByText('฿65', { exact: true })).toBeVisible();
+    await category.selectOption('shopping');
+    await input.press('Enter');
+    await expect
+      .poll(() => bodies)
+      .toEqual([
+        expect.objectContaining({
+          text: 'กาแฟ 65',
+          module: 'expense',
+          payloadPatch: { category: 'shopping' },
+        }),
+      ]);
+    await expect(page.getByText('บันทึกรายการแล้ว')).toBeVisible();
+  });
+});

@@ -33,6 +33,7 @@ function toDto(p: ParsedEntry): ParsedEntryDto {
     occurredAt: p.occurredAt?.toISOString() ?? null,
     isAllDay: p.isAllDay,
     priority: p.priority ?? 'none',
+    status: p.status ?? 'pending',
     payload: p.payload,
     rrule: p.rrule ?? null,
     reminders: p.reminders ?? [],
@@ -92,7 +93,7 @@ export class ParseService {
       title: chosen.title,
       priority: chosen.priority ?? 'none',
       isAllDay: chosen.isAllDay,
-      payload: chosen.payload,
+      payload: { ...chosen.payload, ...input.payloadPatch },
       projectId,
       tagIds,
       reminders: chosen.reminders ?? [],
@@ -101,6 +102,7 @@ export class ParseService {
     if (!chosen.rrule) {
       const entry = await this.entries.create(userId, {
         ...fields,
+        status: chosen.status ?? 'pending',
         occurredAt: chosen.occurredAt,
         clientId: input.clientId,
       });

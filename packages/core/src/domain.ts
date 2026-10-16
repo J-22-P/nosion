@@ -131,6 +131,8 @@ export interface ParsedEntry {
   occurredAt: Date | null;
   isAllDay: boolean;
   priority?: Priority;
+  /** สถานะตอนบันทึก — ไม่ระบุ = pending · รายจ่ายที่เกิดขึ้นแล้ว = done */
+  status?: EntryStatus;
   payload: Record<string, unknown>;
   /** การเตือนที่โมดูลแนะนำ เช่น บิล = ล่วงหน้า 1 วัน 09:00 */
   reminders?: { channel: ReminderChannel; offsetMinutes: number }[];

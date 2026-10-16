@@ -1,30 +1,53 @@
 'use client';
 
-import type { ExpenseParseDto } from '@nosion/contracts';
+import type { ExpenseCategory, ExpenseParseDto } from '@nosion/contracts';
+import { parseNaturalText } from '@nosion/core/nl';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Zap } from 'lucide-react';
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useCreateEntry } from '@/features/entries/use-entries';
+import { useSession } from '@/features/auth/use-session';
+import { buildChips, rawFor, replaceSpan } from '@/features/capture/nl-chips';
+import { ParsedChips } from '@/features/capture/parsed-chips';
+import { todayIn } from '@/features/calendar/grid';
+import { parseApi } from '@/features/command-palette/api';
 import { ApiError } from '@/lib/api-client';
+import { DEFAULT_TIME_ZONE } from '@/lib/format';
 import { expensesApi } from './api';
 import { CATEGORY } from './categories';
-import { bahtExact } from './format';
 
 type Parsed = ExpenseParseDto['result'];
 
+/** ชิ้นที่รายจ่ายแสดงเป็น chip — แท็ก/โปรเจกต์ใช้ได้เหมือนงาน */
+const EXPENSE_CHIPS = ['amount', 'date', 'recurrence', 'tag', 'project'] as const;
+
+const newClientId = () => `ec-${crypto.randomUUID()}`;
+
 /**
- * บันทึกด่วน "กาแฟ 65" (สเปก 8.11.3) — parser อยู่ฝั่ง server (POST /expenses/parse) ชุดเดียวกับ ⌘K
- * พิมพ์แล้วหน่วง 250ms ค่อยขอ preview → chip "Auto-Detect" บอกหมวด/ยอด/บิล · ↵ บันทึก · Esc ล้าง
+ * บันทึกด่วน "กาแฟ 65" (สเปก 8.11.3) — chip จาก parser ฝั่ง client ทันที + หมวดที่ server เดา (POST /expenses/parse)
+ * กด chip หมวดเพื่อเปลี่ยน · ↵ บันทึกผ่าน POST /parse/commit: "ค่าเน็ต 799 ทุกวันที่ 5" ได้กฎบิลรายเดือน + การเตือน
+ * (ก่อน Phase 5 ขั้น 8 สร้างได้แค่รายการเดียว) · Esc ล้าง
  */
 export function ExpenseCapture() {
   const [text, setText] = useState('');
   const [preview, setPreview] = useState<{ text: string; result: Parsed } | null>(null);
+  const [category, setCategory] = useState<ExpenseCategory | null>(null);
   const [checking, setChecking] = useState(false);
-  const create = useCreateEntry({ success: 'บันทึกรายการแล้ว', error: 'บันทึกรายการไม่สำเร็จ' });
+  const [clientId, setClientId] = useState(newClientId);
+  const { settings } = useSession();
+  const timeZone = settings?.timezone ?? DEFAULT_TIME_ZONE;
+  const queryClient = useQueryClient();
   const hintId = useId();
   const trimmed = text.trim();
+
+  const nl = useMemo(
+    () =>
+      parseNaturalText(text, { now: new Date(), timeZone, weekStartsOn: settings?.weekStartsOn }),
+    [text, timeZone, settings?.weekStartsOn],
+  );
+  const chips = buildChips(nl, EXPENSE_CHIPS, todayIn(timeZone));
 
   // preview เฉพาะข้อความที่มีตัวเลข — ไม่มีตัวเลขไม่มีทางเป็นรายจ่าย ไม่ต้องยิง API
   useEffect(() => {
@@ -47,13 +70,33 @@ export function ExpenseCapture() {
     };
   }, [trimmed]);
 
+  const create = useMutation({
+    mutationFn: () =>
+      parseApi.commit({
+        text: trimmed,
+        module: 'expense',
+        clientId,
+        ...(category ? { payloadPatch: { category } } : {}),
+      }),
+    onSuccess: ({ entry, rule }) => {
+      toast.success(rule ? 'ตั้งบิลประจำแล้ว' : 'บันทึกรายการแล้ว', { description: entry.title });
+      void queryClient.invalidateQueries({ queryKey: ['entries'] });
+      setText('');
+      setPreview(null);
+      setCategory(null);
+      setClientId(newClientId());
+    },
+    onError: (error) =>
+      toast.error('บันทึกรายการไม่สำเร็จ', {
+        description: error instanceof ApiError ? error.message : undefined,
+      }),
+  });
+
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (!trimmed || create.isPending || checking) return;
-    let result: Parsed;
-    if (preview?.text === trimmed) {
-      result = preview.result;
-    } else {
+    let result: Parsed = preview?.text === trimmed ? preview.result : null;
+    if (preview?.text !== trimmed) {
       setChecking(true);
       try {
         result = (await expensesApi.parse(trimmed)).result;
@@ -70,26 +113,11 @@ export function ExpenseCapture() {
       toast.error('ไม่พบจำนวนเงิน', { description: 'ลองพิมพ์แบบ "กาแฟ 65" หรือ "ค่าเน็ต 799"' });
       return;
     }
-    create.mutate(
-      {
-        module: 'expense',
-        title: result.title,
-        // บิลยังไม่จ่าย = pending · รายจ่ายทั่วไปเกิดขึ้นแล้ว = done
-        status: result.payload.isBill ? 'pending' : 'done',
-        occurredAt: result.occurredAt,
-        isAllDay: result.isAllDay,
-        payload: result.payload,
-      },
-      {
-        onSuccess: () => {
-          setText('');
-          setPreview(null);
-        },
-      },
-    );
+    create.mutate();
   }
 
   const shown = preview?.text === trimmed ? preview.result : null;
+  const shownCategory = category ?? shown?.payload.category ?? null;
 
   return (
     <form
@@ -109,9 +137,12 @@ export function ExpenseCapture() {
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Escape') setText('');
+              if (e.key === 'Escape') {
+                setText('');
+                setCategory(null);
+              }
             }}
-            placeholder="บันทึกด่วนด้วยภาษาธรรมชาติ เช่น ‘กาแฟ 65’, ‘ค่าเน็ต 799’"
+            placeholder="บันทึกด่วนด้วยภาษาธรรมชาติ เช่น ‘กาแฟ 65’, ‘ค่าเน็ต 799 ทุกวันที่ 5’"
             aria-label="บันทึกรายจ่ายด้วยข้อความ"
             aria-describedby={hintId}
             maxLength={200}
@@ -136,20 +167,40 @@ export function ExpenseCapture() {
           <span className="sm:hidden">บันทึก</span>
         </Button>
       </div>
-      <div id={hintId} aria-live="polite" className="flex min-h-0 flex-wrap gap-1.5">
-        {shown ? (
-          <div className="flex flex-wrap items-center gap-1.5 pt-3">
-            <span className="font-mono text-[11px] uppercase tracking-wider text-fg-secondary">
-              Parsed:
-            </span>
-            <Badge tone="neutral">{CATEGORY[shown.payload.category].label}</Badge>
-            <Badge tone="neutral" mono>
-              {shown.payload.direction === 'income' ? '+' : '−'}
-              {bahtExact(shown.payload.amountMinor, shown.payload.currency)}
-            </Badge>
-            {shown.payload.isBill ? <Badge tone="outline">บิลประจำ</Badge> : null}
-          </div>
-        ) : null}
+      <div id={hintId}>
+        <ParsedChips
+          chips={chips}
+          onReplace={(chip, raw) =>
+            setText((t) => replaceSpan(t, chip.start, chip.end, rawFor(chip.kind, raw)))
+          }
+          extra={
+            shown ? (
+              <>
+                {shownCategory ? (
+                  <label className="inline-flex h-6 items-center gap-1 rounded-chip bg-wash-active pl-2 pr-1 text-xs font-medium">
+                    <span className="sr-only">หมวด</span>
+                    {/* หมวดที่ server เดา — เปลี่ยนได้ ส่งไปเป็น payloadPatch ตอนบันทึก */}
+                    <select
+                      value={shownCategory}
+                      onChange={(e) => setCategory(e.target.value as ExpenseCategory)}
+                      className="bg-transparent text-xs font-medium text-fg focus-visible:outline-none"
+                    >
+                      {Object.entries(CATEGORY).map(([key, c]) => (
+                        <option key={key} value={key}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+                {shown.payload.direction === 'income' ? <Badge tone="success">รายรับ</Badge> : null}
+                {shown.payload.isBill ? (
+                  <Badge tone="outline">บิลประจำ · เตือนล่วงหน้า 1 วัน</Badge>
+                ) : null}
+              </>
+            ) : null
+          }
+        />
       </div>
     </form>
   );

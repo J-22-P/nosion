@@ -20,6 +20,7 @@ const parsed = (over: Partial<ParsedEntryDto>): ParsedEntryDto => ({
   occurredAt: NOW.toISOString(),
   isAllDay: false,
   priority: 'none',
+  status: 'done',
   payload: { amountMinor: 6500, currency: 'THB', category: 'food', direction: 'expense' },
   rrule: null,
   reminders: [],

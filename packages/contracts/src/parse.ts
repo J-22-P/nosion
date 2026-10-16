@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { EntryDto, ReminderInput } from './entry';
-import { moduleKeySchema, type ModuleKey, type Priority } from './enums';
+import { moduleKeySchema, type EntryStatus, type ModuleKey, type Priority } from './enums';
 import type { RecurrenceRuleDto } from './recurrence';
 
 /**
@@ -16,6 +16,11 @@ export const parseCommitSchema = parseRequestSchema.extend({
   module: moduleKeySchema.optional(),
   /** กันสร้างซ้ำเมื่อกด ↵ รัว ๆ หรือ client ยิงซ้ำ (เฉพาะรายการไม่เกิดซ้ำ) */
   clientId: z.string().max(64).optional(),
+  /**
+   * แก้ส่วนที่ parser เดา แต่ไม่ได้มาจากข้อความ เช่น หมวดของรายจ่าย (chip ที่ผู้ใช้เปลี่ยน)
+   * merge ทับ payload ที่ parse ได้ แล้วตรวจด้วย payloadSchema ของโมดูลเหมือน POST /entries
+   */
+  payloadPatch: z.record(z.unknown()).optional(),
 });
 export type ParseCommitInput = z.infer<typeof parseCommitSchema>;
 
@@ -25,6 +30,7 @@ export interface ParsedEntryDto {
   occurredAt: string | null;
   isAllDay: boolean;
   priority: Priority;
+  status: EntryStatus;
   payload: Record<string, unknown>;
   /** RRULE body — มีค่า = บันทึกเป็นกฎการเกิดซ้ำ โดย occurredAt คือรอบแรก */
   rrule: string | null;

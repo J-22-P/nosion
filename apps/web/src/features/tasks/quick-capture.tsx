@@ -1,103 +1,82 @@
 'use client';
 
-import type { CreateEntryInput, ProjectDto, TagDto } from '@nosion/contracts';
-import { useQueryClient } from '@tanstack/react-query';
-import { CalendarDays, CirclePlus, Folder, Hash, X } from 'lucide-react';
+import { parseNaturalText, remainingText } from '@nosion/core/nl';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { CirclePlus } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { cn } from '@nosion/ui';
 import { Button } from '@/components/ui/button';
 import { Kbd } from '@/components/ui/kbd';
-import { projectsApi, tagsApi } from '@/features/entries/api';
-import { useCreateEntry, useProjects, useTags } from '@/features/entries/use-entries';
+import { useSession } from '@/features/auth/use-session';
+import { buildChips, rawFor, replaceSpan, sameName, withDate } from '@/features/capture/nl-chips';
+import { ParsedChips } from '@/features/capture/parsed-chips';
+import { parseApi } from '@/features/command-palette/api';
+import { todayIn } from '@/features/calendar/grid';
+import { useProjects, useTags } from '@/features/entries/use-entries';
 import { ApiError } from '@/lib/api-client';
-import { PRIORITY_LABEL } from '@/lib/format';
-import { parseQuickCapture, removeToken, sameName, type ParsedToken } from './quick-capture-parser';
+import { DEFAULT_TIME_ZONE } from '@/lib/format';
+
+/** ชิ้นที่งานใช้ — จำนวนเงิน/ปริมาณเป็นส่วนของชื่องาน ไม่ใช่ chip (เหมือนฝั่ง API) */
+const TASK_CHIPS = [
+  'date',
+  'time',
+  'recurrence',
+  'priority',
+  'tag',
+  'project',
+  'duration',
+] as const;
+
+const newClientId = () => `qc-${crypto.randomUUID()}`;
 
 /**
- * NL quick-add bar (สเปก 8.7.5 / 8.11.2) — เวอร์ชัน regex ก่อน Phase 5
- * พิมพ์ "fix login !urgent #backend +auth-v2" แล้ว ↵ · Esc ล้าง
- * แท็ก/โปรเจกต์ที่ยังไม่มีจะถูกสร้างให้ตอนบันทึก (บอกผู้ใช้ด้วย chip "ใหม่")
+ * บันทึกด่วนของงาน (สเปก 8.7.5 / 8.11.2) — NL parser เต็มตั้งแต่ Phase 5 ขั้น 8
+ * "ส่งรายงาน พรุ่งนี้ 5 โมง !high #work +q4 ทุกจันทร์" → ↵ · Esc ล้าง
+ * chip มาจาก parser ฝั่ง client ทันทีที่พิมพ์ · บันทึกผ่าน POST /parse/commit (server parse ข้อความเดียวกัน
+ * แล้วสร้างงาน / กฎการเกิดซ้ำ + การเตือน + แท็ก/โปรเจกต์ที่ยังไม่มี ในคำขอเดียว)
  */
 export function QuickCapture() {
   const [text, setText] = useState('');
-  const [due, setDue] = useState('');
-  const parsed = useMemo(() => parseQuickCapture(text), [text]);
+  const [clientId, setClientId] = useState(newClientId);
+  const { settings } = useSession();
+  const timeZone = settings?.timezone ?? DEFAULT_TIME_ZONE;
   const projects = useProjects();
   const tags = useTags();
-  const create = useCreateEntry();
   const queryClient = useQueryClient();
-  const [resolving, setResolving] = useState(false);
   const hintId = useId();
 
-  const pending = create.isPending || resolving;
-  const canSubmit = parsed.title.length > 0 && !pending;
+  const nl = useMemo(
+    () =>
+      parseNaturalText(text, { now: new Date(), timeZone, weekStartsOn: settings?.weekStartsOn }),
+    [text, timeZone, settings?.weekStartsOn],
+  );
+  const title = remainingText(nl, ['amount', 'quantity']);
+  const chips = buildChips(nl, TASK_CHIPS, todayIn(timeZone));
+  const dateToken = nl.tokens.find((t) => t.kind === 'date');
 
-  async function resolveProject(name: string | null): Promise<string | undefined> {
-    if (!name) return undefined;
-    const existing = projects.data?.find((p) => sameName(p.name, name));
-    if (existing) return existing.id;
-    const created = await projectsApi.create({ name });
-    queryClient.setQueryData<ProjectDto[]>(['projects'], (old) => [...(old ?? []), created]);
-    return created.id;
-  }
-
-  async function resolveTags(names: string[]): Promise<string[]> {
-    const ids: string[] = [];
-    for (const name of names) {
-      const existing = tags.data?.find((t) => sameName(t.name, name));
-      if (existing) {
-        ids.push(existing.id);
-        continue;
-      }
-      const created = await tagsApi.create({ name });
-      queryClient.setQueryData<TagDto[]>(['tags'], (old) => [...(old ?? []), created]);
-      ids.push(created.id);
-    }
-    return ids;
-  }
-
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
-    if (!canSubmit) return;
-    setResolving(true);
-    let input: CreateEntryInput;
-    try {
-      const [projectId, tagIds] = await Promise.all([
-        resolveProject(parsed.project),
-        resolveTags(parsed.tags),
-      ]);
-      input = {
-        module: 'task',
-        title: parsed.title,
-        ...(parsed.priority ? { priority: parsed.priority } : {}),
-        ...(projectId ? { projectId } : {}),
-        ...(tagIds.length ? { tagIds } : {}),
-        ...(due ? { occurredAt: due } : {}),
-      };
-    } catch (error) {
-      toast.error('สร้างแท็กหรือโปรเจกต์ไม่สำเร็จ', {
+  const create = useMutation({
+    mutationFn: () => parseApi.commit({ text: text.trim(), module: 'task', clientId }),
+    onSuccess: ({ entry, rule }) => {
+      toast.success(rule ? 'เพิ่มงานประจำแล้ว' : 'เพิ่มงานแล้ว', { description: entry.title });
+      void queryClient.invalidateQueries({ queryKey: ['entries'] });
+      // แท็ก/โปรเจกต์ใหม่ถูกสร้างที่ server
+      void queryClient.invalidateQueries({ queryKey: ['tags'] });
+      void queryClient.invalidateQueries({ queryKey: ['projects'] });
+      setText('');
+      setClientId(newClientId());
+    },
+    onError: (error) =>
+      toast.error('เพิ่มงานไม่สำเร็จ', {
         description: error instanceof ApiError ? error.message : undefined,
-      });
-      return;
-    } finally {
-      setResolving(false);
-    }
-    create.mutate(input, {
-      onSuccess: () => {
-        setText('');
-        setDue('');
-      },
-    });
-  }
+      }),
+  });
 
-  function isNew(token: ParsedToken): boolean {
-    if (token.kind === 'tag') return !tags.data?.some((t) => sameName(t.name, token.value));
-    if (token.kind === 'project') return !projects.data?.some((p) => sameName(p.name, token.value));
-    return false;
-  }
+  const canSubmit = title.length > 0 && !create.isPending;
 
-  const showChips = parsed.tokens.length > 0 || due;
+  function submit(event: React.FormEvent) {
+    event.preventDefault();
+    if (canSubmit) create.mutate();
+  }
 
   return (
     <form
@@ -115,12 +94,9 @@ export function QuickCapture() {
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Escape') {
-              setText('');
-              setDue('');
-            }
+            if (e.key === 'Escape') setText('');
           }}
-          placeholder="เพิ่มงาน… เช่น แก้ bug login !urgent #backend +auth"
+          placeholder="เพิ่มงาน… เช่น ส่งรายงาน พรุ่งนี้ 5 โมง !high #work +q4"
           aria-label="ชื่องานใหม่"
           aria-describedby={hintId}
           maxLength={200}
@@ -128,10 +104,11 @@ export function QuickCapture() {
         />
         <label className="relative hidden shrink-0 sm:block">
           <span className="sr-only">กำหนดส่ง</span>
+          {/* เลือกวันแล้วเขียนลงข้อความ ("23/10/2026") — ข้อความยังเป็นแหล่งความจริงเดียว */}
           <input
             type="date"
-            value={due}
-            onChange={(e) => setDue(e.target.value)}
+            value={dateToken?.kind === 'date' ? dateToken.value : ''}
+            onChange={(e) => setText(withDate(text, nl, e.target.value))}
             className="h-9 rounded-control border border-hairline bg-wash px-2 font-mono text-xs text-fg-secondary outline-none focus-visible:shadow-[var(--focus-ring)]"
           />
         </label>
@@ -145,84 +122,23 @@ export function QuickCapture() {
       </div>
 
       <p id={hintId} className="sr-only">
-        ใช้ !urgent !high !medium !low กำหนดความสำคัญ, #ชื่อแท็ก และ +ชื่อโปรเจกต์ · กด Escape
-        เพื่อล้าง
+        พิมพ์วันเวลาได้ เช่น พรุ่งนี้ 5 โมง, ศุกร์หน้า, ทุกจันทร์ · !urgent !high !medium !low
+        กำหนดความสำคัญ · #ชื่อแท็ก +ชื่อโปรเจกต์ · กดที่ chip เพื่อแก้ · Escape เพื่อล้าง
       </p>
 
-      {showChips ? (
-        <div className="flex flex-wrap items-center gap-1.5 px-2 pb-1 pt-2" aria-live="polite">
-          <span className="mr-1 inline-flex items-center gap-1.5 font-mono text-[11px] font-medium text-fg-secondary">
-            <span aria-hidden="true" className="size-1.5 rounded-full bg-success" />
-            PARSED:
-          </span>
-          {due ? (
-            <ParsedChip
-              icon={<CalendarDays />}
-              label={due}
-              mono
-              onRemove={() => setDue('')}
-              removeLabel="ลบกำหนดส่ง"
-            />
-          ) : null}
-          {parsed.tokens.map((token) => (
-            <ParsedChip
-              key={`${token.kind}:${token.raw}`}
-              icon={token.kind === 'tag' ? <Hash /> : token.kind === 'project' ? <Folder /> : null}
-              label={
-                token.kind === 'priority'
-                  ? `!${PRIORITY_LABEL[token.value]}`
-                  : token.kind === 'project'
-                    ? `+${token.value}`
-                    : token.value
-              }
-              tone={token.kind === 'priority' && token.value === 'urgent' ? 'danger' : 'default'}
-              isNew={isNew(token)}
-              onRemove={() => setText((t) => removeToken(t, token.raw))}
-              removeLabel={`ลบ ${token.raw}`}
-            />
-          ))}
-        </div>
-      ) : null}
+      <ParsedChips
+        chips={chips}
+        onReplace={(chip, raw) =>
+          setText((t) => replaceSpan(t, chip.start, chip.end, rawFor(chip.kind, raw)))
+        }
+        isNew={(chip) =>
+          chip.kind === 'tag'
+            ? !tags.data?.some((t) => sameName(t.name, chip.value))
+            : chip.kind === 'project'
+              ? !projects.data?.some((p) => sameName(p.name, chip.value))
+              : false
+        }
+      />
     </form>
-  );
-}
-
-function ParsedChip({
-  icon,
-  label,
-  tone = 'default',
-  mono = false,
-  isNew = false,
-  onRemove,
-  removeLabel,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  tone?: 'default' | 'danger';
-  mono?: boolean;
-  isNew?: boolean;
-  onRemove: () => void;
-  removeLabel: string;
-}) {
-  return (
-    <span
-      className={cn(
-        'inline-flex h-6 items-center gap-1 rounded-chip pl-2 pr-1 text-xs font-medium [&_svg]:size-3',
-        tone === 'danger' ? 'bg-danger-soft text-danger' : 'bg-wash-active text-fg',
-        mono && 'font-mono text-[11px]',
-      )}
-    >
-      {icon}
-      {label}
-      {isNew ? <span className="text-[10px] text-accent">ใหม่</span> : null}
-      <button
-        type="button"
-        onClick={onRemove}
-        aria-label={removeLabel}
-        className="ml-0.5 flex size-4 items-center justify-center rounded-full hover:bg-wash-active"
-      >
-        <X size={10} aria-hidden="true" />
-      </button>
-    </span>
   );
 }
