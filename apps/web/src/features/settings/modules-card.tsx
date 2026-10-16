@@ -1,0 +1,48 @@
+'use client';
+
+import { MODULE_THEME } from '@nosion/ui';
+import { LayoutGrid } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { AVAILABLE_MODULES, useEnabledModules } from './use-modules';
+
+/**
+ * เปิด/ปิดโมดูล — ปิดแล้ว Today, ปฏิทิน, ⌘K, สรุปสัปดาห์ จะไม่ถามโมดูลนั้น (registry กรองด้วย enabledModules)
+ * ข้อมูลเดิมไม่หาย เปิดกลับมาก็เห็นเหมือนเดิม
+ */
+export function ModulesCard() {
+  const modules = useEnabledModules();
+  return (
+    <Card>
+      <CardHeader
+        icon={<LayoutGrid />}
+        title="โมดูล"
+        description="ปิดแล้วข้อมูลเดิมไม่หาย — เปิดกลับมาก็เห็นเหมือนเดิม"
+      />
+      <CardContent>
+        <ul className="divide-y divide-hairline">
+          {AVAILABLE_MODULES.map(({ key, ready }) => {
+            const on = modules.isEnabled(key);
+            return (
+              <li key={key} className="flex items-center gap-3 py-3">
+                <Checkbox
+                  shape="square"
+                  checked={on}
+                  disabled={!ready || modules.pending || !modules.loaded}
+                  onCheckedChange={(next) => modules.setEnabled(key, next)}
+                  aria-label={`เปิดใช้โมดูล${MODULE_THEME[key].label}`}
+                />
+                <span className="font-mono text-xs" style={{ color: MODULE_THEME[key].cssVar }}>
+                  {MODULE_THEME[key].prefix}
+                </span>
+                <span className="flex-1 text-sm">{MODULE_THEME[key].label}</span>
+                {!ready ? <Badge tone="outline">เร็ว ๆ นี้</Badge> : null}
+              </li>
+            );
+          })}
+        </ul>
+      </CardContent>
+    </Card>
+  );
+}

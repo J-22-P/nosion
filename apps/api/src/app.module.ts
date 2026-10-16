@@ -20,6 +20,7 @@ import { MailModule } from './infra/mail/mail.module';
 import { PrismaModule } from './infra/prisma/prisma.module';
 import { RedisModule } from './infra/redis/redis.module';
 import { ExpenseModule } from './modules/expense/expense.module';
+import { HabitModule } from './modules/habit/habit.module';
 import { TaskModule } from './modules/task/task.module';
 import { OrganizationModule } from './organization/organization.module';
 import { ParseModule } from './parse/parse.module';
@@ -44,6 +45,7 @@ import { UsersModule } from './users/users.module';
     // ── โมดูลโดเมน: เพิ่มบรรทัดเดียวต่อโมดูลใหม่ ──
     TaskModule,
     ExpenseModule,
+    HabitModule,
     RecurrenceModule,
     RemindersModule,
     PushModule,

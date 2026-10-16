@@ -18,6 +18,7 @@ const PAGES = [
   { path: '/expenses', ready: 'AIS Fibre' },
   { path: '/expenses/analytics', ready: 'สัดส่วนตามหมวดหมู่' },
   { path: '/calendar', ready: 'Quick Snapshot' },
+  { path: '/habits', ready: 'ดื่มน้ำ' },
   { path: '/hub', ready: 'Workouts' },
   { path: '/settings', ready: 'การแสดงผล' },
 ] as const;
@@ -677,5 +678,97 @@ test.describe('ปุ่มลัดทั้งระบบ (Phase 5 ขั้�
     await expect.poll(() => calls.at(-1)).toMatch(/^POST \/entries\/bulk .*"action":"complete"/);
     await expect(page.getByText('ทำเสร็จ 2 รายการ')).toBeVisible();
     await expect(toolbar).toBeHidden();
+  });
+});
+
+test.describe('นิสัย (Phase 6)', () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  function record(page: import('@playwright/test').Page) {
+    const calls: string[] = [];
+    page.on('request', (r) => {
+      if (r.method() !== 'GET' && r.url().includes('/api/v1/')) {
+        calls.push(
+          `${r.method()} ${new URL(r.url()).pathname.replace(/^.*\/api\/v1/, '')} ${r.postData() ?? ''}`,
+        );
+      }
+    });
+    return calls;
+  }
+
+  test('หน้า /habits: +1 แสดงทันที · ยกเลิกทำแล้ว · ก่อนเวลา · รายสัปดาห์ · streak', async ({
+    page,
+  }) => {
+    const calls = record(page);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    await page.route('**/api/v1/habits/h_water/increment', async (route) => {
+      await gate; // ค้างคำตอบ — ตรวจว่า UI เพิ่มเป็น 6 ทันที (optimistic) ก่อน server ตอบ
+      await route.fallback();
+    });
+    await page.goto('/habits');
+    await expect(page.getByText('วันนี้ทำแล้ว 1 จาก 4')).toBeVisible({ timeout: 15_000 });
+
+    await page.getByRole('button', { name: 'เพิ่ม ดื่มน้ำ 1 แก้ว' }).click();
+    await expect(page.getByLabel('ดื่มน้ำ 6 จาก 8 แก้ว')).toBeVisible();
+    await expect.poll(() => calls.at(-1)).toBe('POST /habits/h_water/increment {"delta":1}');
+    release();
+
+    await page.getByRole('button', { name: 'ยกเลิกทำแล้ว: อ่านหนังสือ' }).click();
+    await expect.poll(() => calls.at(-1)).toBe('POST /habits/h_read/check {"done":false}');
+
+    await expect(page.getByText('ต้องทำให้ทันก่อน 23:45')).toBeVisible();
+    await expect(page.getByText('สัปดาห์นี้ 1/3', { exact: false })).toBeVisible();
+    await expect(page.getByLabel('ต่อเนื่อง 12 วัน')).toBeVisible();
+    await expect(page.getByLabel('ต่อเนื่อง 2 สัปดาห์')).toBeVisible();
+  });
+
+  test('สร้างด้วยประโยคเดียว: chip ปริมาณ + ทุกวัน → /parse/commit module habit', async ({
+    page,
+  }) => {
+    const calls = record(page);
+    await page.route('**/api/v1/parse/commit', (route) =>
+      route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          entry: { ...ACTIVE_TASKS[0], title: 'ดื่มน้ำ' },
+          rule: { id: 'r1' },
+        }),
+      }),
+    );
+    await page.goto('/habits');
+    const input = page.getByLabel('สร้างนิสัยใหม่ด้วยข้อความ');
+    await input.fill('ดื่มน้ำ 8 แก้ว ทุกวัน', { timeout: 15_000 });
+    await expect(page.getByText('8 แก้ว', { exact: true })).toBeVisible();
+    await expect(page.getByText('↻ ทุกวัน', { exact: true })).toBeVisible();
+    await input.press('Enter');
+    await expect
+      .poll(() => calls.at(-1))
+      .toBe('POST /parse/commit {"text":"ดื่มน้ำ 8 แก้ว ทุกวัน","module":"habit"}');
+    await expect(page.getByText('สร้างนิสัยแล้ว')).toBeVisible();
+  });
+
+  test('การ์ดนิสัยในหน้า Today: −1 · ติ๊ก · บอกเวลาที่ต้องทำให้ทัน', async ({ page }) => {
+    const calls = record(page);
+    await page.goto('/today');
+    await expect(page.getByText('ทำแล้ว 1 จาก 3')).toBeVisible({ timeout: 15_000 });
+    await page.getByRole('button', { name: 'ลด ดื่มน้ำ 1 แก้ว' }).click();
+    await expect.poll(() => calls.at(-1)).toBe('POST /habits/h_water/increment {"delta":-1}');
+    await page.getByRole('button', { name: 'ทำแล้ว: นอน' }).click();
+    await expect.poll(() => calls.at(-1)).toBe('POST /habits/h_sleep/check {"done":true}');
+    await expect(page.getByText('ต้องทำให้ทันก่อน 23:45')).toBeVisible();
+  });
+
+  test('ตั้งค่า: เปิด/ปิดโมดูล · Workout ยังเปิดไม่ได้', async ({ page }) => {
+    const calls = record(page);
+    await page.goto('/settings');
+    const habit = page.getByRole('checkbox', { name: 'เปิดใช้โมดูลนิสัย' });
+    await expect(habit).toBeChecked({ timeout: 15_000 });
+    await expect(page.getByRole('checkbox', { name: 'เปิดใช้โมดูลออกกำลังกาย' })).toBeDisabled();
+    await habit.click();
+    await expect
+      .poll(() => calls.at(-1))
+      .toBe('PATCH /me/settings {"enabledModules":["task","expense"]}');
   });
 });

@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ThemeSwitcher } from '@/components/shared/theme-switcher';
 import { NotificationsCard } from '@/features/notifications/notifications-card';
 import { PreferencesCard } from '@/features/notifications/preferences-card';
+import { ModulesCard } from '@/features/settings/modules-card';
 
 export default function SettingsPage() {
   const { user, settings } = useSession();
@@ -30,10 +31,6 @@ export default function SettingsPage() {
               <dt className="text-fg-secondary">โซนเวลา</dt>
               <dd>{settings?.timezone ?? '—'}</dd>
             </div>
-            <div>
-              <dt className="text-fg-secondary">โมดูลที่เปิดใช้</dt>
-              <dd>{settings?.enabledModules?.join(', ') ?? '—'}</dd>
-            </div>
           </dl>
         </CardContent>
       </Card>
@@ -44,6 +41,7 @@ export default function SettingsPage() {
           aside={<ThemeSwitcher />}
         />
       </Card>
+      <ModulesCard />
       <NotificationsCard />
       {settings ? <PreferencesCard settings={settings} /> : null}
     </div>

@@ -6,6 +6,7 @@ import {
   BILLS,
   BUDGET_STATUS,
   CALENDAR_FEED,
+  HABITS,
   calendarFor,
   parseFor,
   DONE_TASKS,
@@ -106,6 +107,28 @@ export async function mockApi(page: Page, options: { authenticated?: boolean } =
     if (method === 'POST' && path === '/entries/bulk') {
       const { ids } = route.request().postDataJSON() as { ids: string[] };
       return json({ affected: ids.length });
+    }
+    if (method === 'GET' && path === '/habits') return json(HABITS);
+    const habitAction = /^\/habits\/([^/]+)\/(increment|check)$/.exec(path);
+    if (method === 'POST' && habitAction) {
+      const habit = HABITS.habits.find((h) => h.today?.entryId === habitAction[1]);
+      const body = route.request().postDataJSON() as { delta?: number; done?: boolean };
+      const current =
+        habitAction[2] === 'increment'
+          ? Math.max(0, (habit?.today?.currentValue ?? 0) + (body.delta ?? 0))
+          : body.done
+            ? (habit?.targetValue ?? 1)
+            : 0;
+      return json({
+        entryId: habitAction[1],
+        currentValue: current,
+        status: current >= (habit?.targetValue ?? 1) ? 'done' : 'pending',
+        completedAt: null,
+        version: (habit?.today?.version ?? 0) + 1,
+      });
+    }
+    if (method === 'PATCH' && path === '/me/settings') {
+      return json({ ...SETTINGS, ...(route.request().postDataJSON() as object) });
     }
     if (method === 'GET' && path === '/push/config')
       return json({ publicKey: 'BTestVapidPublicKey' });

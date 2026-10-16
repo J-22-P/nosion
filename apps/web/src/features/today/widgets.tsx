@@ -8,6 +8,7 @@ import {
   OctagonAlert,
   Plus,
   Receipt,
+  Repeat,
   Sparkles,
   Wallet,
   type LucideIcon,
@@ -21,6 +22,7 @@ import { Progress } from '@/components/ui/progress';
 import { baht, bahtExact } from '@/features/expenses/format';
 import { ToneBadge } from '@/features/expenses/kpi-cards';
 import { PRIORITY_TONE } from '@/lib/format';
+import { HabitAside, HabitBody } from '@/features/habits/today-habit-body';
 import { useCompleteFromToday } from './use-today';
 
 /**
@@ -48,6 +50,7 @@ const WIDGET_VIEW: Partial<Record<ModuleKey, WidgetView>> = {
     Body: TaskBody,
   },
   expense: { icon: Wallet, href: '/expenses', Body: ExpenseBody },
+  habit: { icon: Repeat, href: '/habits', Aside: HabitAside, Body: HabitBody },
 };
 
 export function WidgetCard({ widget, className }: { widget: TodayWidgetDto; className?: string }) {
