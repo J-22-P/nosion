@@ -108,6 +108,7 @@
 ## สรุป Phase 6
 
 - **DoD ผ่าน:** README เขียนได้ว่า _"เพิ่ม HabitModule (API 662 บรรทัด) โดยแก้ `core/` 0 บรรทัด — Today, ปฏิทิน, Review, ⌘K รองรับทันที"_
-- ⚠️ **ค้าง: visual baseline** (Today มีการ์ดนิสัย · ตั้งค่ามีการ์ดโมดูล · หน้าใหม่ `/habits` `/review`) — สร้างใน container Playwright บน colima
-  ซึ่งต้องใช้ดิสก์หลาย GB แต่ Mac เหลือ ~7 GB (97%) · ถ้า push ก่อนสร้าง CI job "UI · visual + a11y" จะแดงที่ภาพ Today/ตั้งค่า
-- ยังไม่ push · ต่อไป Phase 7 (Offline sync)
+- **visual baseline** สร้างบน runner ของ GitHub ด้วย workflow ใหม่ "Update visual baselines" (`26c74c7`) — ไม่ใช้ Docker/ดิสก์บนเครื่อง ·
+  75 เทสต์ผ่าน · เปลี่ยนจริง 12 ภาพ: desktop 8 ภาพต่างเฉพาะ sidebar (นิสัย/สรุปสัปดาห์ไม่ใช่ "เร็ว ๆ นี้" แล้ว · 0.02–0.03% ของภาพ) +
+  Today 4 ภาพ (การ์ดนิสัย) · อีก 10 ภาพพิกเซลเหมือนเดิม 100% (ต่างแค่ไบต์ของ PNG) → คงไฟล์เดิมไว้
+- ต่อไป Phase 7 (Offline sync)
