@@ -12,8 +12,8 @@
 | 3   | Calendar Aggregator `GET /calendar` (+ `countsByModule`, การเตือนของวัน, `calendarActions()`)               | `9ebcf05`   | ✅    |
 | 4   | iCal feed `GET /calendar/:token.ics` + rotate token                                                         | `bf26ac8`   | ✅    |
 | 5   | หน้า `/calendar` — month / week / agenda · module filter · day panel · Quick Snapshot                       | `598b289`   | ✅    |
-| 6   | ลากรายการเปลี่ยนวัน (optimistic + rollback)                                                                 | (รอ commit) | ✅    |
-| 7   | Command Palette ⌘K 3 โหมด (ค้นหา / คำสั่ง / สร้าง) — **DoD**                                                | —           | ⬜    |
+| 6   | ลากรายการเปลี่ยนวัน (optimistic + rollback)                                                                 | `fe52eef`   | ✅    |
+| 7   | Command Palette ⌘K 3 โหมด (ค้นหา / คำสั่ง / สร้าง) — **DoD**                                                | (รอ commit) | ✅    |
 | 8   | `<QuickCapture>` ใน Tasks/Expenses ใช้ parser เต็ม + chip แก้ได้                                            | —           | ⬜    |
 | 9   | Keyboard shortcut ครบตาม 8.4 + หน้าต่าง `?`                                                                 | —           | ⬜    |
 | 10  | บท learn 18 + ADR-012 (parser แบบ mask-and-scan)                                                            | —           | ⬜    |
@@ -213,7 +213,7 @@
 
 ---
 
-## ขั้น 6 · ลากรายการเปลี่ยนวัน (optimistic + rollback) — (รอ commit)
+## ขั้น 6 · ลากรายการเปลี่ยนวัน (optimistic + rollback) — `fe52eef`
 
 **เป้าหมาย:** ลากรายการบน month / week ไปวันอื่น เห็นผลทันที บันทึกพลาดแล้วกลับที่เดิม (สเปก 8.11.4)
 
@@ -244,3 +244,48 @@
 - integration +1: version จาก `/calendar` ใช้ PATCH ได้ · version เก่า → 409 · รอบอื่นของกฎเดียวกันไม่ขยับ
 - `pnpm verify` ผ่าน · integration API 102 + worker 19 · visual baseline (Docker) 55/55 — เปลี่ยนเฉพาะ 4 ภาพของปฏิทิน (มีช่องย้ายวัน)
 - ⚠️ ช่องเลือกวันแสดงรูปแบบตาม locale ของเบราว์เซอร์ (ภาพ baseline เป็น `09/30/2026`) · ยังไม่ได้ลองลากกับ API จริงในเบราว์เซอร์
+
+---
+
+## ขั้น 7 · Command Palette ⌘K 3 โหมด — **DoD** — (รอ commit)
+
+**เป้าหมาย:** DoD ของ Phase 5 — พิมพ์ "ค่าเน็ต 799 ทุกวันที่ 5" ใน ⌘K แล้วได้บิลรายเดือนพร้อมการเตือน ครบในคำสั่งเดียว (สเปก 8.3)
+
+**สิ่งที่เปลี่ยน**
+
+- 📁 `apps/web/src/features/command-palette/`
+  - `palette-model.ts` (pure) — โหมด (`""` idle · `>` คำสั่ง · อื่น ๆ สร้าง+ค้นหา) · รายการคำสั่ง (ไปหน้า…, Standup, ธีม 3 แบบ, ออกจากระบบ) ·
+    `createLabel` ("สร้างบิลประจำ") · `describeParsed` ("ค่าเน็ต · ฿799 · สาธารณูปโภค · ↻ ทุกเดือน วันที่ 5 · 🔔 เตือน 1") ·
+    `describeRrule` · `highlightSegments` · `entryHref` (มีวันที่ → `/calendar?date=` · ไม่มี → หน้าโมดูล)
+  - `command-palette.tsx` — `<dialog>` · highlight ส่วนที่เข้าใจ **ทันทีจาก parser ฝั่ง client** (`@nosion/core/nl` ตัวเดียวกับ server) ·
+    debounce 250ms แล้ว `POST /parse` + `GET /entries?q=` พร้อมกัน · หมวด "สร้าง" (ความมั่นใจ %) / "หรือสร้างเป็น…" / "ผลการค้นหา" ·
+    `↵` บันทึก · `⇧↵` บันทึกแล้วเปิดวันนั้นในปฏิทิน · `⌘↵` บันทึกแล้วสร้างต่อ (batch) · `↑↓` · `tab` สลับหมวด · `esc` / คลิกนอกกล่องปิด
+- ⌘K / Ctrl+K ทั้งแอป (ใช้ได้แม้กำลังพิมพ์ในช่องอื่น) · ช่อง "ค้นหาหรือสั่งการ…" บน top bar และปุ่มแว่นขยายบนมือถือเปิด palette (เลิก toast "มาใน Phase 5")
+- ARIA combobox + listbox (`aria-activedescendant`, option/group) — โฟกัสอยู่ที่ช่องพิมพ์ตลอด
+
+**การตัดสินใจ**
+
+- **สร้าง + ค้นหาแสดงพร้อมกัน** ไม่ต้องสลับโหมดเอง (mock ในสเปก 8.3 เป็นแบบนี้) · ↵ = ตัวเลือกบนสุดเสมอ
+- **commit ส่งข้อความ ไม่ส่ง payload** — server parse ใหม่ (ขั้น 2) · ถ้า preview ยังไม่ตามทันข้อความล่าสุด (กด ↵ ภายใน 250ms) ไม่ส่ง `module` ให้ server เลือกเอง
+  · `clientId` ต่อหนึ่งข้อความ กด ↵ รัวไม่สร้างซ้ำ
+- **"เปิดหน้ารายละเอียด" (⇧↵) = เปิดวันนั้นในปฏิทิน** — ยังไม่มีหน้ารายละเอียดของรายการ (สเปก 8.11.5) · day panel แสดงรายการพร้อมปุ่มของโมดูล
+- ข้อความรองในแถวที่เลือกเปลี่ยนเป็นสีหลัก — สีรองบนพื้น `wash-active` ไม่ถึง 4.5:1 (axe)
+- ช่องพิมพ์ไม่มีกรอบโฟกัส — `:focus-visible` ใน globals.css อยู่นอก layer จึงชนะ `outline-none` · ช่องนี้เป็นช่องเดียวที่โฟกัสใน dialog
+- ↵ ระหว่างเลือกคำใน IME ไม่นับเป็นการยืนยัน (`isComposing`)
+
+**วิธีตรวจ**
+
+- unit `palette-model.test.ts` 7 เคส (โหมด · กรองคำสั่ง · ข้อความตัวอย่างของสเปก 8.3 · ข้อความของ DoD · rrule → ภาษาคน · highlight · ลิงก์ของผลค้นหา)
+- e2e (mock) 6 เคส: DoD ฝั่ง UI (highlight → preview บิลประจำ → ↵ → body `{ text, module: expense, clientId }` → toast → ปิด) ·
+  ↓ เลือกทางเลือกรอง + ⌘↵ กล่องยังเปิด · tab ไปผลค้นหา → ↵ เปิด `/calendar?date=` · `>` ธีมมืด / ไปหน้าปฏิทิน / ปุ่มบน top bar / esc ·
+  **axe ตอน palette เปิดพร้อมผลลัพธ์ทั้ง 2 ธีม** — รวม UI suite 37/37
+- **smoke (API + DB จริง) — DoD ผ่าน:** demo → ⌘K → "ค่าเน็ต 799 ทุกวันที่ 5" → `⇧↵` → toast "สร้างบิลประจำแล้ว" → `/calendar?date=…-05` แสดง
+  "ค่าเน็ต · ฿799.00" + ปุ่ม "จ่ายแล้ว" → วันก่อนหน้าแสดง "Push 09:00 · รอส่ง" · ดูภาพจริงของ palette กับ API จริงแล้ว
+- `pnpm verify` ผ่าน
+- ⚠️ CI ยังไม่รัน project `smoke` (ต้องยก API + DB) — DoD ตรวจบนเครื่อง (API ชี้ฐาน `nosion_test`) · ยังไม่ได้ลองบน staging / มือถือจริง
+
+**เจอระหว่างทาง (เครื่อง dev)**
+
+- มี **Redis ของ Homebrew** ฟังอยู่ที่ `127.0.0.1:6379` บังตัวใน Docker — โปรเซสในเครื่องที่ต่อ `localhost:6379` ได้ Redis ของ Homebrew
+  (rate limit ของ `/auth/demo` 5 ครั้ง/ชม. จึงค้างอยู่ที่นั่น) · ไม่ได้แก้อะไร — แจ้งเจ้าของเครื่อง
+- smoke เดิมกด "ลองใช้ทันที" แล้ว `waitForURL` — URL เปลี่ยนก่อน shell mount ปุ่มลัดที่กดทันทีจึงหายได้ → รอช่อง "ชื่องานใหม่" ก่อน

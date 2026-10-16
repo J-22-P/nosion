@@ -29,4 +29,4 @@
 | 2b    | [phase-2b-expense-today.md](./phase-2b-expense-today.md)           | ✅ เสร็จ · staging ใช้งานได้  |
 | 3     | [phase-3-recurrence.md](./phase-3-recurrence.md)                   | 🟡 รอดู cron log บน staging   |
 | 4     | [phase-4-reminders.md](./phase-4-reminders.md)                     | 🟡 รอ DoD บนมือถือจริง        |
-| 5     | [phase-5-calendar-nl-palette.md](./phase-5-calendar-nl-palette.md) | ▶ ขั้น 6/10                   |
+| 5     | [phase-5-calendar-nl-palette.md](./phase-5-calendar-nl-palette.md) | ▶ ขั้น 7/10 · DoD ผ่าน (บนเครื่อง)                   |

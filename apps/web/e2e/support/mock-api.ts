@@ -7,6 +7,7 @@ import {
   BUDGET_STATUS,
   CALENDAR_FEED,
   calendarFor,
+  parseFor,
   DONE_TASKS,
   EXPENSES,
   FOCUS_TODAY,
@@ -56,6 +57,15 @@ export async function mockApi(page: Page, options: { authenticated?: boolean } =
     if (method === 'GET' && path === '/expenses/bills/upcoming') return json(BILLS);
     if (method === 'GET' && path === '/expenses/trends') return json(TRENDS);
     if (method === 'GET' && path === '/expenses/summary') return json(SUMMARY);
+    if (method === 'POST' && path === '/parse') {
+      return json(parseFor((route.request().postDataJSON() as { text: string }).text));
+    }
+    // ค้นหาของ ⌘K — กรองชื่อจากรายการทุกโมดูล
+    if (method === 'GET' && path === '/entries' && url.searchParams.get('q')) {
+      const q = url.searchParams.get('q')!.toLowerCase();
+      const data = [...ACTIVE_TASKS, ...EXPENSES].filter((e) => e.title.toLowerCase().includes(q));
+      return json({ data: data.slice(0, 5), pageInfo: { hasMore: false, nextCursor: null } });
+    }
     if (method === 'GET' && path === '/entries' && url.searchParams.get('module') === 'expense') {
       return json({ data: EXPENSES, pageInfo: { hasMore: false, nextCursor: null } });
     }

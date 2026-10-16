@@ -4,6 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSession } from '@/features/auth/use-session';
+import { CommandPalette } from '@/features/command-palette/command-palette';
 import { useUIStore } from '@/lib/stores/ui-store';
 import { MobileTabBar } from './mobile-tab-bar';
 import { Sidebar } from './sidebar';
@@ -24,6 +25,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
+  const setPaletteOpen = useUIStore((s) => s.setPaletteOpen);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) router.replace('/login');
@@ -40,6 +42,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [toggleSidebar]);
+
+  // ⌘K / Ctrl+K เปิด-ปิด command palette (8.3–8.4) — ใช้ได้แม้กำลังพิมพ์อยู่ในช่องอื่น
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key.toLowerCase() !== 'k' || !(event.metaKey || event.ctrlKey) || event.altKey)
+        return;
+      event.preventDefault();
+      setPaletteOpen(!useUIStore.getState().paletteOpen);
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [setPaletteOpen]);
 
   if (isLoading) return <ShellSkeleton />;
   if (!isAuthenticated) return null;
@@ -67,6 +81,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
       <MobileTabBar pathname={pathname} />
+      <CommandPalette />
     </div>
   );
 }

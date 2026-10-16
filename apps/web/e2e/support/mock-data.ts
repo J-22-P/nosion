@@ -4,6 +4,8 @@ import type {
   BudgetStatusDto,
   CalendarDto,
   CalendarEventDto,
+  ParsedEntryDto,
+  ParseResultDto,
   EntryDto,
   ExpenseForecastDto,
   ExpenseSummaryDto,
@@ -661,3 +663,61 @@ export const CALENDAR_FEED = {
   url: 'https://api.nosion.test/api/v1/calendar/test-feed-token-abcdefghijk.ics',
   webcalUrl: 'webcal://api.nosion.test/api/v1/calendar/test-feed-token-abcdefghijk.ics',
 };
+
+// ── ⌘K /parse (สเปก 8.3) — คำตอบตามข้อความ: บิล (DoD) · รายจ่าย + ทางเลือกงาน · งาน ──
+const parsedTask = (title: string, confidence: number): ParsedEntryDto => ({
+  module: 'task',
+  title,
+  occurredAt: null,
+  isAllDay: true,
+  priority: 'none',
+  payload: { estimateMinutes: null },
+  rrule: null,
+  reminders: [],
+  confidence,
+  matchedTokens: [],
+});
+
+export function parseFor(text: string): ParseResultDto {
+  if (text.includes('ค่าเน็ต')) {
+    return {
+      best: {
+        module: 'expense',
+        title: 'ค่าเน็ต',
+        occurredAt: '2026-10-04T17:00:00.000Z',
+        isAllDay: true,
+        priority: 'none',
+        payload: { amountMinor: 79900, currency: 'THB', category: 'utilities', isBill: true },
+        rrule: 'FREQ=MONTHLY;BYMONTHDAY=5',
+        reminders: [{ channel: 'push', offsetMinutes: -900 }],
+        confidence: 0.95,
+        matchedTokens: ['799', 'ค่าเน็ต', 'ทุกวันที่ 5'],
+      },
+      alternatives: [parsedTask('ค่าเน็ต 799', 0.25)],
+      tags: [],
+      project: null,
+      tokens: [],
+    };
+  }
+  if (/\d/.test(text)) {
+    return {
+      best: {
+        module: 'expense',
+        title: 'กาแฟ',
+        occurredAt: NOW.toISOString(),
+        isAllDay: false,
+        priority: 'none',
+        payload: { amountMinor: 6500, currency: 'THB', category: 'food' },
+        rrule: null,
+        reminders: [],
+        confidence: 0.9,
+        matchedTokens: ['65', 'กาแฟ'],
+      },
+      alternatives: [parsedTask(text, 0.25)],
+      tags: [],
+      project: null,
+      tokens: [],
+    };
+  }
+  return { best: parsedTask(text, 0.5), alternatives: [], tags: [], project: null, tokens: [] };
+}

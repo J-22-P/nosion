@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import { SETTINGS } from './support/mock-data';
+import { ACTIVE_TASKS, EXPENSES, SETTINGS } from './support/mock-data';
 import { settle, test, expect, type Theme } from './support/ui-test';
 
 /**
@@ -378,4 +378,132 @@ test.describe('Calendar · ลากเปลี่ยนวัน (Phase 5 ข�
       .fill('2026-10-01', { timeout: 15_000 });
     await expect.poll(() => body).toEqual({ occurredAt: '2026-10-01', isAllDay: true, version: 3 });
   });
+});
+
+test.describe('Command palette ⌘K (Phase 5 ขั้น 7)', () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  async function openPalette(page: import('@playwright/test').Page) {
+    await page.goto('/today');
+    await expect(page.getByRole('heading', { name: 'สวัสดีตอนบ่าย Jay' })).toBeVisible({
+      timeout: 15_000,
+    });
+    await page.keyboard.press('ControlOrMeta+k');
+    const dialog = page.getByRole('dialog', { name: 'Command palette' });
+    await expect(dialog).toBeVisible();
+    return { dialog, input: dialog.getByRole('combobox') };
+  }
+
+  test('DoD (UI): "ค่าเน็ต 799 ทุกวันที่ 5" → preview บิลประจำ → ↵ บันทึกในคำสั่งเดียว', async ({
+    page,
+  }) => {
+    let body: Record<string, unknown> | null = null;
+    await page.route('**/api/v1/parse/commit', async (route) => {
+      body = route.request().postDataJSON() as Record<string, unknown>;
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({ entry: { ...EXPENSES[0], title: 'ค่าเน็ต' }, rule: { id: 'r1' } }),
+      });
+    });
+    const { dialog, input } = await openPalette(page);
+    await input.fill('ค่าเน็ต 799 ทุกวันที่ 5');
+
+    // highlight จาก parser ฝั่ง client ขึ้นทันที (ไม่รอ server)
+    await expect(dialog.getByLabel('ส่วนที่เข้าใจ').locator('mark')).toHaveText([
+      '799',
+      'ทุกวันที่ 5',
+    ]);
+    const best = dialog.getByRole('option', { name: /สร้างบิลประจำ/ });
+    await expect(best).toContainText(
+      'ค่าเน็ต · ฿799 · สาธารณูปโภค · ↻ ทุกเดือน วันที่ 5 · 🔔 เตือน 1',
+    );
+    await expect(best).toHaveAttribute('aria-selected', 'true');
+    await expect(dialog.getByRole('group', { name: 'หรือสร้างเป็น…' })).toContainText('สร้างงาน');
+
+    await input.press('Enter');
+    await expect
+      .poll(() => body)
+      .toMatchObject({
+        text: 'ค่าเน็ต 799 ทุกวันที่ 5',
+        module: 'expense',
+        clientId: expect.stringMatching(/^cmdk-/),
+      });
+    await expect(page.getByText('สร้างบิลประจำแล้ว')).toBeVisible();
+    await expect(dialog).toBeHidden();
+  });
+
+  test('เลือกทางเลือกรองด้วย ↓ · ⌘↵ บันทึกแล้วกล่องยังเปิดพร้อมพิมพ์ต่อ', async ({ page }) => {
+    const bodies: Record<string, unknown>[] = [];
+    await page.route('**/api/v1/parse/commit', async (route) => {
+      bodies.push(route.request().postDataJSON() as Record<string, unknown>);
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({ entry: ACTIVE_TASKS[0], rule: null }),
+      });
+    });
+    const { dialog, input } = await openPalette(page);
+    await input.fill('กาแฟ 65');
+    await expect(dialog.getByRole('option', { name: /สร้างรายจ่าย/ })).toBeVisible();
+    await input.press('ArrowDown');
+    await expect(dialog.getByRole('option', { name: /สร้างงาน/ })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    await input.press('ControlOrMeta+Enter');
+
+    await expect
+      .poll(() => bodies)
+      .toEqual([expect.objectContaining({ text: 'กาแฟ 65', module: 'task' })]);
+    await expect(dialog).toBeVisible();
+    await expect(input).toHaveValue('');
+  });
+
+  test('ค้นหา: tab ข้ามไปหมวดผลการค้นหา → ↵ เปิดวันนั้นในปฏิทิน', async ({ page }) => {
+    const { dialog, input } = await openPalette(page);
+    await input.fill('Re-architect');
+    const result = dialog.getByRole('option', { name: /Re-architect Auth Token refresh flow/ });
+    await expect(result).toBeVisible();
+    await input.press('Tab');
+    await expect(result).toHaveAttribute('aria-selected', 'true');
+    await input.press('Enter');
+    await expect(page).toHaveURL(/\/calendar\?date=2026-09-30/);
+    await expect(dialog).toBeHidden();
+  });
+
+  test('โหมดคำสั่ง ">" — ไปหน้า / สลับธีม · esc ปิด', async ({ page }) => {
+    const { dialog, input } = await openPalette(page);
+    await input.fill('> ธีม มืด');
+    await expect(dialog.getByRole('option')).toHaveText(['ธีมมืด']);
+    await input.press('Enter');
+    await expect(page.locator('html')).toHaveClass(/dark/);
+
+    await page.keyboard.press('ControlOrMeta+k');
+    await input.fill('> calendar');
+    await input.press('Enter');
+    await expect(page).toHaveURL(/\/calendar$/);
+
+    await page.getByRole('button', { name: /ค้นหาหรือสั่งการ/ }).click();
+    await expect(dialog).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+  });
+
+  for (const theme of ['light', 'dark'] as const) {
+    test(`axe ตอนเปิด palette พร้อมผลลัพธ์ · ${theme}`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme: theme });
+      const { dialog, input } = await openPalette(page);
+      await input.fill('กาแฟ 65');
+      await expect(dialog.getByRole('option', { name: /สร้างรายจ่าย/ })).toBeVisible();
+      const results = await new AxeBuilder({ page })
+        .include('dialog')
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+        .analyze();
+      const blocking = results.violations
+        .filter((v) => v.impact === 'serious' || v.impact === 'critical')
+        .map((v) => ({ rule: v.id, targets: v.nodes.map((n) => n.target.join(' ')) }));
+      expect(blocking).toEqual([]);
+    });
+  }
 });

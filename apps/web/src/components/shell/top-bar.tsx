@@ -2,18 +2,18 @@
 
 import { Bell, Search } from 'lucide-react';
 import Link from 'next/link';
-import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Kbd } from '@/components/ui/kbd';
 import { StatusPill } from '@/components/ui/status-pill';
+import { useUIStore } from '@/lib/stores/ui-store';
 import { useOnlineStatus } from '@/lib/use-online-status';
 import { LogoMark } from './logo';
 import { Avatar, ProfileMenu } from './profile-menu';
 import { currentNav } from './nav';
 
-/** ⌘K จะมาใน Phase 5 — ตอนนี้ปุ่มบอกตรง ๆ ว่ายังไม่พร้อม แทนที่จะกดแล้วเงียบ */
+/** ช่องค้นหาบน top bar และปุ่มแว่นขยายบนมือถือเปิด command palette (สเปก 8.3) */
 function openCommandPalette() {
-  toast('Command palette (⌘K) กำลังมาใน Phase 5');
+  useUIStore.getState().setPaletteOpen(true);
 }
 
 /**
@@ -28,6 +28,7 @@ export function TopBar({ displayName, isDemo }: { displayName: string; isDemo: b
       <button
         type="button"
         onClick={openCommandPalette}
+        aria-haspopup="dialog"
         className="flex h-10 w-full max-w-md items-center gap-3 rounded-control border border-hairline bg-wash px-3.5 text-left text-sm text-fg-secondary transition-colors hover:bg-wash-active focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
       >
         <Search size={16} aria-hidden="true" />

@@ -24,3 +24,38 @@ test('หน้าแรกมี landmark หลักและโฟกัส�
   await page.keyboard.press('Tab');
   await expect(page.locator(':focus')).toBeVisible();
 });
+
+/**
+ * DoD Phase 5 (สเปก 15): พิมพ์ "ค่าเน็ต 799 ทุกวันที่ 5" ใน ⌘K แล้วได้บิลรายเดือนพร้อมการเตือน ครบในคำสั่งเดียว
+ * ใช้ API + DB จริง: parser จริง → กฎการเกิดซ้ำ + entry + การเตือน → เห็นบนปฏิทินวันที่ 5 พร้อมการเตือน
+ */
+test('⌘K: "ค่าเน็ต 799 ทุกวันที่ 5" → บิลรายเดือนพร้อมการเตือน ในคำสั่งเดียว', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /ลองใช้ทันที/ }).click();
+  await page.waitForURL('**/tasks');
+  // URL เปลี่ยนก่อน shell ของแอป mount — รอหน้าพร้อมก่อนกด ไม่งั้นปุ่มลัดไปตกที่หน้าเดิม
+  await expect(page.getByLabel('ชื่องานใหม่')).toBeVisible();
+
+  await page.keyboard.press('ControlOrMeta+k');
+  const dialog = page.getByRole('dialog', { name: 'Command palette' });
+  const input = dialog.getByRole('combobox');
+  await input.fill('ค่าเน็ต 799 ทุกวันที่ 5');
+  await expect(dialog.getByRole('option', { name: /สร้างบิลประจำ/ })).toContainText(
+    '↻ ทุกเดือน วันที่ 5',
+  );
+  await input.press('Shift+Enter'); // บันทึกแล้วเปิดวันนั้นในปฏิทิน
+  await expect(page.getByText('สร้างบิลประจำแล้ว')).toBeVisible();
+
+  // ⇧↵ พาไปวันครบกำหนดรอบแรก — day panel แสดงบิล + ปุ่มจ่ายแล้ว
+  await page.waitForURL(/\/calendar\?date=\d{4}-\d{2}-05$/);
+  const panel = page.getByRole('heading', { name: /^วัน.+ 5 / });
+  await expect(panel).toBeVisible();
+  await expect(page.getByText('ค่าเน็ต · ฿799.00').filter({ visible: true }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'จ่ายแล้ว' })).toBeVisible();
+
+  // การเตือนล่วงหน้า 1 วัน 09:00 ยิงวันที่ 4 → ไปดูวันที่ 4 ต้องเห็น "Push 09:00 · รอส่ง"
+  const due = new URL(page.url()).searchParams.get('date')!;
+  const dayBefore = new Date(Date.parse(due) - 86_400_000).toISOString().slice(0, 10);
+  await page.goto(`/calendar?date=${dayBefore}`);
+  await expect(page.getByText('Push 09:00 · รอส่ง')).toBeVisible();
+});
