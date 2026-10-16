@@ -30,9 +30,12 @@ jobs:
             );
             const raw = env.DATABASE_URL;
             if (!raw) { console.log("DATABASE_URL: ไม่มีค่า (ไม่ได้ตั้ง หรือเป็น Sensitive ที่ CLI อ่านไม่ได้)"); process.exit(0); }
-            const u = new URL(raw);
+            // แยกด้วย regex (รหัสผ่านอาจมีอักขระที่ new URL() ไม่รับ) — ห้าม log ค่าดิบ
+            const tail = raw.slice(raw.lastIndexOf("@") + 1);
+            const m = tail.match(/^([^:/?]+)(?::(\d+))?[^?]*(?:\?(.*))?$/) || [];
+            const u = { protocol: (raw.match(/^([a-z]+):/) || [])[1] + ":", hostname: m[1] || "", port: m[2] || "" };
             const domain = u.hostname.split(".").slice(-3).join(".");
-            const params = Object.fromEntries(u.searchParams);
+            const params = Object.fromEntries(new URLSearchParams(m[3] || ""));
             const verdict =
               u.port === "6543" && params.pgbouncer === "true" && params.connection_limit === "1"
                 ? "✅ transaction pooler ตามคู่มือ"
