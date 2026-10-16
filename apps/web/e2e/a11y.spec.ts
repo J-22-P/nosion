@@ -17,6 +17,7 @@ const PAGES = [
   { path: '/tasks', ready: 'Re-architect Auth Token refresh flow' },
   { path: '/expenses', ready: 'AIS Fibre' },
   { path: '/expenses/analytics', ready: 'สัดส่วนตามหมวดหมู่' },
+  { path: '/calendar', ready: 'Quick Snapshot' },
   { path: '/hub', ready: 'Workouts' },
   { path: '/settings', ready: 'การแสดงผล' },
 ] as const;
@@ -251,5 +252,61 @@ test.describe('Settings · ห้ามรบกวนและสรุปร�
     expect(
       results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical'),
     ).toEqual([]);
+  });
+});
+
+test.describe('Calendar (Phase 5)', () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  test('เลือกวัน → day panel + URL · ติ๊กงานจาก panel เรียก complete · กรองโมดูลด้วย chip', async ({
+    page,
+  }) => {
+    const completed: string[] = [];
+    page.on('request', (r) => {
+      if (r.method() === 'POST' && r.url().includes('/complete')) completed.push(r.url());
+    });
+    await page.goto('/calendar');
+    await expect(page.getByText('Quick Snapshot')).toBeVisible({ timeout: 15_000 });
+
+    // วันนี้ (30 ก.ย.) ถูกเลือกไว้ตั้งแต่แรก — ติ๊ก "Fix login redirect bug"
+    await page.getByRole('checkbox', { name: 'ทำเสร็จ: Fix login redirect bug' }).click();
+    await expect.poll(() => completed).toEqual([expect.stringContaining('/entries/t_c4/complete')]);
+
+    // เลือกวันที่ 5 ต.ค. → panel แสดงบิล TrueMove + ปุ่ม "จ่ายแล้ว" มาจาก actions ของโมดูล
+    await page.getByRole('button', { name: /^วันจันทร์ 5 ตุลาคม 2026/ }).click();
+    await expect(page).toHaveURL(/date=2026-10-05/);
+    await expect(page.getByRole('heading', { name: 'วันจันทร์ 5 ตุลาคม 2026' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'จ่ายแล้ว' })).toBeVisible();
+
+    // กรองเฉพาะงาน → บิลหายจากปฏิทิน · chip ยังบอกจำนวนของการเงิน (grid 28 ก.ย.–8 พ.ย. รวมรอบ projected)
+    await page.getByRole('button', { name: /^งาน \d+$/ }).click();
+    await expect(page).toHaveURL(/module=task/);
+    await expect(page.getByText('TrueMove H · ฿599.00')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^การเงิน 3$/ })).toBeVisible();
+  });
+
+  test('Subscribe iCal: แสดงลิงก์ · ปุ่มสร้างใหม่ต้องกดยืนยัน', async ({ page }) => {
+    let rotated = 0;
+    await page.route('**/api/v1/calendar/feed/rotate', async (route) => {
+      rotated += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          url: 'https://api.nosion.test/api/v1/calendar/new-token-zzzzzzzzzzzzzzzz.ics',
+          webcalUrl: 'webcal://api.nosion.test/api/v1/calendar/new-token-zzzzzzzzzzzzzzzz.ics',
+        }),
+      });
+    });
+    await page.goto('/calendar');
+    await page.getByRole('button', { name: 'Subscribe iCal' }).click({ timeout: 15_000 });
+    const dialog = page.getByRole('dialog', { name: 'Subscribe ปฏิทิน (iCal)' });
+    await expect(dialog.getByLabel('ลิงก์ iCal')).toHaveValue(/test-feed-token/);
+
+    await dialog.getByRole('button', { name: 'สร้างลิงก์ใหม่' }).click();
+    expect(rotated).toBe(0);
+    await dialog.getByRole('button', { name: 'ยืนยัน: ยกเลิกลิงก์เดิม' }).click();
+    await expect(dialog.getByLabel('ลิงก์ iCal')).toHaveValue(/new-token/);
+    expect(rotated).toBe(1);
   });
 });

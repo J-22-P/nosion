@@ -5,6 +5,8 @@ import {
   ACTIVE_TASKS,
   BILLS,
   BUDGET_STATUS,
+  CALENDAR_FEED,
+  calendarFor,
   DONE_TASKS,
   EXPENSES,
   FOCUS_TODAY,
@@ -67,6 +69,13 @@ export async function mockApi(page: Page, options: { authenticated?: boolean } =
     if (method === 'POST' && path === '/recurrence-rules/preview') {
       return json(previewOf(route.request().postDataJSON() as PreviewBody));
     }
+    if (method === 'GET' && path === '/calendar') {
+      return json(
+        calendarFor(url.searchParams.get('from') ?? '', url.searchParams.get('to') ?? ''),
+      );
+    }
+    if (method === 'GET' && path === '/calendar/feed') return json(CALENDAR_FEED);
+    if (method === 'POST' && path === '/entries/t_c4/complete') return json({ id: 't_c4' });
     if (method === 'GET' && path === '/push/config')
       return json({ publicKey: 'BTestVapidPublicKey' });
     if (method === 'POST' && path === '/recurrence-rules/materialize') {

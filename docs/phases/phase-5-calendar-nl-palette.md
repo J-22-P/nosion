@@ -10,8 +10,8 @@
 | 1   | NL Parser กลาง `@nosion/core/nl` (ไทย + อังกฤษ) + table-driven test 80 เคส                                  | `7d94b1f`   | ✅    |
 | 2   | โมดูล task/expense ใช้ parser กลาง · `POST /parse` วนทุกโมดูล + `POST /parse/commit` (entry + rule + เตือน) | `bc6d4b9`   | ✅    |
 | 3   | Calendar Aggregator `GET /calendar` (+ `countsByModule`, การเตือนของวัน, `calendarActions()`)               | `9ebcf05`   | ✅    |
-| 4   | iCal feed `GET /calendar/:token.ics` + rotate token                                                         | (รอ commit) | ✅    |
-| 5   | หน้า `/calendar` — month / week / agenda · module filter · day panel · Quick Snapshot                       | —           | ⬜    |
+| 4   | iCal feed `GET /calendar/:token.ics` + rotate token                                                         | `bf26ac8`   | ✅    |
+| 5   | หน้า `/calendar` — month / week / agenda · module filter · day panel · Quick Snapshot                       | (รอ commit) | ✅    |
 | 6   | ลากรายการเปลี่ยนวัน (optimistic + rollback)                                                                 | —           | ⬜    |
 | 7   | Command Palette ⌘K 3 โหมด (ค้นหา / คำสั่ง / สร้าง) — **DoD**                                                | —           | ⬜    |
 | 8   | `<QuickCapture>` ใน Tasks/Expenses ใช้ parser เต็ม + chip แก้ได้                                            | —           | ⬜    |
@@ -142,7 +142,7 @@
 
 ---
 
-## ขั้น 4 · iCal feed `GET /calendar/:token.ics` + rotate — (รอ commit)
+## ขั้น 4 · iCal feed `GET /calendar/:token.ics` + rotate — `bf26ac8`
 
 **เป้าหมาย:** subscribe ปฏิทินของ NOSION ใน Google / Apple Calendar ได้จริง (สเปก 6.3 "iCal Export" · ปุ่ม Subscribe iCal ใน 8.11.4)
 
@@ -170,3 +170,43 @@
 - integration +3 เคส: ลิงก์ → `.ics` ไม่ต้องล็อกอิน (content-type, มีงาน+บิล, ไม่มีรายจ่ายจร) · rotate แล้วลิงก์เดิม 404 / ใหม่ 200 / token มั่ว 404 · แยกผู้ใช้
 - `pnpm verify` ผ่าน · integration API 101 + worker 19 ผ่าน
 - ⚠️ ยังไม่ได้ลอง subscribe จริงใน Google/Apple Calendar — ทำได้หลังขึ้น staging (ต้องเป็น URL สาธารณะ)
+
+---
+
+## ขั้น 5 · หน้า `/calendar` — (รอ commit)
+
+**เป้าหมาย:** หน้าปฏิทินรวมตามสเปก 8.11.4 บน API ของขั้น 3–4
+
+**สิ่งที่เปลี่ยน**
+
+- 📁 `apps/web/src/features/calendar/`
+  - `grid.ts` (pure) — grid เดือน 42 วันตาม `weekStartsOn` · สัปดาห์ · สัปดาห์ ISO (`W36 – W41`) · เลื่อน ‹ › · ป้ายภาษาไทย · `weekSnapshot()` ของ Quick Snapshot
+  - `use-calendar.ts` — สถานะใน URL (`?view=` `?date=` `?module=`) · query key `['entries','calendar',from,to]` ·
+    ติ๊ก/จ่ายแล้วแบบ optimistic + ย้อนกลับ · อ่าน `Server-Timing` ผ่าน Resource Timing API สำหรับ "Sync latency"
+  - `views.tsx` — Month grid (สูงสุด 3 รายการ + "+N", prefix `T:/E:/W:/H:`, วันนี้เป็น cell ยก + badge วงกลม, จุด accent วันที่มีการเตือน,
+    รอบ projected เป็นกรอบประ) · Week (time grid 06:00–24:00 + แถวทั้งวัน) · Agenda · แถบสัปดาห์มือถือ
+  - `day-panel.tsx` — timeline ของวันที่เลือก · หัวแสดงการเตือนของวัน (`Push 09:00 · ส่งแล้ว`) · ปุ่มตาม `actions` ของโมดูล
+    (checkbox / ปุ่ม / ลิงก์ — **ไม่มีชื่อโมดูลในการตัดสินปุ่ม**) · Quick Snapshot (งานค้าง + progress, บิลครบกำหนด + "ถัดไปอีก N วัน")
+  - `feed-dialog.tsx` — คัดลอกลิงก์ iCal · เปิดใน Apple Calendar (`webcal://`) · สร้างลิงก์ใหม่ต้องกดยืนยันสองครั้ง
+- 📁 `app/(app)/calendar/page.tsx` · เมนู "ปฏิทิน" เปิดใช้ (sidebar + แท็บมือถือ)
+- e2e: mock `/calendar` + `/calendar/feed` · axe ทั้ง 2 ธีม · visual 4 ภาพ · เทสต์พฤติกรรม 2 เคส
+
+**การตัดสินใจ**
+
+- **มือถือใช้แถบสัปดาห์ + agenda ทุก view** (ยังไม่มี mockup มือถือ — ทำตามที่สเปก 8.11.4 กำหนด) · month/week grid เฉพาะ `md` ขึ้นไป
+- month กับ agenda ขอช่วง 42 วันเดียวกัน — สลับ view ไม่โหลดใหม่ · กรองโมดูลฝั่ง client (ไม่ยิง API ซ้ำ chip ยังได้ตัวเลขครบ)
+- เลือกวัน = เปลี่ยน `?date=` (วันนี้ = ไม่มีพารามิเตอร์) — ลิงก์แชร์ได้ / back กลับมาที่เดิม
+- **ปรับจาก mockup เพื่อผ่าน axe:** วันนอกเดือนและรายการที่เสร็จใช้ `text-fg-secondary` (+ ขีดฆ่า) แทน `--text-tertiary`
+  — tertiary ได้ contrast ไม่ถึง 4.5:1 (axe แจ้ง serious ทั้ง 2 ธีม)
+- `weekStartsOn` / timezone อ่านจาก `/me` (ใช้ `timezone` ที่ API ส่งกลับใน `/calendar` เป็นหลัก)
+- "Sync latency" แสดงเมื่อเบราว์เซอร์อ่าน `Server-Timing` ได้ (same-origin — staging proxy ผ่านโดเมนของเว็บ) · dev ที่เว็บกับ API คนละพอร์ตจะไม่แสดง
+  (ต้องเพิ่ม `Timing-Allow-Origin` ถ้าต้องการ)
+
+**วิธีตรวจ**
+
+- unit `grid.test.ts` 6 เคส (grid จันทร์/อาทิตย์ · range · เลื่อนข้ามปี · ISO week ข้ามปี · ป้ายไทย/เวลา · snapshot)
+- axe 0 serious ทั้ง light/dark · เทสต์พฤติกรรม: ติ๊กงานจาก panel ยิง `POST /entries/:id/complete` · เลือกวัน → URL + panel + ปุ่ม "จ่ายแล้ว" ·
+  chip กรองโมดูล (บิลหาย, ตัวเลขยังอยู่) · iCal dialog ต้องยืนยันก่อน rotate
+- visual baseline สร้างใหม่ใน Docker (Linux เหมือน CI) 50/50 ผ่าน — **ภาพเดิม 16 ภาพเปลี่ยนเพราะเมนูปฏิทินเปิดใช้** (ตรวจ diff แล้ว: ต่างเฉพาะไอคอนเมนู)
+- ดูภาพจริงแล้วทั้ง month / week / มือถือ · `pnpm verify` ผ่าน
+- ⚠️ ยังไม่ได้ลองกับ API จริงในเบราว์เซอร์ (ใช้ mock) และยังไม่ได้ลองบนมือถือจริง

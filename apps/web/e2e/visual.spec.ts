@@ -53,6 +53,16 @@ for (const theme of THEMES) {
         await expect(page).toHaveScreenshot(`expenses-${theme}-${device}.png`, { fullPage: true });
       });
 
+      test('Calendar', async ({ page }) => {
+        await page.goto('/calendar');
+        await expect(page.getByText('Quick Snapshot')).toBeVisible(READY);
+        await expect(
+          page.getByText('Fix login redirect bug').filter({ visible: true }).first(),
+        ).toBeVisible();
+        await settle(page);
+        await expect(page).toHaveScreenshot(`calendar-${theme}-${device}.png`, { fullPage: true });
+      });
+
       test('Analytics', async ({ page }) => {
         await page.goto('/expenses/analytics');
         await expect(page.getByRole('cell', { name: '฿3,820' })).toBeVisible(READY);
