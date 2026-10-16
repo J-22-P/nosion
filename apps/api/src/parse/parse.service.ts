@@ -137,7 +137,9 @@ export class ParseService {
     const ids: string[] = [];
     for (const name of names) {
       const existing = all.find((t) => sameName(t.name, name));
-      ids.push(existing?.id ?? (await this.tags.create(userId, createTagSchema.parse({ name }))).id);
+      ids.push(
+        existing?.id ?? (await this.tags.create(userId, createTagSchema.parse({ name }))).id,
+      );
     }
     return [...new Set(ids)];
   }

@@ -29,13 +29,27 @@ function fake(
     supportsRecurrence: false,
     supportsReminder: false,
     toCalendarEvent: () => null,
-    summarizeToday: () => ({ module: key, title: key, order: 0, headline: '', items: [], isEmpty: true }),
+    summarizeToday: () => ({
+      module: key,
+      title: key,
+      order: 0,
+      headline: '',
+      items: [],
+      isEmpty: true,
+    }),
     summarizeWeek: () => ({ module: key, title: key, order: 0, stats: [], highlights: [] }),
     parseNaturalLanguage(text): ParsedEntry | null {
       seen.push(text);
       const confidence = decide(text);
       if (confidence === null) return null;
-      return { module: key, title: text.title, occurredAt: null, isAllDay: true, payload: {}, confidence };
+      return {
+        module: key,
+        title: text.title,
+        occurredAt: null,
+        isAllDay: true,
+        payload: {},
+        confidence,
+      };
     },
   };
 }
@@ -54,7 +68,10 @@ describe('ParserService', () => {
       fake('habit', () => 0.5),
       fake('workout', () => 0.1),
     ]);
-    const out = new ParserService(registry).parse('กาแฟ 65', { ...ctx, enabledModules: ['task', 'expense', 'habit', 'workout'] });
+    const out = new ParserService(registry).parse('กาแฟ 65', {
+      ...ctx,
+      enabledModules: ['task', 'expense', 'habit', 'workout'],
+    });
     expect(out.best?.module).toBe('expense');
     expect(out.alternatives.map((a) => a.module)).toEqual(['habit', 'task']);
   });
