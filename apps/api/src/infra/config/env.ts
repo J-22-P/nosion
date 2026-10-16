@@ -59,8 +59,17 @@ export const envSchema = z.object({
 
 export type AppConfig = z.infer<typeof envSchema>;
 
+/**
+ * `KEY=` (ว่าง) ใน .env = "ไม่ได้ตั้ง" ไม่ใช่ "ตั้งเป็นสตริงว่าง"
+ * ไม่งั้นค่าที่ไม่บังคับ (VAPID, RESEND …) ที่เว้นว่างไว้ใน .env ทำให้ API ไม่ยอม boot
+ * (Prisma Client ก็อ่าน .env เองตอน runtime — ค่าว่างจึงหลุดเข้ามาแม้ turbo กรอง env ไว้)
+ */
+function withoutEmpty(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return Object.fromEntries(Object.entries(source).filter(([, v]) => v !== ''));
+}
+
 export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
-  const parsed = envSchema.safeParse(source);
+  const parsed = envSchema.safeParse(withoutEmpty(source));
   if (!parsed.success) {
     const detail = parsed.error.issues
       .map((i) => `  • ${i.path.join('.')}: ${i.message}`)

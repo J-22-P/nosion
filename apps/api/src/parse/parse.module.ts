@@ -14,5 +14,6 @@ import { ParseService } from './parse.service';
   imports: [RegistryModule, UsersModule, EntriesModule, RecurrenceModule, OrganizationModule],
   controllers: [ParseController],
   providers: [ParseService, ParserService, RateLimitGuard],
+  exports: [ParseService],
 })
 export class ParseModule {}

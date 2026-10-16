@@ -24,6 +24,7 @@ import { HabitModule } from './modules/habit/habit.module';
 import { TaskModule } from './modules/task/task.module';
 import { OrganizationModule } from './organization/organization.module';
 import { ParseModule } from './parse/parse.module';
+import { SyncModule } from './sync/sync.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
@@ -41,6 +42,7 @@ import { UsersModule } from './users/users.module';
     TodayModule,
     ParseModule,
     CalendarModule,
+    SyncModule,
 
     // ── โมดูลโดเมน: เพิ่มบรรทัดเดียวต่อโมดูลใหม่ ──
     TaskModule,

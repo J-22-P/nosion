@@ -89,19 +89,20 @@ model User {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  settings          UserSettings?
-  entries           Entry[]
-  projects          Project[]
-  tags              Tag[]
-  budgets           Budget[]
-  sessions          Session[]
-  oauthAccounts     OAuthAccount[]
-  pushSubscriptions PushSubscription[]
-  apiKeys           ApiKey[]
-  recurrenceRules   RecurrenceRule[]
-  auditLogs         AuditLog[]
+  settings           UserSettings?
+  entries            Entry[]
+  projects           Project[]
+  tags               Tag[]
+  budgets            Budget[]
+  sessions           Session[]
+  oauthAccounts      OAuthAccount[]
+  pushSubscriptions  PushSubscription[]
+  apiKeys            ApiKey[]
+  recurrenceRules    RecurrenceRule[]
+  auditLogs          AuditLog[]
   verificationTokens VerificationToken[]
-  focusSessions     FocusSession[]
+  focusSessions      FocusSession[]
+  syncOps            SyncOp[]
 
   @@index([email])
   @@index([isDemo, expiresAt])
@@ -155,19 +156,19 @@ model Session {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   /// เก็บ hash ไม่เก็บ token ดิบ
-  refreshTokenHash String @unique
+  refreshTokenHash String  @unique
   /// สำหรับ reuse detection — token ทุกใบที่สืบทอดกันมาอยู่ family เดียวกัน
   familyId         String
   userAgent        String?
   ipAddress        String?
   deviceLabel      String?
 
-  expiresAt  DateTime
-  revokedAt  DateTime?
+  expiresAt     DateTime
+  revokedAt     DateTime?
   /// ถูกเพิกถอนเพราะตรวจพบการใช้ token ซ้ำ
   revokedReason String?
-  lastUsedAt DateTime  @default(now())
-  createdAt  DateTime  @default(now())
+  lastUsedAt    DateTime  @default(now())
+  createdAt     DateTime  @default(now())
 
   @@index([userId, revokedAt])
   @@index([familyId])
@@ -176,15 +177,15 @@ model Session {
 }
 
 model VerificationToken {
-  id      String       @id @default(cuid(2))
-  userId  String
-  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  purpose TokenPurpose
+  id        String       @id @default(cuid(2))
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose   TokenPurpose
   /// sha256 ของ token — ใช้ได้ครั้งเดียว
-  tokenHash String     @unique
+  tokenHash String       @unique
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime   @default(now())
+  createdAt DateTime     @default(now())
 
   @@index([userId, purpose])
   @@map("verification_tokens")
@@ -320,12 +321,12 @@ model Entry {
   /// entry นี้ถูกสร้างจาก recurrence สำหรับรอบวันที่ไหน — ใช้กัน duplicate
   recurrenceSlot   DateTime?
 
-  tags        EntryTag[]
-  reminders   Reminder[]
-  comments    Comment[]
-  attachments Attachment[]
-  dependsOn   EntryDependency[] @relation("Dependent")
-  blocking    EntryDependency[] @relation("Blocker")
+  tags          EntryTag[]
+  reminders     Reminder[]
+  comments      Comment[]
+  attachments   Attachment[]
+  dependsOn     EntryDependency[] @relation("Dependent")
+  blocking      EntryDependency[] @relation("Blocker")
   focusSessions FocusSession[]
 
   sortOrder Int @default(0)
@@ -468,9 +469,9 @@ model Reminder {
   entryId String
   entry   Entry  @relation(fields: [entryId], references: [id], onDelete: Cascade)
 
-  channel ReminderChannel
+  channel       ReminderChannel
   /// offset เป็นนาที เทียบ occurredAt (ลบ = ก่อน, บวก = หลัง)
-  offsetMinutes Int @default(0)
+  offsetMinutes Int             @default(0)
   /// เวลาที่ต้องยิงจริง (UTC) — index หลักของ scheduler
   fireAt        DateTime
 
@@ -568,4 +569,24 @@ model OutboxEvent {
 
   @@index([processedAt, createdAt])
   @@map("outbox_events")
+}
+
+// ═══════════════════════════════════════════════
+// OFFLINE SYNC (Phase 7)
+// ═══════════════════════════════════════════════
+
+/// ผลของ operation จาก outbox ที่ประมวลผลแล้ว — idempotency key ของ POST /sync/push
+/// client ส่งซ้ำ (เน็ตหลุดหลังส่ง, Background Sync ยิงซ้ำ) → คืนผลเดิม ไม่ทำซ้ำ (เลื่อนวันสองครั้ง, สร้างกฎซ้ำ)
+model SyncOp {
+  id        String   @id @default(cuid(2))
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// สร้างโดย client (uuid) ต่อหนึ่ง operation ใน outbox
+  opId      String
+  result    Json
+  createdAt DateTime @default(now())
+
+  @@unique([userId, opId])
+  @@index([createdAt])
+  @@map("sync_ops")
 }
