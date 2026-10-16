@@ -1,6 +1,6 @@
 'use client';
 
-import { MODULE_KEYS, type ModuleKey } from '@nosion/contracts';
+import { MODULE_KEYS, type CalendarEventDto, type ModuleKey } from '@nosion/contracts';
 import { cn, MODULE_THEME } from '@nosion/ui';
 import { ChevronLeft, ChevronRight, Link2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -15,6 +15,7 @@ import { DEFAULT_TIME_ZONE } from '@/lib/format';
 import { DayPanel, QuickSnapshot } from './day-panel';
 import { FeedDialog } from './feed-dialog';
 import {
+  canMove,
   groupByDate,
   isoWeek,
   monthTitle,
@@ -29,6 +30,7 @@ import {
   useCalendar,
   useCalendarState,
   useCompleteFromCalendar,
+  useMoveEvent,
   useServerTiming,
 } from './use-calendar';
 import { AgendaList, MonthGrid, WeekGrid, WeekStrip } from './views';
@@ -51,6 +53,11 @@ export function CalendarView() {
   const calendar = useCalendar(state.view, state.date, weekStartsOn);
   const complete = useCompleteFromCalendar(calendar.range.from, calendar.range.to);
   const latency = useServerTiming(calendar.dataUpdatedAt);
+  const move = useMoveEvent(
+    calendar.range.from,
+    calendar.range.to,
+    calendar.data?.timezone ?? zoneGuess,
+  );
   const [feedOpen, setFeedOpen] = useState(false);
 
   const data = calendar.data;
@@ -77,6 +84,15 @@ export function CalendarView() {
       ? current.filter((m) => m !== module)
       : [...current, module];
     state.setModules(next.length === 0 || next.length === enabled.length ? null : next);
+  }
+
+  function moveEvent(event: CalendarEventDto, toDate: string) {
+    if (canMove(event) && event.date !== toDate) move.mutate({ event, toDate });
+  }
+  /** จากการลาก — ได้ id มา ต้องหา event เต็มจากข้อมูลที่โหลดอยู่ */
+  function moveById(eventId: string, toDate: string) {
+    const event = data?.events.find((e) => e.id === eventId);
+    if (event) moveEvent(event, toDate);
   }
 
   const gridProps = {
@@ -188,10 +204,11 @@ export function CalendarView() {
                       days={calendar.range.days}
                       anchor={selected}
                       reminderDays={reminderDays}
+                      onMove={moveById}
                       {...gridProps}
                     />
                   ) : state.view === 'week' ? (
-                    <WeekGrid days={calendar.range.days} {...gridProps} />
+                    <WeekGrid days={calendar.range.days} onMove={moveById} {...gridProps} />
                   ) : (
                     <AgendaList
                       days={calendar.range.days.filter(
@@ -214,6 +231,7 @@ export function CalendarView() {
                   reminders={data.reminders.filter((r) => r.date === selected)}
                   timeZone={timeZone}
                   onComplete={(id) => complete.mutate(id)}
+                  onMove={moveEvent}
                 />
                 <QuickSnapshot snapshot={snapshot} week={`W${isoWeek(selected)}`} />
               </>

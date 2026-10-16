@@ -310,3 +310,72 @@ test.describe('Calendar (Phase 5)', () => {
     expect(rotated).toBe(1);
   });
 });
+
+test.describe('Calendar · ลากเปลี่ยนวัน (Phase 5 ขั้น 6)', () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  const cell = (page: import('@playwright/test').Page, label: RegExp) =>
+    page.getByRole('button', { name: label });
+
+  test('ลากงานไปวันอื่น → ย้ายทันที (ก่อน server ตอบ) + PATCH คงเวลาเดิม พร้อม version', async ({
+    page,
+  }) => {
+    let body: Record<string, unknown> | null = null;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    await page.route('**/api/v1/entries/t_c5', async (route) => {
+      body = route.request().postDataJSON() as Record<string, unknown>;
+      await gate; // ค้างคำตอบไว้ — ตรวจว่า UI ย้ายให้เห็นก่อน (optimistic)
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"id":"t_c5"}' });
+    });
+    await page.goto('/calendar');
+    const item = page.getByText('Update API docs').filter({ visible: true }).first();
+    await expect(item).toBeVisible({ timeout: 15_000 });
+
+    await item.dragTo(cell(page, /^วันศุกร์ 2 ตุลาคม 2026/));
+    await expect
+      .poll(() => body)
+      .toEqual({
+        occurredAt: '2026-10-02T07:30:00.000Z', // 14:30 เวลาไทยเหมือนเดิม
+        isAllDay: false,
+        version: 3,
+      });
+    await expect(cell(page, /^วันศุกร์ 2 ตุลาคม 2026 · 1 รายการ/)).toBeVisible();
+    await expect(cell(page, /^วันพุธ 30 กันยายน 2026 · 3 รายการ/)).toBeVisible();
+    release();
+    await expect(page.getByText('ย้ายวันแล้ว')).toBeVisible();
+  });
+
+  test('server ตอบ 409 → ย้อนกลับที่เดิมและบอกผู้ใช้', async ({ page }) => {
+    await page.route('**/api/v1/entries/t_c5', (route) =>
+      route.fulfill({
+        status: 409,
+        contentType: 'application/problem+json',
+        body: JSON.stringify({ type: 'about:blank', title: 'Conflict', status: 409 }),
+      }),
+    );
+    await page.goto('/calendar');
+    const item = page.getByText('Update API docs').filter({ visible: true }).first();
+    await expect(item).toBeVisible({ timeout: 15_000 });
+
+    await item.dragTo(cell(page, /^วันศุกร์ 2 ตุลาคม 2026/));
+    await expect(page.getByText('รายการนี้ถูกแก้จากที่อื่น', { exact: false })).toBeVisible();
+    await expect(cell(page, /^วันศุกร์ 2 ตุลาคม 2026 · ไม่มีรายการ/)).toBeVisible();
+    await expect(cell(page, /^วันพุธ 30 กันยายน 2026 · 4 รายการ/)).toBeVisible();
+  });
+
+  test('ทางเลือกของคีย์บอร์ด: เลือกวันใหม่ใน day panel · บิลทั้งวันส่งวันที่ล้วน', async ({
+    page,
+  }) => {
+    let body: Record<string, unknown> | null = null;
+    await page.route('**/api/v1/entries/e_ais', async (route) => {
+      body = route.request().postDataJSON() as Record<string, unknown>;
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"id":"e_ais"}' });
+    });
+    await page.goto('/calendar');
+    await page
+      .getByLabel('ย้าย "AIS Fibre · ฿799.00" ไปวัน')
+      .fill('2026-10-01', { timeout: 15_000 });
+    await expect.poll(() => body).toEqual({ occurredAt: '2026-10-01', isAllDay: true, version: 3 });
+  });
+});

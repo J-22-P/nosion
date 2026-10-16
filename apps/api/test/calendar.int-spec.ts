@@ -112,6 +112,37 @@ describe('Calendar (/calendar)', () => {
     expect(stored.body.data).toHaveLength(0);
   });
 
+  it('ลากเปลี่ยนวัน: version จาก /calendar ใช้ PATCH ได้ · รอบของบิลย้ายเฉพาะรอบนั้น', async () => {
+    const before = await calendar(alice, bkk(0), bkk(60)).expect(200);
+    const bills = (before.body.events as (EventBody & { version: number })[]).filter(
+      (e) => e.module === 'expense',
+    );
+    const bill = bills[0]!;
+    expect(bill.version).toEqual(expect.any(Number));
+    const target = new Date(Date.parse(bill.date) + DAY).toISOString().slice(0, 10);
+
+    await api()
+      .patch(`/api/v1/entries/${bill.entryId}`)
+      .set(as(alice))
+      .send({ occurredAt: target, isAllDay: true, version: bill.version })
+      .expect(200);
+    // version เก่าใช้ซ้ำไม่ได้ (ลากซ้อนจากอีกแท็บ) → 409
+    await api()
+      .patch(`/api/v1/entries/${bill.entryId}`)
+      .set(as(alice))
+      .send({ occurredAt: bill.date, isAllDay: true, version: bill.version })
+      .expect(409);
+
+    const after = await calendar(alice, bkk(0), bkk(60)).expect(200);
+    const moved = (after.body.events as EventBody[]).find((e) => e.entryId === bill.entryId)!;
+    expect(moved.date).toBe(target);
+    // รอบอื่นของกฎเดียวกันยังอยู่วันที่ 5 เหมือนเดิม
+    const others = (after.body.events as EventBody[]).filter(
+      (e) => e.module === 'expense' && e.entryId !== bill.entryId,
+    );
+    for (const e of others) expect(e.date.endsWith('-05')).toBe(true);
+  });
+
   it('เห็นเฉพาะของตัวเอง', async () => {
     const res = await calendar(bob, bkk(0), bkk(60)).expect(200);
     expect(res.body.events).toEqual([]);

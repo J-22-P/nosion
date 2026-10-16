@@ -50,6 +50,7 @@ export function buildCalendar(
       id: event.id,
       entryId: projected ? null : entry.id,
       ruleId: entry.recurrenceRuleId,
+      version: projected ? null : entry.version,
       module: module.key,
       title: event.title,
       start: event.start.toISOString(),

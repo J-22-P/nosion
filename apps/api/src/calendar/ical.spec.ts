@@ -6,6 +6,7 @@ const event = (over: Partial<CalendarEventDto> = {}): CalendarEventDto => ({
   id: 'task:e1',
   entryId: 'e1',
   ruleId: null,
+  version: 1,
   module: 'task',
   title: 'ส่งรายงาน',
   start: '2026-10-20T03:00:00.000Z',

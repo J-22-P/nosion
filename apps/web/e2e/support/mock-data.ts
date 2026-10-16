@@ -458,12 +458,13 @@ export const SUMMARY: ExpenseSummaryDto = {
 };
 
 // ── ปฏิทิน (สเปก 8.11.4) — "วันนี้" = พุธ 30 ก.ย. · งานหลายรายการในวันเดียวให้เห็น "+N" · บิลมีการเตือน · รอบ projected 1 รายการ
-type CalEvent = Omit<CalendarEventDto, 'color' | 'end' | 'meta'> & {
+type CalEvent = Omit<CalendarEventDto, 'color' | 'end' | 'meta' | 'version'> & {
   meta?: Record<string, unknown>;
 };
 const calEvent = (e: CalEvent): CalendarEventDto => ({
   color: '#000',
   end: null,
+  version: e.projected ? null : 3,
   ...e,
   meta: e.meta ?? {},
 });

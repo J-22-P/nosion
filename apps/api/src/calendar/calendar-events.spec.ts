@@ -155,7 +155,13 @@ describe('buildCalendar', () => {
       modules,
       TZ,
     );
-    expect(events[0]).toMatchObject({ entryId: null, ruleId: 'r1', projected: true, actions: [] });
+    expect(events[0]).toMatchObject({
+      entryId: null,
+      ruleId: 'r1',
+      version: null,
+      projected: true,
+      actions: [],
+    });
   });
 
   it('การเตือนที่ยกเลิกไม่นับ · วันที่ของการเตือนคือวันที่ยิง ไม่ใช่วันของรายการ', () => {

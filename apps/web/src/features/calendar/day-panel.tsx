@@ -2,7 +2,7 @@
 
 import type { CalendarEventDto, CalendarReminderDto } from '@nosion/contracts';
 import { MODULE_THEME } from '@nosion/ui';
-import { Bell } from 'lucide-react';
+import { Bell, CalendarClock } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
 import { baht } from '@/features/expenses/format';
-import { longDayLabel, timeOf, type WeekSnapshot } from './grid';
+import { canMove, longDayLabel, timeOf, type WeekSnapshot } from './grid';
 import { MODULE_ICON } from './views';
 
 const REMINDER_STATUS: Record<CalendarReminderDto['status'], string> = {
@@ -35,12 +35,14 @@ export function DayPanel({
   reminders,
   timeZone,
   onComplete,
+  onMove,
 }: {
   day: string;
   events: CalendarEventDto[];
   reminders: CalendarReminderDto[];
   timeZone: string;
   onComplete: (entryId: string) => void;
+  onMove: (event: CalendarEventDto, toDate: string) => void;
 }) {
   return (
     <Card>
@@ -67,7 +69,13 @@ export function DayPanel({
         ) : (
           <ol className="relative space-y-2 border-l border-hairline pl-4">
             {events.map((event) => (
-              <DayEvent key={event.id} event={event} timeZone={timeZone} onComplete={onComplete} />
+              <DayEvent
+                key={event.id}
+                event={event}
+                timeZone={timeZone}
+                onComplete={onComplete}
+                onMove={onMove}
+              />
             ))}
           </ol>
         )}
@@ -80,10 +88,12 @@ function DayEvent({
   event,
   timeZone,
   onComplete,
+  onMove,
 }: {
   event: CalendarEventDto;
   timeZone: string;
   onComplete: (entryId: string) => void;
+  onMove: (event: CalendarEventDto, toDate: string) => void;
 }) {
   const theme = MODULE_THEME[event.module];
   const Icon = MODULE_ICON[event.module];
@@ -157,6 +167,22 @@ function DayEvent({
                   </Link>
                 ) : null,
               )}
+            {canMove(event) ? (
+              <label className="ml-auto inline-flex items-center gap-1 text-xs text-fg-secondary">
+                <CalendarClock size={13} aria-hidden="true" />
+                <span className="sr-only">ย้าย "{event.title}" ไปวัน</span>
+                {/* ทางเลือกของการลาก — คีย์บอร์ดและมือถือ (ลาก HTML5 ใช้นิ้วไม่ได้) */}
+                <input
+                  type="date"
+                  value={event.date}
+                  onChange={(e) => {
+                    if (e.target.value && e.target.value !== event.date)
+                      onMove(event, e.target.value);
+                  }}
+                  className="h-7 rounded-control border border-hairline bg-transparent px-1.5 font-mono text-xs text-fg"
+                />
+              </label>
+            ) : null}
           </div>
         </div>
       </div>

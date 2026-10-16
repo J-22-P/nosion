@@ -11,8 +11,8 @@
 | 2   | โมดูล task/expense ใช้ parser กลาง · `POST /parse` วนทุกโมดูล + `POST /parse/commit` (entry + rule + เตือน) | `bc6d4b9`   | ✅    |
 | 3   | Calendar Aggregator `GET /calendar` (+ `countsByModule`, การเตือนของวัน, `calendarActions()`)               | `9ebcf05`   | ✅    |
 | 4   | iCal feed `GET /calendar/:token.ics` + rotate token                                                         | `bf26ac8`   | ✅    |
-| 5   | หน้า `/calendar` — month / week / agenda · module filter · day panel · Quick Snapshot                       | (รอ commit) | ✅    |
-| 6   | ลากรายการเปลี่ยนวัน (optimistic + rollback)                                                                 | —           | ⬜    |
+| 5   | หน้า `/calendar` — month / week / agenda · module filter · day panel · Quick Snapshot                       | `598b289`   | ✅    |
+| 6   | ลากรายการเปลี่ยนวัน (optimistic + rollback)                                                                 | (รอ commit) | ✅    |
 | 7   | Command Palette ⌘K 3 โหมด (ค้นหา / คำสั่ง / สร้าง) — **DoD**                                                | —           | ⬜    |
 | 8   | `<QuickCapture>` ใน Tasks/Expenses ใช้ parser เต็ม + chip แก้ได้                                            | —           | ⬜    |
 | 9   | Keyboard shortcut ครบตาม 8.4 + หน้าต่าง `?`                                                                 | —           | ⬜    |
@@ -173,7 +173,7 @@
 
 ---
 
-## ขั้น 5 · หน้า `/calendar` — (รอ commit)
+## ขั้น 5 · หน้า `/calendar` — `598b289`
 
 **เป้าหมาย:** หน้าปฏิทินรวมตามสเปก 8.11.4 บน API ของขั้น 3–4
 
@@ -210,3 +210,37 @@
 - visual baseline สร้างใหม่ใน Docker (Linux เหมือน CI) 50/50 ผ่าน — **ภาพเดิม 16 ภาพเปลี่ยนเพราะเมนูปฏิทินเปิดใช้** (ตรวจ diff แล้ว: ต่างเฉพาะไอคอนเมนู)
 - ดูภาพจริงแล้วทั้ง month / week / มือถือ · `pnpm verify` ผ่าน
 - ⚠️ ยังไม่ได้ลองกับ API จริงในเบราว์เซอร์ (ใช้ mock) และยังไม่ได้ลองบนมือถือจริง
+
+---
+
+## ขั้น 6 · ลากรายการเปลี่ยนวัน (optimistic + rollback) — (รอ commit)
+
+**เป้าหมาย:** ลากรายการบน month / week ไปวันอื่น เห็นผลทันที บันทึกพลาดแล้วกลับที่เดิม (สเปก 8.11.4)
+
+**สิ่งที่เปลี่ยน**
+
+- 📁 `CalendarEventDto.version` (API + contracts) — PATCH `/entries/:id` ต้องใช้ (optimistic concurrency) · projected = `null`
+- 📁 `grid.ts` — `moveTarget(event, toDate, tz)`: ทั้งวันส่ง `'YYYY-MM-DD'` · มีเวลา **คงเวลาหน้าปัด** (14:30 → 14:30 วันใหม่ ข้าม DST ก็ยัง 14:30) ·
+  `canMove()` (มี entry จริง ยังไม่เสร็จ)
+- 📁 `use-calendar.ts` — `useMoveEvent`: ย้ายในแคชทันที → PATCH → พลาดย้อนแคช + toast (409 บอกว่ามีการแก้จากที่อื่น)
+- 📁 `views.tsx` — HTML5 drag-and-drop (ไม่เพิ่ม library) · ช่องเดือน/แถวทั้งวัน/คอลัมน์เวลาเป็นที่วาง ไฮไลต์ตอนลากผ่าน ·
+  ช่องเดือนเปลี่ยนจาก `<button>` ทั้งช่องเป็น div + ปุ่มปูเต็มช่อง (ของที่ลากได้ซ้อนในปุ่มลากไม่ขึ้นในบางเบราว์เซอร์)
+- 📁 `day-panel.tsx` — ช่อง "ย้ายไปวัน" (`<input type="date">`) ทุกรายการที่ย้ายได้
+
+**การตัดสินใจ**
+
+- **ทางเลือกของการลาก = ช่องเลือกวันใน day panel** — การลากใช้เมาส์อย่างเดียว (WCAG 2.1.1 ต้องทำได้ด้วยคีย์บอร์ด)
+  และ HTML5 drag ใช้นิ้วบนมือถือไม่ได้ ช่องเดียวกันจึงแก้ทั้งสองกรณี
+- ลากเปลี่ยน **วัน** อย่างเดียว ไม่เปลี่ยนเวลา (week view วางที่ไหนในคอลัมน์ก็คงเวลาเดิม) — เปลี่ยนเวลาทำในหน้ารายละเอียด
+- รายการจากกฎการเกิดซ้ำย้าย **เฉพาะรอบนั้น** (scope `this` ค่าเริ่มต้นของ API: วันเดิมเข้า exceptions ของกฎ + เลื่อนการเตือน) — ไม่ถาม "ทั้ง series?"
+  เพราะการลากคือการจัดตารางของวันนั้น
+- รายการที่เสร็จแล้วและรอบ projected ลากไม่ได้
+
+**วิธีตรวจ**
+
+- unit `grid.test.ts` +2 (ทั้งวัน/มีเวลา/ข้าม DST New York/วันเดิม · `canMove`)
+- e2e +3: **ลากแล้วย้ายทันทีก่อน server ตอบ** (ค้างคำตอบไว้ตรวจ) + body PATCH `{ occurredAt: 14:30 เดิม, isAllDay, version }` ·
+  server 409 → กลับที่เดิม + toast · ช่องเลือกวันใน panel → บิลทั้งวันส่งวันที่ล้วน · axe ยัง 0 serious
+- integration +1: version จาก `/calendar` ใช้ PATCH ได้ · version เก่า → 409 · รอบอื่นของกฎเดียวกันไม่ขยับ
+- `pnpm verify` ผ่าน · integration API 102 + worker 19 · visual baseline (Docker) 55/55 — เปลี่ยนเฉพาะ 4 ภาพของปฏิทิน (มีช่องย้ายวัน)
+- ⚠️ ช่องเลือกวันแสดงรูปแบบตาม locale ของเบราว์เซอร์ (ภาพ baseline เป็น `09/30/2026`) · ยังไม่ได้ลองลากกับ API จริงในเบราว์เซอร์

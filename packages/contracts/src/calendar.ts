@@ -46,6 +46,8 @@ export interface CalendarEventDto {
   entryId: string | null;
   /** กฎการเกิดซ้ำที่สร้างรายการนี้ */
   ruleId: string | null;
+  /** เวอร์ชันของ entry สำหรับ PATCH (optimistic concurrency) — ลากเปลี่ยนวันใช้ค่านี้ · null = projected */
+  version: number | null;
   module: ModuleKey;
   title: string;
   start: string;

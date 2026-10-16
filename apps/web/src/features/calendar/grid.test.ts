@@ -1,10 +1,12 @@
 import type { CalendarEventDto } from '@nosion/contracts';
 import { describe, expect, it } from 'vitest';
 import {
+  canMove,
   isoWeek,
   longDayLabel,
   monthGridDays,
   monthTitle,
+  moveTarget,
   shiftAnchor,
   timeOf,
   viewRange,
@@ -17,6 +19,7 @@ const event = (over: Partial<CalendarEventDto>): CalendarEventDto => ({
   id: 'x',
   entryId: 'x',
   ruleId: null,
+  version: 1,
   module: 'task',
   title: 't',
   start: '2026-10-20T03:00:00.000Z',
@@ -113,5 +116,30 @@ describe('grid', () => {
       currency: 'THB',
       nextDueInDays: 2,
     });
+  });
+
+  it('ย้ายวัน: ทั้งวันส่งวันที่ล้วน · มีเวลาคงเวลาหน้าปัด (ข้าม DST ของ New York)', () => {
+    expect(
+      moveTarget(event({ allDay: true, date: '2026-10-20' }), '2026-10-22', 'Asia/Bangkok'),
+    ).toEqual({
+      occurredAt: '2026-10-22',
+      start: '2026-10-21T17:00:00.000Z',
+    });
+    expect(moveTarget(event({}), '2026-10-23', 'Asia/Bangkok')).toEqual({
+      occurredAt: '2026-10-23T03:00:00.000Z',
+      start: '2026-10-23T03:00:00.000Z',
+    });
+    // 09:00 New York ก่อน DST สิ้นสุด (EDT, UTC−4) → หลัง (EST, UTC−5) ยังเป็น 09:00
+    const ny = event({ start: '2026-10-30T13:00:00.000Z', date: '2026-10-30' });
+    expect(moveTarget(ny, '2026-11-02', 'America/New_York')?.occurredAt).toBe(
+      '2026-11-02T14:00:00.000Z',
+    );
+    expect(moveTarget(event({}), '2026-10-20', 'Asia/Bangkok')).toBeNull();
+  });
+
+  it('ย้ายได้เฉพาะ entry จริงที่ยังไม่เสร็จ', () => {
+    expect(canMove(event({}))).toBe(true);
+    expect(canMove(event({ status: 'done' }))).toBe(false);
+    expect(canMove(event({ entryId: null, version: null, projected: true }))).toBe(false);
   });
 });

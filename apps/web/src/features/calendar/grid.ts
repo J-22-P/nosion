@@ -1,4 +1,5 @@
 import type { CalendarEventDto } from '@nosion/contracts';
+import { zonedTimeToUtc } from '@nosion/core/time';
 
 /**
  * คำนวณของหน้าปฏิทิน (สเปก 8.11.4) — pure ทั้งไฟล์ ทำงานกับ 'YYYY-MM-DD' ล้วน
@@ -154,4 +155,34 @@ export function weekSnapshot(
       ? Math.round((asDate(nextDue.date).getTime() - asDate(today).getTime()) / 86_400_000)
       : null,
   };
+}
+
+/** ลาก/ย้ายได้ไหม — ต้องมี entry จริง (projected ยังไม่มีให้แก้) และยังไม่จบ */
+export function canMove(event: CalendarEventDto): boolean {
+  return event.entryId !== null && event.version !== null && event.status !== 'done';
+}
+
+/**
+ * ย้ายรายการไปวันอื่นโดย "คงเวลาหน้าปัด" (สเปก 8.11.4 ลากเปลี่ยนวัน)
+ *  - ทั้งวัน → ส่ง 'YYYY-MM-DD' ให้ API ตีความเป็นต้นวันตามโซนผู้ใช้
+ *  - มีเวลา  → 10:00 วันเดิม = 10:00 วันใหม่ ตามโซนผู้ใช้ (ข้าม DST ก็ยังเป็น 10:00)
+ * คืน `start` ไว้อัปเดตแคชแบบ optimistic ด้วย · วันเดิม = null (ไม่ต้องยิง API)
+ */
+export function moveTarget(
+  event: CalendarEventDto,
+  toDate: string,
+  timeZone: string,
+): { occurredAt: string; start: string } | null {
+  if (event.date === toDate) return null;
+  if (event.allDay) {
+    return {
+      occurredAt: toDate,
+      start: zonedTimeToUtc(`${toDate}T00:00:00`, timeZone).toISOString(),
+    };
+  }
+  const start = zonedTimeToUtc(
+    `${toDate}T${timeOf(event.start, timeZone)}:00`,
+    timeZone,
+  ).toISOString();
+  return { occurredAt: start, start };
 }

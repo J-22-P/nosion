@@ -1,6 +1,11 @@
 'use client';
 
-import { MODULE_KEYS, type CalendarDto, type ModuleKey } from '@nosion/contracts';
+import {
+  MODULE_KEYS,
+  type CalendarDto,
+  type CalendarEventDto,
+  type ModuleKey,
+} from '@nosion/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -9,7 +14,7 @@ import { entriesApi } from '@/features/entries/api';
 import { ApiError } from '@/lib/api-client';
 import { DEFAULT_TIME_ZONE } from '@/lib/format';
 import { calendarApi } from './api';
-import { CALENDAR_VIEWS, todayIn, viewRange, type CalendarView } from './grid';
+import { CALENDAR_VIEWS, moveTarget, todayIn, viewRange, type CalendarView } from './grid';
 
 /**
  * สถานะของหน้าอยู่ใน URL (สเปก 8.11.4): `?view=month|week|agenda` · `?date=YYYY-MM-DD` (วันที่เลือก = day panel)
@@ -145,5 +150,56 @@ export function useRotateFeed() {
       toast.error('สร้างลิงก์ใหม่ไม่สำเร็จ', {
         description: error instanceof ApiError ? error.message : undefined,
       }),
+  });
+}
+
+/**
+ * ลากรายการไปวันอื่น (สเปก 8.11.4 · Phase 5 ขั้น 6) — ย้ายในแคชทันที แล้วค่อย PATCH
+ * พลาด (409 มีคนแก้ก่อน / เน็ตหลุด) → ย้อนกลับที่เดิม + บอกผู้ใช้
+ * รายการจากกฎการเกิดซ้ำย้ายเฉพาะรอบนี้ (API เพิ่มวันเดิมเข้า exceptions ของกฎ และเลื่อนการเตือนตาม)
+ */
+export function useMoveEvent(from: string, to: string, timeZone: string) {
+  const queryClient = useQueryClient();
+  const key = calendarKey(from, to);
+  return useMutation({
+    mutationFn: ({ event, toDate }: { event: CalendarEventDto; toDate: string }) => {
+      const target = moveTarget(event, toDate, timeZone)!;
+      return entriesApi.update(event.entryId!, {
+        occurredAt: target.occurredAt,
+        isAllDay: event.allDay,
+        version: event.version!,
+      });
+    },
+    onMutate: async ({ event, toDate }) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<CalendarDto>(key);
+      const target = moveTarget(event, toDate, timeZone);
+      if (previous && target) {
+        queryClient.setQueryData<CalendarDto>(key, {
+          ...previous,
+          events: previous.events.map((e) =>
+            e.id === event.id ? { ...e, date: toDate, start: target.start } : e,
+          ),
+        });
+      }
+      return { previous };
+    },
+    onSuccess: (_entry, { event, toDate }) =>
+      toast.success('ย้ายวันแล้ว', { description: `${event.title} → ${toDate}` }),
+    onError: (error, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(key, context.previous);
+      const conflict = error instanceof ApiError && error.status === 409;
+      toast.error(
+        conflict
+          ? 'รายการนี้ถูกแก้จากที่อื่น — โหลดข้อมูลล่าสุดแล้ว ลองอีกครั้ง'
+          : 'ย้ายวันไม่สำเร็จ',
+        {
+          description: !conflict && error instanceof ApiError ? error.message : undefined,
+        },
+      );
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ['entries'] });
+    },
   });
 }
