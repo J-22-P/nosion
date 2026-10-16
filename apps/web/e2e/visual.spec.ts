@@ -5,7 +5,8 @@ import { settle, test, expect, type Theme } from './support/ui-test';
  *
  * ภาพ baseline ต้องสร้างบน Linux ใน Docker image ของ Playwright เท่านั้น
  * (ฟอนต์และการ anti-alias ต่างกันระหว่าง macOS/Linux → เทียบข้ามระบบไม่ได้)
- *   สร้าง/อัปเดต:  pnpm --filter @nosion/web test:ui:docker
+ *   สร้าง/อัปเดต:  gh workflow run "Update visual baselines" (runner ของ GitHub — ไม่ใช้ดิสก์บนเครื่อง)
+ *                  หรือ pnpm --filter @nosion/web test:ui:docker (Docker/colima บนเครื่อง)
  *   CI:            รันด้วย --update-snapshots=missing และอัปโหลดภาพเป็น artifact
  */
 

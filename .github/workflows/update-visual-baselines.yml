@@ -1,0 +1,44 @@
+name: Update visual baselines
+
+# สร้างภาพ baseline ของ visual test ใหม่บน runner ของ GitHub — ไม่ต้องใช้ Docker/ดิสก์บนเครื่อง dev
+# image เดียวกับ job "UI · visual + a11y" ใน ci.yml → ภาพตรงกับที่ CI เทียบ 100%
+#
+#   gh workflow run "Update visual baselines"                      # ทุกภาพ
+#   gh workflow run "Update visual baselines" -f grep=Calendar     # เฉพาะบางเทสต์
+#   gh run download <run-id> -n visual-baselines -D apps/web/e2e/__screenshots__
+#
+# workflow นี้ไม่ commit เอง — ภาพต้องผ่านการตรวจด้วยตาก่อน (ภาพที่เปลี่ยนโดยไม่ตั้งใจคือสิ่งที่ visual test มีไว้จับ)
+on:
+  workflow_dispatch:
+    inputs:
+      grep:
+        description: 'เฉพาะเทสต์ที่ชื่อตรงกับคำนี้ (ว่าง = ทุกภาพ)'
+        required: false
+        default: ''
+
+jobs:
+  baselines:
+    name: สร้างภาพ baseline
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      options: --ipc=host
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: pnpm turbo run build --filter=@nosion/web
+      # =all: เขียนทับทุกภาพ (ค่าเริ่มต้น changed จะค้างภาพเก่าที่ต่างไม่ถึงเกณฑ์ไว้เงียบ ๆ)
+      # เทสต์ที่เขียนภาพใหม่ถูกนับว่าล้ม → ไม่ให้ job แดง แต่ยังรายงานเทสต์ที่ล้มด้วยเหตุอื่นในบันทึก
+      - name: สร้างภาพใหม่
+        continue-on-error: true
+        run: |
+          pnpm --filter @nosion/web exec playwright test --project=ui --update-snapshots=all \
+            ${GREP:+--grep "$GREP"}
+        env:
+          HOME: /root
+          GREP: ${{ inputs.grep }}
+      - uses: actions/upload-artifact@v6
+        with:
+          name: visual-baselines
+          path: apps/web/e2e/__screenshots__
+          if-no-files-found: error
