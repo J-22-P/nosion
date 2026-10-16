@@ -746,7 +746,10 @@ test.describe('นิสัย (Phase 6)', () => {
     await input.press('Enter');
     await expect
       .poll(() => calls.at(-1))
-      .toBe('POST /parse/commit {"text":"ดื่มน้ำ 8 แก้ว ทุกวัน","module":"habit"}');
+      // clientId ใส่ให้เสมอ (Phase 7) — ส่งซ้ำ/เข้าคิวออฟไลน์แล้วไม่สร้างนิสัยซ้ำ
+      .toMatch(
+        /^POST \/parse\/commit \{"text":"ดื่มน้ำ 8 แก้ว ทุกวัน","module":"habit","clientId":"p-/,
+      );
     await expect(page.getByText('สร้างนิสัยแล้ว')).toBeVisible();
   });
 
@@ -787,5 +790,69 @@ test.describe('สรุปสัปดาห์ (Phase 6)', () => {
     await expect(page.getByText('4/7')).toBeVisible();
     await page.getByRole('button', { name: 'สัปดาห์นี้' }).click();
     await expect(page).toHaveURL(/\/review$/);
+  });
+});
+
+test.describe('ออฟไลน์ (Phase 7 ขั้น 2)', () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  test('ตัดเน็ต → เพิ่มงาน 3 รายการ + ติ๊กงานเดิม → เข้าคิวไม่ล้ม · ต่อเน็ต → /sync/push ชุดเดียวตามลำดับ', async ({
+    page,
+    context,
+  }) => {
+    type Op = { op: string; opId: string; text?: string; target?: unknown };
+    const pushes: Op[][] = [];
+    await page.route('**/api/v1/sync/push', async (route) => {
+      const { operations } = route.request().postDataJSON() as { operations: Op[] };
+      pushes.push(operations);
+      await route.fulfill({
+        json: {
+          results: operations.map((o) => ({ opId: o.opId, status: 'applied' })),
+          serverTime: new Date().toISOString(),
+        },
+      });
+    });
+    await page.goto('/tasks');
+    await expect(page.getByText('Re-architect Auth Token refresh flow').first()).toBeVisible({
+      timeout: 15_000,
+    });
+    await page.locator('main').click({ position: { x: 5, y: 5 } });
+
+    await context.setOffline(true);
+    await page.keyboard.press('j');
+    await page.keyboard.press('e');
+    await expect(page.getByText('เสร็จแล้ว', { exact: true })).toBeVisible();
+
+    const input = page.getByLabel('ชื่องานใหม่');
+    for (const title of ['ออฟไลน์ 1', 'ออฟไลน์ 2', 'ออฟไลน์ 3']) {
+      await input.fill(title);
+      await input.press('Enter');
+      await expect(input).toHaveValue('');
+    }
+    await expect(page.getByText(/ออฟไลน์ 3 · บันทึกในเครื่องแล้ว/)).toBeVisible();
+    expect(pushes).toEqual([]);
+
+    // คิวอยู่ใน IndexedDB — รีเฟรชไม่ได้ตอนออฟไลน์ (ขั้น 3) แต่ดูของในที่เก็บได้
+    const stored = await page.evaluate(
+      () =>
+        new Promise<number>((resolve) => {
+          const req = indexedDB.open('nosion-sync');
+          req.onsuccess = () => {
+            const count = req.result.transaction('outbox').objectStore('outbox').count();
+            count.onsuccess = () => resolve(count.result);
+          };
+        }),
+    );
+    expect(stored).toBe(4);
+
+    await context.setOffline(false);
+    await expect.poll(() => pushes.length).toBe(1);
+    expect(pushes[0]!.map((o) => [o.op, o.text ?? o.target])).toEqual([
+      ['complete', { id: 'e_auth' }],
+      ['parse', 'ออฟไลน์ 1'],
+      ['parse', 'ออฟไลน์ 2'],
+      ['parse', 'ออฟไลน์ 3'],
+    ]);
+    await expect(page.getByText('ซิงก์แล้ว 4 รายการ')).toBeVisible();
   });
 });

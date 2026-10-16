@@ -12,8 +12,9 @@ import { buildChips, rawFor, replaceSpan, sameName, withDate } from '@/features/
 import { ParsedChips } from '@/features/capture/parsed-chips';
 import { parseApi } from '@/features/command-palette/api';
 import { todayIn } from '@/features/calendar/grid';
-import { useProjects, useTags } from '@/features/entries/use-entries';
+import { QUEUED_NOTE, useProjects, useTags } from '@/features/entries/use-entries';
 import { ApiError } from '@/lib/api-client';
+import { isQueued } from '@/lib/sync';
 import { DEFAULT_TIME_ZONE } from '@/lib/format';
 
 /** ชิ้นที่งานใช้ — จำนวนเงิน/ปริมาณเป็นส่วนของชื่องาน ไม่ใช่ chip (เหมือนฝั่ง API) */
@@ -56,8 +57,11 @@ export function QuickCapture() {
 
   const create = useMutation({
     mutationFn: () => parseApi.commit({ text: text.trim(), module: 'task', clientId }),
-    onSuccess: ({ entry, rule }) => {
-      toast.success(rule ? 'เพิ่มงานประจำแล้ว' : 'เพิ่มงานแล้ว', { description: entry.title });
+    onSuccess: (result) => {
+      const { entry, rule } = result;
+      toast.success(rule ? 'เพิ่มงานประจำแล้ว' : 'เพิ่มงานแล้ว', {
+        description: isQueued(result) ? `${entry.title} · ${QUEUED_NOTE}` : entry.title,
+      });
       void queryClient.invalidateQueries({ queryKey: ['entries'] });
       // แท็ก/โปรเจกต์ใหม่ถูกสร้างที่ server
       void queryClient.invalidateQueries({ queryKey: ['tags'] });

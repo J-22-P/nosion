@@ -14,7 +14,9 @@ import { useLogout } from '@/components/shell/profile-menu';
 import { Kbd } from '@/components/ui/kbd';
 import { useSession } from '@/features/auth/use-session';
 import { entriesApi } from '@/features/entries/api';
+import { QUEUED_NOTE } from '@/features/entries/use-entries';
 import { ApiError } from '@/lib/api-client';
+import { isQueued } from '@/lib/sync';
 import { DEFAULT_TIME_ZONE } from '@/lib/format';
 import { useUIStore } from '@/lib/stores/ui-store';
 import { parseApi } from './api';
@@ -152,7 +154,10 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
       label: string;
     }) => parseApi.commit({ text, module, clientId }),
     onSuccess: (result, { mods, label }) => {
-      toast.success(`${label}แล้ว`, { description: result.entry.title });
+      const queued = isQueued(result);
+      toast.success(`${label}แล้ว`, {
+        description: queued ? `${result.entry.title} · ${QUEUED_NOTE}` : result.entry.title,
+      });
       void queryClient.invalidateQueries({ queryKey: ['entries'] });
       setClientId(newClientId());
       if (mods.meta) {
@@ -160,7 +165,8 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
         return;
       }
       onClose();
-      if (mods.shift) router.push(entryHref(result.entry, timeZone));
+      // รายการที่ยังรอซิงก์ไม่มีหน้าของตัวเองบน server
+      if (mods.shift && !queued) router.push(entryHref(result.entry, timeZone));
     },
     onError: (error) =>
       toast.error('สร้างไม่สำเร็จ', {

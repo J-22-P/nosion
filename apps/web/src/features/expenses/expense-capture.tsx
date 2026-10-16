@@ -13,7 +13,9 @@ import { buildChips, rawFor, replaceSpan } from '@/features/capture/nl-chips';
 import { ParsedChips } from '@/features/capture/parsed-chips';
 import { todayIn } from '@/features/calendar/grid';
 import { parseApi } from '@/features/command-palette/api';
+import { QUEUED_NOTE } from '@/features/entries/use-entries';
 import { ApiError } from '@/lib/api-client';
+import { isQueued } from '@/lib/sync';
 import { DEFAULT_TIME_ZONE } from '@/lib/format';
 import { expensesApi } from './api';
 import { CATEGORY } from './categories';
@@ -78,8 +80,11 @@ export function ExpenseCapture() {
         clientId,
         ...(category ? { payloadPatch: { category } } : {}),
       }),
-    onSuccess: ({ entry, rule }) => {
-      toast.success(rule ? 'ตั้งบิลประจำแล้ว' : 'บันทึกรายการแล้ว', { description: entry.title });
+    onSuccess: (result) => {
+      const { entry, rule } = result;
+      toast.success(rule ? 'ตั้งบิลประจำแล้ว' : 'บันทึกรายการแล้ว', {
+        description: isQueued(result) ? `${entry.title} · ${QUEUED_NOTE}` : entry.title,
+      });
       void queryClient.invalidateQueries({ queryKey: ['entries'] });
       setText('');
       setPreview(null);

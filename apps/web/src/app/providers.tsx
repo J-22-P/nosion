@@ -7,6 +7,7 @@ import { Toaster } from 'sonner';
 import { ApiError } from '@/lib/api-client';
 import '@/features/auth/auth-store';
 import { ServiceWorkerBridge } from '@/features/notifications/use-push';
+import { SyncBridge } from '@/features/sync/sync-bridge';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -22,6 +23,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
               return failureCount < 2;
             },
           },
+          // ค่าเริ่มต้น 'online' จะพัก mutation ไว้ตอนออฟไลน์จนกว่าเน็ตกลับ (หายเมื่อรีเฟรช)
+          // ชั้น api ตัดสินเองว่าส่งหรือเข้าคิว outbox (lib/sync) → ให้ mutationFn ทำงานเสมอ
+          mutations: { networkMode: 'always' },
         },
       }),
   );
@@ -31,6 +35,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
         {children}
         <ServiceWorkerBridge />
+        <SyncBridge />
         <Toaster position="bottom-right" richColors closeButton />
       </ThemeProvider>
     </QueryClientProvider>

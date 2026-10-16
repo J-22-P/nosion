@@ -3,7 +3,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { entriesApi } from '@/features/entries/api';
+import { QUEUED_NOTE } from '@/features/entries/use-entries';
 import { ApiError } from '@/lib/api-client';
+import { isQueued } from '@/lib/sync';
 import { todayApi } from './api';
 
 /** key ขึ้นต้นด้วย 'entries' — สร้าง/ติ๊ก/จ่ายบิลที่ไหนก็ตาม การ์ด Today สดตามเอง */
@@ -27,7 +29,10 @@ export function useCompleteFromToday() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => entriesApi.complete(id),
-    onSuccess: (entry) => toast.success('ทำเสร็จแล้ว', { description: entry.title }),
+    onSuccess: (entry) =>
+      toast.success('ทำเสร็จแล้ว', {
+        description: isQueued(entry) ? `${entry.title} · ${QUEUED_NOTE}` : entry.title,
+      }),
     onError: (error) =>
       toast.error('ทำเครื่องหมายว่าเสร็จไม่สำเร็จ', {
         description: error instanceof ApiError ? error.message : undefined,
