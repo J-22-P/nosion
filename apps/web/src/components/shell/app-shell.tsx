@@ -5,16 +5,11 @@ import { useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSession } from '@/features/auth/use-session';
 import { CommandPalette } from '@/features/command-palette/command-palette';
-import { useUIStore } from '@/lib/stores/ui-store';
+import { useGlobalShortcuts } from '@/lib/shortcuts/use-global-shortcuts';
 import { MobileTabBar } from './mobile-tab-bar';
+import { ShortcutsDialog } from './shortcuts-dialog';
 import { Sidebar } from './sidebar';
 import { MobileHeader, TopBar } from './top-bar';
-
-/** ไม่จับ shortcut ตอนผู้ใช้กำลังพิมพ์ */
-function isTypingTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  return target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName);
-}
 
 /**
  * โครงหน้าแอปหลัก (สเปก 8.2 v1.1)
@@ -24,36 +19,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { isLoading, isAuthenticated, user } = useSession();
   const router = useRouter();
   const pathname = usePathname();
-  const toggleSidebar = useUIStore((s) => s.toggleSidebar);
-  const setPaletteOpen = useUIStore((s) => s.setPaletteOpen);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) router.replace('/login');
   }, [isLoading, isAuthenticated, router]);
 
-  // `[` ยุบ/ขยาย sidebar (8.4)
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      if (event.key !== '[' || event.metaKey || event.ctrlKey || event.altKey) return;
-      if (isTypingTarget(event.target)) return;
-      event.preventDefault();
-      toggleSidebar();
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [toggleSidebar]);
-
-  // ⌘K / Ctrl+K เปิด-ปิด command palette (8.3–8.4) — ใช้ได้แม้กำลังพิมพ์อยู่ในช่องอื่น
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      if (event.key.toLowerCase() !== 'k' || !(event.metaKey || event.ctrlKey) || event.altKey)
-        return;
-      event.preventDefault();
-      setPaletteOpen(!useUIStore.getState().paletteOpen);
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [setPaletteOpen]);
+  // ปุ่มลัดทั้งระบบ (8.4): ⌘K n / g… j k ? [ ⌘Z
+  useGlobalShortcuts();
 
   if (isLoading) return <ShellSkeleton />;
   if (!isAuthenticated) return null;
@@ -82,6 +54,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
       <MobileTabBar pathname={pathname} />
       <CommandPalette />
+      <ShortcutsDialog />
     </div>
   );
 }

@@ -582,3 +582,100 @@ test.describe('บันทึกด่วนด้วย NL parser เต็ม
     await expect(page.getByText('บันทึกรายการแล้ว')).toBeVisible();
   });
 });
+
+test.describe('ปุ่มลัดทั้งระบบ (Phase 5 ขั้น 9 · สเปก 8.4)', () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  async function ready(page: import('@playwright/test').Page, path: string, text: string) {
+    await page.goto(path);
+    await expect(page.getByText(text).filter({ visible: true }).first()).toBeVisible({
+      timeout: 15_000,
+    });
+    await page.locator('main').click({ position: { x: 5, y: 5 } }); // โฟกัสออกจากช่องพิมพ์
+  }
+
+  test('? เปิดตารางปุ่มลัด (axe ผ่าน) · g c / g k ไปหน้า', async ({ page }) => {
+    await ready(page, '/today', 'สวัสดีตอนบ่าย Jay');
+    await page.keyboard.press('Shift+?');
+    const dialog = page.getByRole('dialog', { name: 'ปุ่มลัด' });
+    await expect(dialog).toContainText('ไปหน้าปฏิทิน');
+    const results = await new AxeBuilder({ page })
+      .include('dialog')
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze();
+    expect(
+      results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical'),
+    ).toEqual([]);
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+
+    await page.keyboard.press('g');
+    await page.keyboard.press('c');
+    await expect(page).toHaveURL(/\/calendar$/);
+    await page.keyboard.press('g');
+    await page.keyboard.press('k');
+    await expect(page).toHaveURL(/\/tasks$/);
+  });
+
+  test('n โฟกัสช่องสร้างของหน้า · / โฟกัสช่องค้นหา · หน้าที่ไม่มีช่องสร้าง n เปิด palette', async ({
+    page,
+  }) => {
+    await ready(page, '/tasks', 'Re-architect Auth Token refresh flow');
+    await page.keyboard.press('n');
+    await expect(page.getByLabel('ชื่องานใหม่')).toBeFocused();
+    await page.locator('main').click({ position: { x: 5, y: 5 } });
+    await page.keyboard.press('/');
+    await expect(page.locator('[data-shortcut="search"]').filter({ visible: true })).toBeFocused();
+
+    await ready(page, '/calendar', 'Quick Snapshot');
+    await page.keyboard.press('n');
+    await expect(page.getByRole('dialog', { name: 'Command palette' })).toBeVisible();
+  });
+
+  test('j / k เลือกงาน · e เสร็จ · ⌘Z ย้อน · 3 ตั้ง high · x เลือก → ทำเสร็จทั้งชุด', async ({
+    page,
+  }) => {
+    const calls: string[] = [];
+    page.on('request', (r) => {
+      const url = new URL(r.url());
+      if (['POST', 'PATCH'].includes(r.method()) && url.pathname.includes('/entries')) {
+        calls.push(
+          `${r.method()} ${url.pathname.replace(/^.*\/api\/v1/, '')} ${r.postData() ?? ''}`,
+        );
+      }
+    });
+    await ready(page, '/tasks', 'Re-architect Auth Token refresh flow');
+
+    await page.keyboard.press('j');
+    const first = page.locator('[data-shortcut-item]').filter({ visible: true }).first();
+    await expect(first).toBeFocused();
+    await page.keyboard.press('j');
+    await page.keyboard.press('k');
+    await expect(first).toBeFocused();
+
+    await page.keyboard.press('e');
+    await expect.poll(() => calls.at(-1)).toMatch(/^POST \/entries\/e_auth\/complete/);
+    // วิธีย้อนถูกลงทะเบียนเมื่อ server ตอบสำเร็จ (ต้องใช้ version ใหม่) — รอ toast ก่อนกด ⌘Z
+    await expect(page.getByText('เสร็จแล้ว', { exact: true })).toBeVisible();
+    await page.keyboard.press('ControlOrMeta+z');
+    await expect.poll(() => calls.at(-1)).toMatch(/^PATCH \/entries\/e_auth .*"status":"pending"/);
+    await expect(
+      page.getByText('ย้อนกลับแล้ว: เสร็จ: Re-architect Auth Token refresh flow'),
+    ).toBeVisible();
+
+    await first.focus();
+    await page.keyboard.press('3');
+    await expect.poll(() => calls.at(-1)).toMatch(/^PATCH \/entries\/e_auth .*"priority":"high"/);
+
+    await first.focus();
+    await page.keyboard.press('x');
+    await page.keyboard.press('j');
+    await page.keyboard.press('x');
+    const toolbar = page.getByRole('toolbar', { name: 'ทำกับรายการที่เลือก' });
+    await expect(toolbar).toContainText('เลือก 2 รายการ');
+    await toolbar.getByRole('button', { name: 'ทำเสร็จ' }).click();
+    await expect.poll(() => calls.at(-1)).toMatch(/^POST \/entries\/bulk .*"action":"complete"/);
+    await expect(page.getByText('ทำเสร็จ 2 รายการ')).toBeVisible();
+    await expect(toolbar).toBeHidden();
+  });
+});

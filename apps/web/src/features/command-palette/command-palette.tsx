@@ -69,7 +69,10 @@ export function CommandPalette() {
   return (
     <dialog
       ref={ref}
-      onClose={() => setOpen(false)}
+      // event "close" มาแบบ async — ถ้ากด ⌘K เปิดใหม่ก่อน event ของการปิดครั้งก่อนจะมาถึง ต้องไม่ปิดซ้ำ
+      onClose={() => {
+        if (!ref.current?.open) setOpen(false);
+      }}
       onClick={(e) => {
         // คลิกนอกกล่อง (ที่ backdrop) = ปิด
         if (e.target === e.currentTarget) setOpen(false);

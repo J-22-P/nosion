@@ -14,6 +14,9 @@ interface UIState {
   /** Command palette ⌘K (สเปก 8.3) — ไม่ persist: รีเฟรชแล้วปิดเสมอ */
   paletteOpen: boolean;
   setPaletteOpen: (open: boolean) => void;
+  /** หน้าต่างปุ่มลัด "?" (สเปก 8.4) */
+  shortcutsOpen: boolean;
+  setShortcutsOpen: (open: boolean) => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -24,6 +27,8 @@ export const useUIStore = create<UIState>()(
       setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
       paletteOpen: false,
       setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
+      shortcutsOpen: false,
+      setShortcutsOpen: (shortcutsOpen) => set({ shortcutsOpen }),
     }),
     {
       name: 'nosion:ui',

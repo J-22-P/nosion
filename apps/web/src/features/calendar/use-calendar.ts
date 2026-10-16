@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { entriesApi } from '@/features/entries/api';
 import { ApiError } from '@/lib/api-client';
+import { pushUndo } from '@/lib/shortcuts/undo-store';
 import { DEFAULT_TIME_ZONE } from '@/lib/format';
 import { calendarApi } from './api';
 import { CALENDAR_VIEWS, moveTarget, todayIn, viewRange, type CalendarView } from './grid';
@@ -123,6 +124,14 @@ export function useCompleteFromCalendar(from: string, to: string) {
         description: error instanceof ApiError ? error.message : undefined,
       });
     },
+    onSuccess: (done) =>
+      pushUndo({
+        label: `เสร็จ: ${done.title}`,
+        run: () =>
+          entriesApi
+            .update(done.id, { status: 'pending', version: done.version })
+            .finally(() => queryClient.invalidateQueries({ queryKey: ['entries'] })),
+      }),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['entries'] });
     },
@@ -184,8 +193,21 @@ export function useMoveEvent(from: string, to: string, timeZone: string) {
       }
       return { previous };
     },
-    onSuccess: (_entry, { event, toDate }) =>
-      toast.success('ย้ายวันแล้ว', { description: `${event.title} → ${toDate}` }),
+    onSuccess: (moved, { event, toDate }) => {
+      toast.success('ย้ายวันแล้ว', { description: `${event.title} → ${toDate}` });
+      // ⌘Z = ย้ายกลับวันเดิม (ทั้งวันส่งวันที่ล้วน · มีเวลาส่งเวลาเดิม) ด้วย version ใหม่หลังย้าย
+      pushUndo({
+        label: `ย้ายวัน: ${event.title}`,
+        run: () =>
+          entriesApi
+            .update(event.entryId!, {
+              occurredAt: event.allDay ? event.date : event.start,
+              isAllDay: event.allDay,
+              version: moved.version,
+            })
+            .finally(() => queryClient.invalidateQueries({ queryKey: ['entries'] })),
+      });
+    },
     onError: (error, _vars, context) => {
       if (context?.previous) queryClient.setQueryData(key, context.previous);
       const conflict = error instanceof ApiError && error.status === 409;

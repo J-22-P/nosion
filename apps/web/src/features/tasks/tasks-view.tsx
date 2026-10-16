@@ -97,6 +97,7 @@ function SearchBox({ value, onChange }: { value: string; onChange: (value: strin
       <span className="sr-only">ค้นหางาน</span>
       <input
         type="search"
+        data-shortcut="search"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         placeholder="ค้นหางาน…"

@@ -14,8 +14,8 @@
 | 5   | หน้า `/calendar` — month / week / agenda · module filter · day panel · Quick Snapshot                       | `598b289`   | ✅    |
 | 6   | ลากรายการเปลี่ยนวัน (optimistic + rollback)                                                                 | `fe52eef`   | ✅    |
 | 7   | Command Palette ⌘K 3 โหมด (ค้นหา / คำสั่ง / สร้าง) — **DoD**                                                | `a797d05`   | ✅    |
-| 8   | `<QuickCapture>` ใน Tasks/Expenses ใช้ parser เต็ม + chip แก้ได้                                            | (รอ commit) | ✅    |
-| 9   | Keyboard shortcut ครบตาม 8.4 + หน้าต่าง `?`                                                                 | —           | ⬜    |
+| 8   | `<QuickCapture>` ใน Tasks/Expenses ใช้ parser เต็ม + chip แก้ได้                                            | `4e2beca`   | ✅    |
+| 9   | Keyboard shortcut ครบตาม 8.4 + หน้าต่าง `?`                                                                 | (รอ commit) | ✅    |
 | 10  | บท learn 18 + ADR-012 (parser แบบ mask-and-scan)                                                            | —           | ⬜    |
 
 **ค้างฝั่งเจ้าของ (สเปก 8.11.5):** mockup ของ ⌘K และปฏิทินบนมือถือยังไม่มี — ถ้ายังไม่มีตอนถึงขั้น 5/7 จะประกอบจาก token + component ใน 8.7
@@ -292,7 +292,7 @@
 
 ---
 
-## ขั้น 8 · `<QuickCapture>` ของ Tasks / Expenses ใช้ parser เต็ม + chip แก้ได้ — (รอ commit)
+## ขั้น 8 · `<QuickCapture>` ของ Tasks / Expenses ใช้ parser เต็ม + chip แก้ได้ — `4e2beca`
 
 **เป้าหมาย:** แทน regex ก่อน Phase 5 (`!priority #tag +project` เท่านั้น) ด้วย NL parser ตัวเดียวกับ ⌘K ·
 chip ที่ parse ได้แก้ไขได้ (วันที่ เวลา priority แท็ก โปรเจกต์ หมวด) — สเปก 8.11.2 · 8.11.3 · 15 Phase 5
@@ -327,3 +327,43 @@ chip ที่ parse ได้แก้ไขได้ (วันที่ เ�
 - integration +1: รายจ่ายทั่วไป `done` · `payloadPatch` แก้หมวดได้ · หมวดที่ไม่มีจริง 422 · บิล `pending` — API 103 + worker 19
 - **smoke (API จริง) 4/4** — รวมบันทึกงานจากหน้า Tasks ผ่าน `/parse/commit` และบิลรายเดือนจากหน้า Expenses → "ตั้งบิลประจำแล้ว"
 - visual baseline (Docker) 63/63 — 6 ภาพเปลี่ยนเฉพาะ placeholder ของช่องบันทึกด่วน (ตรวจ diff แล้ว) · `pnpm verify` ผ่าน
+
+---
+
+## ขั้น 9 · Keyboard shortcut ครบตาม 8.4 + หน้าต่าง `?` — (รอ commit)
+
+**เป้าหมาย:** ทุกปุ่มในตารางสเปก 8.4 ทำงานจริง และมีหน้าต่างบอกว่ามีปุ่มอะไรบ้าง
+
+**สิ่งที่เปลี่ยน**
+
+- 📁 `apps/web/src/lib/shortcuts/`
+  - `keymap.ts` (pure) — ตาราง `SHORTCUTS` (หน้าต่าง `?` อ่านจากที่นี่) · `createKeyReader()` อ่านปุ่มรวม chord `g` + ปุ่ม (ภายใน 1 วินาที) ·
+    `PRIORITY_BY_DIGIT` (1 ต่ำ → 4 ด่วน ตาม `PRIORITY_ORDER` ของ contracts)
+  - `use-global-shortcuts.ts` — ติดตั้งครั้งเดียวที่ AppShell (แทน handler `[` และ ⌘K เดิม): `⌘K` `n` `/` `g t|k|m|c` `j` `k` `?` `[` `⌘Z`
+  - `undo-store.ts` — stack ย้อนกลับ 20 รายการ (หน่วยความจำ) · ผู้กระทำลงทะเบียนวิธีย้อนตอนสำเร็จ
+- 📁 `components/shell/shortcuts-dialog.tsx` — หน้าต่าง `?` จัดกลุ่ม ทั่วไป / ไปที่ / รายการ
+- 📁 TaskCard — `data-shortcut-item` + `tabIndex` · `e` เสร็จ/เปิดกลับ · `t` พรุ่งนี้ · `x` เลือก · `1–4` ความสำคัญ (ทำงานเมื่อการ์ดเองถูกโฟกัส)
+- 📁 TaskBoard — แถบ "เลือก N รายการ" (ทำเสร็จ / เลื่อนไปพรุ่งนี้ / ลบ / ยกเลิกเลือก) ผ่าน `POST /entries/bulk` ·
+  ⌘Z ของ ติ๊กเสร็จ → เปิดกลับ · เลื่อน → ย้ายกลับวันเดิม · ลบ → `restore` · ความสำคัญ → ค่าเดิม
+- 📁 ปฏิทิน — ⌘Z ของการลากเปลี่ยนวัน (ย้ายกลับ) และติ๊กเสร็จ/จ่ายแล้ว
+- `data-shortcut="new"` บนช่องบันทึกด่วนของ Tasks/Expenses · `data-shortcut="search"` บนช่องค้นหางาน
+- **แก้ race ของ `<dialog>`**: event `close` มาแบบ async — กด ⌘K เปิด palette ใหม่ก่อน event ของการปิดครั้งก่อนมาถึง palette จะถูกปิดทันที ·
+  `onClose` ตั้งสถานะปิดเฉพาะเมื่อ dialog ปิดจริง (palette + หน้าต่าง `?`) — เจอจากเทสต์ ⌘K ที่ล้มเฉพาะตอนเครื่องโหลดหนัก
+
+**การตัดสินใจ**
+
+- **หน้าไม่ต้องลงทะเบียนปุ่ม** — `n` / `/` หา element ที่ติด `data-shortcut` ตัวแรกที่มองเห็น (ช่องเดียวกันมีชุดมือถือ/desktop) ไม่มี = เปิด palette ·
+  `j` / `k` เดินตาม `[data-shortcut-item]` ตามลำดับในหน้า — เพิ่มหน้าใหม่ได้โดยไม่แก้ตัวจัดการปุ่ม
+- ปุ่มระดับรายการอยู่ที่การ์ด (รู้ว่าตัวเองคือรายการไหนและมี handler อยู่แล้ว) · ไม่จับเมื่อโฟกัสอยู่ที่ปุ่มข้างในการ์ด
+- ไม่แย่งปุ่มตอนพิมพ์ (⌘Z ในช่องพิมพ์ = undo ข้อความ) และตอนมี dialog เปิด — ยกเว้น ⌘K
+- **⌘Z ใช้ version ที่ server คืนหลังทำสำเร็จ** จึงลงทะเบียนใน `onSuccess` — กด ⌘Z ก่อน server ตอบ = "ไม่มีอะไรให้ย้อนกลับ"
+  · การทำหลายรายการพร้อมกัน (bulk) ยังย้อนไม่ได้
+- `1–4` = ต่ำ → ด่วน ตาม comment ของ `PRIORITY_ORDER` ("map ปุ่ม 1-4") — ต่างจาก Todoist ที่ p1 สูงสุด
+
+**วิธีตรวจ**
+
+- unit `keymap.test.ts` 5 เคส (chord ภายใน/เกินเวลา · g ตามด้วยปุ่มอื่น · modifier · ตารางครบทุกปุ่มของ 8.4)
+- e2e +3: `?` + axe ของหน้าต่าง · `g c` / `g k` · `n` / `/` โฟกัสช่องของหน้า · ไม่มีช่องสร้าง `n` เปิด palette ·
+  `j`/`k` → `e` (complete) → ⌘Z (PATCH `status: pending`) → `3` (`priority: high`) → `x` สองรายการ → bulk complete
+- UI suite 42/42 สองรอบติด · ใน Linux container (เหมือน CI) เทสต์ปุ่มลัด 10/10 หลังแก้เทสต์ให้รอ toast ก่อน ⌘Z ·
+  visual baseline ไม่เปลี่ยน (65 ผ่าน) · `pnpm verify` ผ่าน

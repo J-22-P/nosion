@@ -1,4 +1,5 @@
 import type {
+  BulkActionInput,
   CreateEntryInput,
   EntryDto,
   Paginated,
@@ -40,6 +41,11 @@ export const entriesApi = {
     apiFetch<EntryDto>(`/entries/${id}/defer${toQuery({ to })}`, { method: 'POST' }),
 
   remove: (id: string) => apiFetch<void>(`/entries/${id}`, { method: 'DELETE' }),
+
+  restore: (id: string) => apiFetch<EntryDto>(`/entries/${id}/restore`, { method: 'POST' }),
+
+  bulk: (input: BulkActionInput) =>
+    apiFetch<{ affected: number }>('/entries/bulk', { method: 'POST', body: input }),
 };
 
 export const projectsApi = {

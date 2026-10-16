@@ -98,6 +98,7 @@ export function QuickCapture() {
           }}
           placeholder="เพิ่มงาน… เช่น ส่งรายงาน พรุ่งนี้ 5 โมง !high #work +q4"
           aria-label="ชื่องานใหม่"
+          data-shortcut="new"
           aria-describedby={hintId}
           maxLength={200}
           className="h-11 min-w-0 flex-1 bg-transparent text-[15px] text-fg outline-none placeholder:text-fg-tertiary"

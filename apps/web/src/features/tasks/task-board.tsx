@@ -2,13 +2,15 @@
 
 import type { EntryDto, Priority } from '@nosion/contracts';
 import { CheckCheck, ListTodo } from 'lucide-react';
-import { useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { TaskListSkeleton } from '@/components/ui/skeleton';
 import { EmptyState, ErrorState, StaleBanner } from '@/components/shared/states';
-import type { EntryFilters } from '@/features/entries/api';
+import { Button } from '@/components/ui/button';
+import { entriesApi, type EntryFilters } from '@/features/entries/api';
 import {
   useCompleteEntry,
   useDeferEntry,
@@ -16,7 +18,9 @@ import {
   useEntries,
   useProjects,
   useReopenEntry,
+  useUpdateEntry,
 } from '@/features/entries/use-entries';
+import { pushUndo } from '@/lib/shortcuts/undo-store';
 import { ApiError } from '@/lib/api-client';
 import { PRIORITY_LABEL } from '@/lib/format';
 import { TaskCard } from './task-card';
@@ -76,6 +80,10 @@ export function TaskBoard({ filters, view }: { filters: EntryFilters; view: Task
   const defer = useDeferEntry(filters);
   const remove = useDeleteEntry(filters);
   const reopen = useReopenEntry();
+  const update = useUpdateEntry(filters);
+  const queryClient = useQueryClient();
+  /** ปุ่มลัด x (สเปก 8.4) — id ที่เลือกไว้สำหรับทำหลายรายการพร้อมกัน */
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const focus = useFocusToday();
   const startTimer = useStartTimer();
   const stopTimer = useStopTimer();
@@ -99,6 +107,10 @@ export function TaskBoard({ filters, view }: { filters: EntryFilters; view: Task
     }
     complete.mutate(entry.id, {
       onSuccess: (updated) => {
+        pushUndo({
+          label: `เสร็จ: ${entry.title}`,
+          run: () => reopen.mutateAsync(updated as EntryDto),
+        });
         toast.success('เสร็จแล้ว', {
           description: entry.title,
           action: {
@@ -110,11 +122,99 @@ export function TaskBoard({ filters, view }: { filters: EntryFilters; view: Task
     });
   }
 
+  /** ⌘Z ของการเลื่อน = ย้ายกลับวันเดิม ด้วย version ที่ server คืนมาหลังเลื่อน */
+  function deferEntry(entry: EntryDto, to: 'tomorrow' | 'next-week') {
+    defer.mutate(
+      { id: entry.id, to },
+      {
+        onSuccess: (moved) =>
+          pushUndo({
+            label: `เลื่อน: ${entry.title}`,
+            run: () =>
+              entriesApi
+                .update(entry.id, {
+                  occurredAt: entry.occurredAt,
+                  isAllDay: entry.isAllDay,
+                  version: (moved as EntryDto).version,
+                })
+                .finally(() => queryClient.invalidateQueries({ queryKey: ['entries'] })),
+          }),
+      },
+    );
+  }
+
+  function deleteEntry(entry: EntryDto) {
+    remove.mutate(entry.id, {
+      onSuccess: () =>
+        pushUndo({
+          label: `ลบ: ${entry.title}`,
+          run: () =>
+            entriesApi
+              .restore(entry.id)
+              .finally(() => queryClient.invalidateQueries({ queryKey: ['entries'] })),
+        }),
+    });
+  }
+
+  function setPriority(entry: EntryDto, priority: EntryDto['priority']) {
+    if (entry.priority === priority) return;
+    update.mutate(
+      { id: entry.id, input: { priority, version: entry.version } },
+      {
+        onSuccess: (changed) => {
+          toast.success(`ความสำคัญ${PRIORITY_LABEL[priority]}`, { description: entry.title });
+          pushUndo({
+            label: `ความสำคัญ: ${entry.title}`,
+            run: () =>
+              entriesApi
+                .update(entry.id, {
+                  priority: entry.priority,
+                  version: (changed as EntryDto).version,
+                })
+                .finally(() => queryClient.invalidateQueries({ queryKey: ['entries'] })),
+          });
+        },
+      },
+    );
+  }
+
+  function toggleSelect(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function bulk(action: 'complete' | 'defer' | 'delete') {
+    const ids = [...selected];
+    try {
+      const { affected } = await entriesApi.bulk({
+        ids,
+        action,
+        ...(action === 'defer' ? { to: 'tomorrow' } : {}),
+      });
+      const verb = { complete: 'ทำเสร็จ', defer: 'เลื่อนไปพรุ่งนี้', delete: 'ลบ' }[action];
+      toast.success(`${verb} ${affected} รายการ`);
+      setSelected(new Set());
+    } catch (error) {
+      toast.error('ทำรายการไม่สำเร็จ', {
+        description: error instanceof ApiError ? error.message : undefined,
+      });
+    } finally {
+      void queryClient.invalidateQueries({ queryKey: ['entries'] });
+    }
+  }
+
   function handlers(entry: EntryDto) {
     return {
       onToggle: () => toggle(entry),
-      onDefer: (to: 'tomorrow' | 'next-week') => defer.mutate({ id: entry.id, to }),
-      onDelete: () => remove.mutate(entry.id),
+      onDefer: (to: 'tomorrow' | 'next-week') => deferEntry(entry, to),
+      onDelete: () => deleteEntry(entry),
+      selected: selected.has(entry.id),
+      onSelect: () => toggleSelect(entry.id),
+      onPriority: (priority: EntryDto['priority']) => setPriority(entry, priority),
       timerRunning: runningEntryId === entry.id,
       onToggleTimer: () =>
         runningEntryId === entry.id ? stopTimer.stop(entry.id) : startTimer.mutate(entry.id),
@@ -202,7 +302,35 @@ export function TaskBoard({ filters, view }: { filters: EntryFilters; view: Task
             )
           }
         />
-        <CardContent>{body}</CardContent>
+        <CardContent>
+          {selected.size > 0 ? (
+            <div
+              role="toolbar"
+              aria-label="ทำกับรายการที่เลือก"
+              className="sticky top-16 z-10 mb-3 flex flex-wrap items-center gap-2 rounded-row bg-primary px-4 py-2.5 text-sm text-primary-fg"
+            >
+              <span className="mr-auto font-medium">เลือก {selected.size} รายการ</span>
+              <Button size="sm" variant="secondary" onClick={() => void bulk('complete')}>
+                ทำเสร็จ
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => void bulk('defer')}>
+                เลื่อนไปพรุ่งนี้
+              </Button>
+              <Button size="sm" variant="danger" onClick={() => void bulk('delete')}>
+                ลบ
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-primary-fg hover:text-primary-fg"
+                onClick={() => setSelected(new Set())}
+              >
+                ยกเลิกเลือก
+              </Button>
+            </div>
+          ) : null}
+          {body}
+        </CardContent>
       </Card>
 
       {doneEntries.length > 0 ? (

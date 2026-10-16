@@ -144,6 +144,7 @@ export function ExpenseCapture() {
             }}
             placeholder="บันทึกด่วนด้วยภาษาธรรมชาติ เช่น ‘กาแฟ 65’, ‘ค่าเน็ต 799 ทุกวันที่ 5’"
             aria-label="บันทึกรายจ่ายด้วยข้อความ"
+            data-shortcut="new"
             aria-describedby={hintId}
             maxLength={200}
             className="h-full min-w-0 flex-1 bg-transparent text-[15px] text-fg outline-none placeholder:text-fg-tertiary"

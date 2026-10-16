@@ -23,6 +23,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Menu } from '@/components/ui/menu';
 import { Progress } from '@/components/ui/progress';
 import { formatDueDate, isOverdueDate, PRIORITY_TONE } from '@/lib/format';
+import { PRIORITY_BY_DIGIT } from '@/lib/shortcuts/keymap';
 
 /** ป้าย priority บน card เป็นอังกฤษตัวใหญ่ตาม mockup — low/none ไม่แสดง (8.11.2) */
 const PRIORITY_CHIP: Partial<Record<EntryDto['priority'], string>> = {
@@ -52,6 +53,11 @@ export interface TaskCardProps {
   /** งานนี้กำลังจับเวลาอยู่หรือไม่ */
   timerRunning?: boolean;
   onToggleTimer?: () => void;
+  /** ปุ่มลัด x — เลือกไว้ทำหลายรายการพร้อมกัน */
+  selected?: boolean;
+  onSelect?: () => void;
+  /** ปุ่มลัด 1–4 */
+  onPriority?: (priority: Exclude<EntryDto['priority'], 'none'>) => void;
 }
 
 /**
@@ -66,6 +72,9 @@ export const TaskCard = memo(function TaskCard({
   onDelete,
   timerRunning = false,
   onToggleTimer,
+  selected = false,
+  onSelect,
+  onPriority,
 }: TaskCardProps) {
   const done = entry.status === 'done';
   const overdue = isOverdueDate(entry.occurredAt, entry.status, entry.isAllDay);
@@ -76,10 +85,32 @@ export const TaskCard = memo(function TaskCard({
   const priorityChip = PRIORITY_CHIP[entry.priority];
   const deferCount = payload?.deferCount ?? 0;
 
+  /**
+   * ปุ่มลัดระดับรายการ (สเปก 8.4) — ทำงานเมื่อการ์ดเองถูกโฟกัส (เลื่อนมาด้วย j / k หรือ Tab)
+   * ไม่จับเมื่อโฟกัสอยู่ที่ปุ่มข้างใน — Enter/Space ของปุ่มต้องทำงานตามปกติ
+   */
+  function onKeyDown(event: React.KeyboardEvent<HTMLLIElement>) {
+    if (event.target !== event.currentTarget) return;
+    if (event.metaKey || event.ctrlKey || event.altKey) return;
+    const digit = PRIORITY_BY_DIGIT[event.key as keyof typeof PRIORITY_BY_DIGIT];
+    if (event.key === 'e') onToggle();
+    else if (event.key === 't' && !done) onDefer('tomorrow');
+    else if (event.key === 'x' && onSelect) onSelect();
+    else if (digit && onPriority && !done) onPriority(digit);
+    else return;
+    event.preventDefault();
+  }
+
   return (
     <li
+      data-shortcut-item
+      tabIndex={0}
+      onKeyDown={onKeyDown}
+      aria-label={`${entry.title}${selected ? ' (เลือกอยู่)' : ''}`}
       className={cn(
         'group relative flex gap-3 rounded-row bg-sunken p-4 transition-colors duration-[180ms] hover:bg-wash-active',
+        'focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] focus-visible:ring-2 focus-visible:ring-accent',
+        selected && 'ring-2 ring-accent',
         'max-md:flex-wrap',
       )}
     >

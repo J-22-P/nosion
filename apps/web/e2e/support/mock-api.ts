@@ -91,6 +91,22 @@ export async function mockApi(page: Page, options: { authenticated?: boolean } =
     }
     if (method === 'GET' && path === '/calendar/feed') return json(CALENDAR_FEED);
     if (method === 'POST' && path === '/entries/t_c4/complete') return json({ id: 't_c4' });
+    // การกระทำกับ entry (ปุ่มลัด e / t / 1–4 / x / ⌘Z) — คืน entry ที่ version เพิ่มขึ้น
+    const entryAction = /^\/entries\/([^/]+)(?:\/(complete|defer|restore))?$/.exec(path);
+    if (entryAction && (method === 'POST' || method === 'PATCH') && path !== '/entries/bulk') {
+      const found = [...ACTIVE_TASKS, ...DONE_TASKS, ...EXPENSES].find(
+        (e) => e.id === entryAction[1],
+      );
+      if (found) {
+        const patch = method === 'PATCH' ? (route.request().postDataJSON() as object) : {};
+        const status = entryAction[2] === 'complete' ? 'done' : found.status;
+        return json({ ...found, ...patch, status, version: found.version + 1 });
+      }
+    }
+    if (method === 'POST' && path === '/entries/bulk') {
+      const { ids } = route.request().postDataJSON() as { ids: string[] };
+      return json({ affected: ids.length });
+    }
     if (method === 'GET' && path === '/push/config')
       return json({ publicKey: 'BTestVapidPublicKey' });
     if (method === 'POST' && path === '/recurrence-rules/materialize') {
