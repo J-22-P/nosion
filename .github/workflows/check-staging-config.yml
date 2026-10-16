@@ -89,4 +89,3 @@ jobs:
             | tee errors.txt | head -300
           echo "### API 5xx ย้อนหลัง $SINCE — $(grep -c . errors.txt || true) บรรทัด" >> "$GITHUB_STEP_SUMMARY"
           rm -f errors.txt .vercel/.env.production.local
-
