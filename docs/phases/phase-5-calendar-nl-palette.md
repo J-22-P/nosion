@@ -6,18 +6,18 @@
 
 ## แผน (ปรับได้ระหว่างทาง)
 
-| #   | ขั้น                                                                                                        | Commit      | สถานะ |
-| --- | ----------------------------------------------------------------------------------------------------------- | ----------- | ----- |
-| 1   | NL Parser กลาง `@nosion/core/nl` (ไทย + อังกฤษ) + table-driven test 80 เคส                                  | `7d94b1f`   | ✅    |
-| 2   | โมดูล task/expense ใช้ parser กลาง · `POST /parse` วนทุกโมดูล + `POST /parse/commit` (entry + rule + เตือน) | `bc6d4b9`   | ✅    |
-| 3   | Calendar Aggregator `GET /calendar` (+ `countsByModule`, การเตือนของวัน, `calendarActions()`)               | `9ebcf05`   | ✅    |
-| 4   | iCal feed `GET /calendar/:token.ics` + rotate token                                                         | `bf26ac8`   | ✅    |
-| 5   | หน้า `/calendar` — month / week / agenda · module filter · day panel · Quick Snapshot                       | `598b289`   | ✅    |
-| 6   | ลากรายการเปลี่ยนวัน (optimistic + rollback)                                                                 | `fe52eef`   | ✅    |
-| 7   | Command Palette ⌘K 3 โหมด (ค้นหา / คำสั่ง / สร้าง) — **DoD**                                                | `a797d05`   | ✅    |
-| 8   | `<QuickCapture>` ใน Tasks/Expenses ใช้ parser เต็ม + chip แก้ได้                                            | `4e2beca`   | ✅    |
-| 9   | Keyboard shortcut ครบตาม 8.4 + หน้าต่าง `?`                                                                 | `5cfdb27`   | ✅    |
-| 10  | บท learn 18 + ADR-012 (parser แบบ mask-and-scan)                                                            | (รอ commit) | ✅    |
+| #   | ขั้น                                                                                                        | Commit    | สถานะ |
+| --- | ----------------------------------------------------------------------------------------------------------- | --------- | ----- |
+| 1   | NL Parser กลาง `@nosion/core/nl` (ไทย + อังกฤษ) + table-driven test 80 เคส                                  | `7d94b1f` | ✅    |
+| 2   | โมดูล task/expense ใช้ parser กลาง · `POST /parse` วนทุกโมดูล + `POST /parse/commit` (entry + rule + เตือน) | `bc6d4b9` | ✅    |
+| 3   | Calendar Aggregator `GET /calendar` (+ `countsByModule`, การเตือนของวัน, `calendarActions()`)               | `9ebcf05` | ✅    |
+| 4   | iCal feed `GET /calendar/:token.ics` + rotate token                                                         | `bf26ac8` | ✅    |
+| 5   | หน้า `/calendar` — month / week / agenda · module filter · day panel · Quick Snapshot                       | `598b289` | ✅    |
+| 6   | ลากรายการเปลี่ยนวัน (optimistic + rollback)                                                                 | `fe52eef` | ✅    |
+| 7   | Command Palette ⌘K 3 โหมด (ค้นหา / คำสั่ง / สร้าง) — **DoD**                                                | `a797d05` | ✅    |
+| 8   | `<QuickCapture>` ใน Tasks/Expenses ใช้ parser เต็ม + chip แก้ได้                                            | `4e2beca` | ✅    |
+| 9   | Keyboard shortcut ครบตาม 8.4 + หน้าต่าง `?`                                                                 | `5cfdb27` | ✅    |
+| 10  | บท learn 18 + ADR-012 (parser แบบ mask-and-scan)                                                            | `c54d778` | ✅    |
 
 **ค้างฝั่งเจ้าของ (สเปก 8.11.5):** mockup ของ ⌘K และปฏิทินบนมือถือยังไม่มี — ถ้ายังไม่มีตอนถึงขั้น 5/7 จะประกอบจาก token + component ใน 8.7
 ตาม pattern ของหน้าที่มี mockup แล้ว และบันทึกไว้ในขั้นนั้น
@@ -371,7 +371,7 @@ chip ที่ parse ได้แก้ไขได้ (วันที่ เ�
 
 ---
 
-## ขั้น 10 · บท learn 18 + ADR-012 — (รอ commit)
+## ขั้น 10 · บท learn 18 + ADR-012 — `c54d778`
 
 - 📁 `docs/learn/18-phase5-nl-parser-calendar-and-palette.md` — 10 หัวข้อ: rule-based vs LLM · mask-and-scan + ขอบคำไทย/อังกฤษ + เวลาแบบไทย ·
   "พรุ่งนี้" ตามโซน · parser แยกชิ้น/โมดูลตีความ · ปฏิทิน query เดียว + projected · iCal · ลากเปลี่ยนวัน (optimistic, version, DST) ·
@@ -382,6 +382,22 @@ chip ที่ parse ได้แก้ไขได้ (วันที่ เ�
 
 ## สรุป Phase 5
 
-- **DoD ผ่าน** บนเครื่อง (smoke กับ API + DB จริง) · ยังไม่ขึ้น staging — 10 commit รอ push
-- สิ่งที่เจ้าของต้องทำ: push → ลองบน staging (⌘K, ปฏิทิน, subscribe iCal ใน Google/Apple Calendar ซึ่งต้องใช้ URL สาธารณะ) · mockup ⌘K / ปฏิทินมือถือยังไม่มี
-- ต่อไป: Phase 6 (Workout + Habit — "พิสูจน์สถาปัตยกรรม": parser, ปฏิทิน, ⌘K ต้องรองรับโมดูลใหม่โดยไม่แก้ core)
+- **DoD ผ่าน** ทั้งบนเครื่อง (smoke กับ API + DB จริง) และบน staging (ด้านล่าง)
+- ค้างฝั่งเจ้าของ: ลองบนมือถือจริง (⌘K, ปฏิทินแบบ agenda) · subscribe iCal ใน Google/Apple Calendar · mockup ⌘K / ปฏิทินมือถือยังไม่มี
+- Phase 6 ยังไม่เริ่ม (เจ้าของสั่งพักไว้ 16 ต.ค. 2026)
+
+### ขึ้น staging (16 ต.ค. 2026) — สิ่งที่เจอ
+
+- **CI แดงรอบแรก — Prettier 2 ไฟล์** (`parser.service.spec.ts`, `parse.service.ts`) · `pnpm verify` บนเครื่องไม่ได้ผ่านจริงในขั้น 8–9:
+  `verify` = `lint && format:check && …` — `format:check` ล้มแล้วหยุด แต่บรรทัด "Tasks: 12 successful" ที่ใช้ดูผลมาจาก `lint` (ขั้นแรก) ·
+  แก้ `25c5cce` · บทเรียน: ตรวจ **exit code** ของ verify ไม่ใช่หาบรรทัดสรุป
+- **Deploy staging ล้มที่ migrate สองรอบ** — `FATAL: (EMAXCONNSESSION) max clients reached in session mode - max clients are limited to pool_size: 15`
+  (Supabase Session pooler :5432) · ไม่ใช่ API (ใช้ Transaction pooler :6543 — `/readyz` ยังตอบ database: true ระหว่างนั้น) และไม่ใช่ worker
+  (ไม่เคย deploy — ไม่มี `FLY_API_TOKEN`) · รอราว 5 นาทีแล้ว rerun ผ่าน → น่าจะเป็น connection ค้างที่หมดอายุเอง **ยังไม่รู้ว่าใครถือ** —
+  ถ้าเกิดซ้ำให้ดู Supabase → Database → Connections (`pg_stat_activity` ของ role ที่ใช้ :5432)
+- Phase 5 ไม่มี migration (คอลัมน์ `calendarFeedToken` มีตั้งแต่ init)
+
+**ตรวจบน staging จริง** (demo ผ่าน URL ของเว็บ): หน้า `/calendar` 200 · `POST /parse/commit` "ค่าเน็ต 799 ทุกวันที่ 5" → expense + กฎ
+`FREQ=MONTHLY;BYMONTHDAY=5` + เตือน −900 · `GET /calendar` 40 วัน → บิลวันที่ 5 `hasReminder: true` · `Server-Timing: calendar;dur=57.6`
+ผ่าน proxy ของเว็บ (บรรทัด Sync latency แสดงได้) · ลิงก์ iCal ใช้โดเมนสาธารณะ `nosion-staging-web.vercel.app` → `.ics` 200 `text/calendar` 21 event ·
+smoke ของ workflow (demo login) ผ่าน
