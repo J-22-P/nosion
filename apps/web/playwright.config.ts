@@ -22,8 +22,11 @@ export default defineConfig({
     toHaveScreenshot: {
       animations: 'disabled',
       caret: 'hide',
-      // anti-alias ของฟอนต์ต่างกันเล็กน้อยได้ — เกิน 1% ของพิกเซลถือว่าหน้าตาเปลี่ยนจริง
-      maxDiffPixelRatio: 0.01,
+      // เกิน 0.2% ของพิกเซล = หน้าตาเปลี่ยนจริง (สเปก Phase 8)
+      maxDiffPixelRatio: 0.002,
+      // พิกเซลไหน "ต่าง" — ค่าเริ่มต้น 0.2 หยาบเกิน: chip สีจางที่เพิ่มใหม่นับได้แค่ ~80 พิกเซล
+      // วัดจริง (Phase 8 ขั้น 1): ภาพจาก runner สองรอบไม่ต่างกันเลยแม้ที่ 0.02 → 0.05 เผื่อไว้ยังไม่มี noise
+      threshold: 0.05,
     },
   },
   use: {

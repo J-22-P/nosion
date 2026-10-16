@@ -5,14 +5,14 @@
 
 ## แผน (ปรับได้ระหว่างทาง)
 
-| #   | ขั้น                                                                                                                      | Commit      | สถานะ |
-| --- | ------------------------------------------------------------------------------------------------------------------------- | ----------- | ----- |
-| 1   | API: `POST /sync/push` (create/update/complete/defer/delete/restore/parse · merge ระดับ field · ลบชนะ) + `GET /sync/pull` | `5ccaee7`   | ✅    |
-| 2   | เว็บ: outbox ใน IndexedDB + ตัวซิงก์ (online/โฟกัส/ปุ่ม) · mutation ของรายการเข้า outbox เมื่อออฟไลน์                     | `d80a172`   | ✅    |
-| 3   | เปิดแอปตอนออฟไลน์: เก็บ cache ของ TanStack Query ลง IndexedDB · service worker แคชหน้า + static · Background Sync         | `59f8687`   | ✅    |
-| 4   | UI สถานะ: connection pill 3 สถานะ · Sync Status ใน sidebar · `MUT: n` · การ์ด Outbox · จุด "รอซิงก์" · แจ้ง conflict      | `989a243`   | ✅    |
-| 5   | E2E: ตัดเน็ต → สร้าง 3 รายการ → ต่อเน็ต → ครบไม่ซ้ำ (mock + API จริง) · PWA ติดตั้งได้                                    | `7f404e7`   | ✅    |
-| 6   | บท learn 20 + ADR-014                                                                                                     | (รอ commit) | ✅    |
+| #   | ขั้น                                                                                                                      | Commit    | สถานะ |
+| --- | ------------------------------------------------------------------------------------------------------------------------- | --------- | ----- |
+| 1   | API: `POST /sync/push` (create/update/complete/defer/delete/restore/parse · merge ระดับ field · ลบชนะ) + `GET /sync/pull` | `5ccaee7` | ✅    |
+| 2   | เว็บ: outbox ใน IndexedDB + ตัวซิงก์ (online/โฟกัส/ปุ่ม) · mutation ของรายการเข้า outbox เมื่อออฟไลน์                     | `d80a172` | ✅    |
+| 3   | เปิดแอปตอนออฟไลน์: เก็บ cache ของ TanStack Query ลง IndexedDB · service worker แคชหน้า + static · Background Sync         | `59f8687` | ✅    |
+| 4   | UI สถานะ: connection pill 3 สถานะ · Sync Status ใน sidebar · `MUT: n` · การ์ด Outbox · จุด "รอซิงก์" · แจ้ง conflict      | `989a243` | ✅    |
+| 5   | E2E: ตัดเน็ต → สร้าง 3 รายการ → ต่อเน็ต → ครบไม่ซ้ำ (mock + API จริง) · PWA ติดตั้งได้                                    | `7f404e7` | ✅    |
+| 6   | บท learn 20 + ADR-014                                                                                                     | `d9b5a99` | ✅    |
 
 **ขอบเขต:** รายการ (งาน · รายจ่าย) และบันทึกด่วนผ่าน parser ทำงานออฟไลน์ได้ · ปุ่ม +1 ของนิสัยยังต้องออนไลน์
 (เป็นการบวกแบบ atomic ฝั่ง server — ดูขั้น 2 ว่าจะรวมได้ไหม)
@@ -186,7 +186,7 @@
 
 - smoke 5/5 (API จริง) · ui 55/55 (`--workers=2`) · `pnpm verify` exit 0
 
-## ขั้น 6 · บท learn 20 + ADR-014 — (รอ commit)
+## ขั้น 6 · บท learn 20 + ADR-014 — `d9b5a99`
 
 - 📁 `docs/learn/20-phase7-offline-sync.md` — สามชั้น · idempotency (ตารางว่าอะไรพังเมื่อส่งซ้ำ) · three-way merge จาก base · ทางแยกเดียว + `networkMode` ·
   สี่อย่างที่ต้องมาจากในเครื่อง (HTML/JS/ข้อมูล/ตัวตน) · UI ที่บอกความจริง · บั๊กสามตัวที่ทำให้จอค้าง · แบบฝึกหัด 8 ข้อ
