@@ -3,6 +3,7 @@
 > เป้าหมายที่แท้จริง: **พิสูจน์สถาปัตยกรรม** — เพิ่มโมดูลใหม่แล้ว Today, Calendar, Review, ⌘K รองรับทันทีโดยแก้ `core/` 0 บรรทัด (สเปก 15 Phase 6)
 > **ขอบเขตใหม่ (เจ้าของสั่ง 16 ต.ค. 2026):** ทำเฉพาะ **HabitModule** · ตัด WorkoutModule — เมนู "ออกกำลังกาย" คงไว้เป็น "เร็ว ๆ นี้"
 > (ตรงกับทางตัดในสเปก: "Phase 6 (เหลือแค่ Habit)") · ทำต่อ Phase 7 → 8
+> ความรู้เบื้องหลัง: [บท 19](../learn/19-phase6-habit-and-plugin-proof.md) · [ADR-013](../adr/013-habit-as-recurrence-rule.md)
 > **DoD (ปรับ):** เขียนใน README ได้ว่า _"เพิ่มโมดูลใหม่ (Habit ≈ N บรรทัด) โดยแก้โค้ดใน `core/` 0 บรรทัด — Today, Calendar, Review, ⌘K รองรับทันทีโดยอัตโนมัติ"_
 
 ## แผน (ปรับได้ระหว่างทาง)
@@ -82,7 +83,7 @@
 
 ---
 
-## ขั้น 5 · demo มีนิสัย · นับบรรทัดที่แก้ใน `core/` · README — (รอ commit)
+## ขั้น 5 · demo มีนิสัย · นับบรรทัดที่แก้ใน `core/` · README — `cb182b6`
 
 - 📁 `auth/demo/` — นิสัย 4 ตัว (ดื่มน้ำ 5/8 · อ่านหนังสือทำแล้ว · นอนก่อน 23:45 · วิ่ง 3 ครั้ง/สัปดาห์) พร้อมประวัติ 14 วัน + รอบล่วงหน้า 7 วัน ·
   `materializedUntil` ตั้งตามรอบสุดท้าย — cron/ปุ่ม Materialize สร้างต่อเองเหมือนกฎของผู้ใช้จริง · บัญชี demo เปิดโมดูลนิสัยให้
@@ -96,3 +97,17 @@
   | เว็บ `features/habits`                           | 832 (หน้า `/habits` + การ์ด Today — UI ของโมดูลเป็นของโมดูล)       |
 - README: สถานะ Phase 0–6 · สิ่งที่ใช้งานได้ · ตัวเลขข้างบนในหัวข้อ Plugin Architecture · checklist ของแผน
 - ตรวจ: unit demo 18 (+1) · integration "บัญชี demo: 4 นิสัยพร้อม streak ตามประวัติ (4 · 15 · 2 · …) และ Today มีการ์ดนิสัย" — API 111 + worker 19
+
+---
+
+## ขั้น 6 · บท learn 19 + ADR-013 — (รอ commit)
+
+- 📁 `docs/learn/19-phase6-habit-and-plugin-proof.md` — 7 หัวข้อ (วัด 0 บรรทัด · นิสัย = กฎ · streak · +1 พร้อมกัน · Review + ISO week · โมดูลเปิด/ปิด · demo มีประวัติ)
+  พร้อม ⚠️ 🎤 ข้อเสีย และแบบฝึกหัด 8 ข้อ · 📁 `docs/adr/013-habit-as-recurrence-rule.md` · สารบัญ + อภิธานศัพท์ 6 คำ
+
+## สรุป Phase 6
+
+- **DoD ผ่าน:** README เขียนได้ว่า _"เพิ่ม HabitModule (API 662 บรรทัด) โดยแก้ `core/` 0 บรรทัด — Today, ปฏิทิน, Review, ⌘K รองรับทันที"_
+- ⚠️ **ค้าง: visual baseline** (Today มีการ์ดนิสัย · ตั้งค่ามีการ์ดโมดูล · หน้าใหม่ `/habits` `/review`) — สร้างใน container Playwright บน colima
+  ซึ่งต้องใช้ดิสก์หลาย GB แต่ Mac เหลือ ~7 GB (97%) · ถ้า push ก่อนสร้าง CI job "UI · visual + a11y" จะแดงที่ภาพ Today/ตั้งค่า
+- ยังไม่ push · ต่อไป Phase 7 (Offline sync)

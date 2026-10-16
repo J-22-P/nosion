@@ -39,6 +39,7 @@
 | [16](./16-phase3-recurrence-floating-time-and-materialization.md) | **Phase 3** · RRULE, floating time, DST, clamp วันสิ้นเดือน, lazy materialization, idempotency, cron                                     | หลังอ่าน 15  |
 | [17](./17-phase4-reminders-push-email-and-worker.md)              | **Phase 4** · outbox + sweeper, at-least-once, quiet hours, Web Push/VAPID, action token, อีเมล, digest ตามโซน, metrics/alert            | หลังอ่าน 16  |
 | [18](./18-phase5-nl-parser-calendar-and-palette.md)               | **Phase 5** · NL parser mask-and-scan, ไทยไม่เว้นวรรค, ปฏิทินรวม + projected, iCal RFC 5545, optimistic + DST, ⌘K combobox, ปุ่มลัด/undo | หลังอ่าน 17  |
+| [19](./19-phase6-habit-and-plugin-proof.md)                       | **Phase 6** · วัด "แก้ core 0 บรรทัด", นิสัย = กฎการเกิดซ้ำ, streak, +1 พร้อมกันไม่หาย (atomic UPDATE), Weekly Review, ISO week          | หลังอ่าน 18  |
 | [08](./08-testing-and-quality.md)                                 | การทดสอบและคุณภาพ: pyramid, unit/integration/e2e, coverage, CI gate                                                                      | ท้ายสุด      |
 | [09](./09-glossary.md)                                            | อภิธานศัพท์ — เปิดหาเวลาเจอคำที่ไม่รู้จัก                                                                                                | ใช้อ้างอิง   |
 

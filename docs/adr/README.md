@@ -3,17 +3,18 @@
 บันทึกว่า "ทำไมถึงตัดสินใจแบบนี้" ไม่ใช่ "ทำอะไรไปบ้าง"
 เอกสารแต่ละฉบับต้องอ่านจบใน 3 นาที และต้องมีข้อเสียที่ยอมรับไว้เสมอ
 
-| #                                                   | หัวข้อ                                   | สถานะ      |
-| --------------------------------------------------- | ---------------------------------------- | ---------- |
-| [001](./001-separate-nestjs-from-nextjs.md)         | แยก NestJS ออกจาก Next.js API Routes     | ยอมรับแล้ว |
-| [002](./002-sse-over-websocket.md)                  | ใช้ SSE แทน WebSocket                    | ยอมรับแล้ว |
-| [003](./003-jsonb-payload.md)                       | เก็บ payload ของโมดูลเป็น JSONB          | ยอมรับแล้ว |
-| [004](./004-argon2id.md)                            | ใช้ Argon2id แทน bcrypt                  | ยอมรับแล้ว |
-| [005](./005-refresh-token-rotation.md)              | Refresh token rotation + reuse detection | ยอมรับแล้ว |
-| [006](./006-architecture-boundaries-as-lint.md)     | บังคับกฎสถาปัตยกรรมด้วย lint             | ยอมรับแล้ว |
-| [009](./009-monochrome-design-system-dual-theme.md) | Monochrome design system + dual theme    | ยอมรับแล้ว |
-| [010](./010-floating-time-and-month-end-clamp.md)   | Floating time + clamp วันสิ้นเดือน       | ยอมรับแล้ว |
-| [011](./011-reminders-outbox-polling.md)            | การเตือน: PostgreSQL + sweeper (outbox)  | ยอมรับแล้ว |
-| [012](./012-nl-parser-mask-and-scan.md)             | NL parser mask-and-scan ชุดเดียว FE/BE   | ยอมรับแล้ว |
+| #                                                   | หัวข้อ                                      | สถานะ      |
+| --------------------------------------------------- | ------------------------------------------- | ---------- |
+| [001](./001-separate-nestjs-from-nextjs.md)         | แยก NestJS ออกจาก Next.js API Routes        | ยอมรับแล้ว |
+| [002](./002-sse-over-websocket.md)                  | ใช้ SSE แทน WebSocket                       | ยอมรับแล้ว |
+| [003](./003-jsonb-payload.md)                       | เก็บ payload ของโมดูลเป็น JSONB             | ยอมรับแล้ว |
+| [004](./004-argon2id.md)                            | ใช้ Argon2id แทน bcrypt                     | ยอมรับแล้ว |
+| [005](./005-refresh-token-rotation.md)              | Refresh token rotation + reuse detection    | ยอมรับแล้ว |
+| [006](./006-architecture-boundaries-as-lint.md)     | บังคับกฎสถาปัตยกรรมด้วย lint                | ยอมรับแล้ว |
+| [009](./009-monochrome-design-system-dual-theme.md) | Monochrome design system + dual theme       | ยอมรับแล้ว |
+| [010](./010-floating-time-and-month-end-clamp.md)   | Floating time + clamp วันสิ้นเดือน          | ยอมรับแล้ว |
+| [011](./011-reminders-outbox-polling.md)            | การเตือน: PostgreSQL + sweeper (outbox)     | ยอมรับแล้ว |
+| [012](./012-nl-parser-mask-and-scan.md)             | NL parser mask-and-scan ชุดเดียว FE/BE      | ยอมรับแล้ว |
+| [013](./013-habit-as-recurrence-rule.md)            | นิสัย = กฎการเกิดซ้ำ + นับด้วย UPDATE เดียว | ยอมรับแล้ว |
 
 > ADR-007 และ 008 จองไว้ตามสเปกภาคผนวก (ยังไม่เขียน)
