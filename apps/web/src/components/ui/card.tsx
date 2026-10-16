@@ -59,8 +59,16 @@ export function CardHeader({
   );
 }
 
-export function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
-  return <h3 className={cn('text-base font-semibold leading-snug', className)} {...props} />;
+/**
+ * หัวการ์ด — ค่าเริ่มต้น h2: การ์ดวางตรงใต้ h1 ของหน้า (h1 → h3 ข้ามระดับ = axe/Lighthouse `heading-order`)
+ * การ์ดที่ซ้อนอยู่ใต้หัวข้อ h2 อีกชั้นส่ง `as="h3"`
+ */
+export function CardTitle({
+  className,
+  as: Heading = 'h2',
+  ...props
+}: React.HTMLAttributes<HTMLHeadingElement> & { as?: 'h2' | 'h3' }) {
+  return <Heading className={cn('text-base font-semibold leading-snug', className)} {...props} />;
 }
 
 export function CardDescription({

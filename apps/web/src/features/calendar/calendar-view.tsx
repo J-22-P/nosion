@@ -157,7 +157,13 @@ export function CalendarView() {
         </div>
       </header>
 
-      <div role="group" aria-label="กรองตามโมดูล" className="flex flex-wrap items-center gap-2">
+      {/* chip ของแต่ละโมดูลมาพร้อมข้อมูล (1 → 4 อัน) — มือถือให้เป็นแถวเดียวเลื่อนแนวนอน ความสูงคงที่
+          ไม่งั้นขึ้นบรรทัดใหม่ตอนข้อมูลมาแล้วดันปฏิทินลง (CLS 0.53 · Lighthouse Phase 8) */}
+      <div
+        role="group"
+        aria-label="กรองตามโมดูล"
+        className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] md:mx-0 md:flex-wrap md:overflow-visible md:px-0 md:pb-0"
+      >
         <Chip selected={state.modules === null} onClick={() => state.setModules(null)}>
           ทั้งหมด <span className="font-mono">{total}</span>
         </Chip>

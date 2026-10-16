@@ -12,7 +12,9 @@ const inter = Inter({
 });
 
 const plexThai = IBM_Plex_Sans_Thai({
-  subsets: ['thai', 'latin'],
+  // เฉพาะชุดอักษรไทย — ตัวละตินใช้ Inter (อยู่ก่อนใน font stack) ชุด latin ของ Plex จึงไม่เคยถูกใช้
+  // ตัดแล้วไฟล์ที่ preload หน้าแรกลด 4 ไฟล์ (Lighthouse LCP มือถือ · Phase 8 ขั้น 2)
+  subsets: ['thai'],
   weight: ['400', '500', '600', '700'],
   display: 'swap',
   variable: '--font-plex-thai',
@@ -20,6 +22,8 @@ const plexThai = IBM_Plex_Sans_Thai({
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
+  // ใช้กับ chip/ตัวเลขเล็ก ๆ — ไม่ต้องแย่งเน็ตตอนโหลดหน้าแรก (ยังโหลดเมื่อหน้าต้องใช้)
+  preload: false,
   display: 'swap',
   variable: '--font-jetbrains-mono',
 });

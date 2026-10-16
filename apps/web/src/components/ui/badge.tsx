@@ -44,7 +44,7 @@ export const Chip = React.forwardRef<
     type={type}
     aria-pressed={selected}
     className={cn(
-      'inline-flex h-7 items-center gap-1.5 rounded-chip border px-3 text-[13px] font-medium',
+      'inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-chip border px-3 text-[13px] font-medium',
       'transition-colors duration-[180ms] ease-standard focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]',
       selected
         ? 'border-transparent bg-primary text-primary-fg'

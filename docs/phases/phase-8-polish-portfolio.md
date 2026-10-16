@@ -35,7 +35,7 @@
 
 ---
 
-## ขั้น 1 · Visual regression ตามเกณฑ์สเปก — (รอ commit)
+## ขั้น 1 · Visual regression ตามเกณฑ์สเปก — `70b9cfa`
 
 **สิ่งที่เปลี่ยน:** `playwright.config.ts` — `maxDiffPixelRatio` 1% → **0.2%** · เพิ่ม `threshold: 0.05` (เกณฑ์ว่าพิกเซลไหน "ต่าง" · ค่าเริ่มต้น 0.2)
 
@@ -57,3 +57,51 @@
 - baseline เดิมผ่านเกณฑ์ใหม่ทุกภาพ (ต่าง 0 พิกเซลที่ 0.02) — ไม่ต้องสร้างใหม่
 
 **วิธีตรวจ:** comparator ของ Playwright (ตารางบน) · CI รอบ push ท้าย phase
+
+## ขั้น 2 · Lighthouse ≥ 90 ทุกหน้าหลัก — (รอ commit)
+
+**วิธีวัด:** 📁 `apps/web/scripts/lighthouse.mjs` — Lighthouse user flow (puppeteer + Chromium ของ Playwright) · หน้าสาธารณะ 2 หน้า →
+demo login ครั้งเดียว → หน้าแอป 6 หน้า โดยไม่ล้าง storage (refresh cookie ต้องอยู่) · ตรวจว่า **หน้าที่ไปถึงจริง** ตรงกับที่ตั้งใจ (หลุดไป `/login` = วัดผิดหน้า) ·
+มือถือ (จำลองเน็ต/CPU ช้า) และ desktop · ใน CI: job `lighthouse` ต่อจาก smoke ใน `deploy-staging.yml` + เก็บรายงาน HTML เป็น artifact
+
+**รอบแรก (staging · มือถือ)**
+
+| หน้า                    | perf   | a11y | best-practices | หมายเหตุ                         |
+| ----------------------- | ------ | ---- | -------------- | -------------------------------- |
+| `/`                     | 78     | 100  | 100            | LCP 3.1 วิ · TBT 580ms           |
+| `/today` `/tasks`       | 97–100 | 98   | 96             | `heading-order` · 500 ใน console |
+| `/expenses` … `/review` | —      | —    | —              | **หลุดไป `/login` ทุกหน้า**      |
+
+**สิ่งที่พบและแก้ (สามข้อแรกเป็นบั๊กจริงที่ผู้ใช้เจอได้)**
+
+1. **refresh token ถูกมองว่าขโมย เมื่อคำตอบไปไม่ถึง** — Lighthouse เปลี่ยนหน้าระหว่างที่หน้าเดิมกำลังหมุน token → cookie ไม่ถูกอัปเดต → ส่งใบเก่าซ้ำ
+   → server เพิกถอนทุกอุปกรณ์ + ส่งอีเมล "ตรวจพบกิจกรรมน่าสงสัย" · ผู้ใช้จริงเจอได้จาก **เปิดสองแท็บพร้อมกัน / รีเฟรชระหว่างหมุน / เน็ตมือถือหลุด** ·
+   แก้: ใบที่เพิ่งถูกหมุน (`rotated`) ไม่เกิน **20 วิ** → ออกใบใหม่ใน family เดิม · พ้นช่วงยังถือเป็นการใช้ซ้ำ (integration test ครอบทั้งสองฝั่ง)
+2. **staging API ล่มทั้งตัว ~15 นาที** — ตามหา 500 ใน console ด้วยการยิงคำขอพร้อมกัน 12 ตัว × หลายรอบ (**ผมเป็นคนทำให้ล่ม**) → ทุก instance ใหม่ของ Vercel
+   ตายตอนบูต (`FUNCTION_INVOCATION_FAILED` ~1.8 วิ) จนกว่า instance เก่าที่ถือ connection จะหมดอายุ · ต้นเหตุในโค้ด: `PrismaService.onModuleInit` รอ `$connect()`
+   — ต่อ DB ไม่ได้ = ทั้ง process ล้ม แล้ว Vercel เปิด instance ใหม่มาลองซ้ำ (connection ยิ่งแน่น) · แก้: ต่อไม่ได้ตอนบูตแค่ log (Prisma ต่อเองตอน query แรก) ·
+   **ยังต้องให้เจ้าของตรวจ** `DATABASE_URL` บน Vercel ว่าเป็น transaction pooler `:6543?pgbouncer=true&connection_limit=1` ตามคู่มือ
+3. precache ของ SW (Phase 7) เริ่มทุกหน้า แม้ผู้เข้าชมยังไม่ล็อกอิน → ดึง ~60 ไฟล์ระหว่างหน้าแรกโหลด · แก้: precache เฉพาะเมื่อล็อกอินแล้ว
+4. `heading-order` — `CardTitle` เป็น h3 ใต้ h1 ของหน้า · แก้: ค่าเริ่มต้น h2 (+ `as="h3"` สำหรับการ์ดที่ซ้อนใต้ h2)
+5. `/calendar` CLS **0.53** (มือถือ) — chip กรองโมดูลมาพร้อมข้อมูล (1 → 4 อัน) แล้วขึ้นบรรทัดใหม่ ดันปฏิทินลง · แก้: มือถือเป็นแถวเดียวเลื่อนแนวนอน (`Chip` ไม่ถูกบีบ)
+6. LCP หน้าแรก — preload ฟอนต์ 10 ไฟล์ · Plex Thai โหลดชุดละตินที่ไม่เคยใช้ (Inter อยู่ก่อนใน font stack) · แก้: Plex Thai เฉพาะ `thai` · JetBrains Mono ไม่ preload → เหลือ 5 ไฟล์
+
+**ผลหลังแก้ (production build + API ในเครื่อง)**
+
+| หน้า        | มือถือ perf | desktop perf | a11y | best-practices | SEO |
+| ----------- | ----------- | ------------ | ---- | -------------- | --- |
+| `/`         | 95          | 100          | 100  | 100            | 100 |
+| `/login`    | 100         | 100          | 100  | 100            | 100 |
+| `/today`    | 98          | 100          | 100  | 100            | 100 |
+| `/tasks`    | 95          | 100          | 100  | 100            | 100 |
+| `/expenses` | 96          | 95           | 100  | 100            | 100 |
+| `/calendar` | 96          | 100          | 100  | 100            | 100 |
+| `/habits`   | 93          | 100          | 100  | 100            | 100 |
+| `/review`   | 91          | 100          | 100  | 100            | 100 |
+
+perf มือถือแกว่ง ±3 ตามโหลดของเครื่อง · ตัวเลข staging จริงมาจาก job `lighthouse` หลัง push
+
+**เจอระหว่างทาง (เครื่อง dev):** `next build` ค้าง 25+ นาทีโดยไม่ใช้ CPU — กำลังลบ `.next/standalone` แต่มี `.DS_Store` ถูกสร้างใหม่ในโฟลเดอร์ที่กำลังลบ
+(Finder/iCloud) → `rmdir` ล้ม → Next ลองใหม่ไม่รู้จบ · ลบ `.next` เองก่อน build แล้วผ่านใน 30 วิ
+
+**วิธีตรวจ:** unit (+1 PrismaService) · integration auth (grace 20 วิ / พ้นแล้วเพิกถอน) · API 118 + worker 19 · ui 55 · `pnpm verify` exit 0

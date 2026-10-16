@@ -27,6 +27,9 @@ const EMAIL_VERIFY_TTL_MS = 24 * 60 * 60 * 1000;
 const PASSWORD_RESET_TTL_MS = 15 * 60 * 1000;
 const DEMO_TTL_MS = 24 * 60 * 60 * 1000;
 
+/** ใบที่เพิ่งถูกหมุนใช้ซ้ำได้ภายในเท่านี้ (ดู refresh) */
+const ROTATION_GRACE_MS = 20_000;
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -132,7 +135,7 @@ export class AuthService {
 
   // ── Refresh rotation + reuse detection (สเปกหัวข้อ 9.2) ──
 
-  async refresh(rawToken: string, meta: RequestMeta): Promise<IssuedTokens> {
+  async refresh(rawToken: string, meta: RequestMeta, now = new Date()): Promise<IssuedTokens> {
     const hash = TokenService.hashToken(rawToken);
     const session = await this.prisma.session.findUnique({
       where: { refreshTokenHash: hash },
@@ -147,8 +150,23 @@ export class AuthService {
       });
     }
 
+    /**
+     * ช่วงผ่อนผัน: ใบที่เพิ่งถูกหมุนไม่เกิน 20 วิ ถูกส่งมาอีก = แทบทุกครั้งคือคำตอบรอบก่อนไปไม่ถึงเบราว์เซอร์
+     * (เปิดสองแท็บพร้อมกัน · รีเฟรชหน้าระหว่างหมุน · เน็ตมือถือหลุดกลางคำขอ) ไม่ใช่การขโมย
+     * → ออกใบใหม่ใน family เดิม แทนการเพิกถอนทุกอุปกรณ์ + ส่งอีเมลเตือนผิด ๆ (เจอจริงตอนวัด Lighthouse · Phase 8)
+     * เกินช่วงนี้ยังถือเป็นการใช้ซ้ำตามเดิม
+     */
+    if (
+      session.revokedReason === 'rotated' &&
+      session.revokedAt &&
+      now.getTime() - session.revokedAt.getTime() < ROTATION_GRACE_MS &&
+      session.expiresAt > now
+    ) {
+      return this.issueSession(session.user, meta, session.familyId);
+    }
+
     // ⚠ token ที่ถูกหมุนไปแล้วถูกนำมาใช้ซ้ำ = มีคนถือ token ที่ขโมยไป
-    if (session.revokedAt || session.expiresAt < new Date()) {
+    if (session.revokedAt || session.expiresAt < now) {
       if (session.revokedAt) {
         await this.revokeFamily(session.familyId, 'token_reuse_detected');
         this.logger.warn(
@@ -171,7 +189,7 @@ export class AuthService {
     // หมุน: เพิกถอนใบเดิม แล้วออกใบใหม่ใน family เดิม
     await this.prisma.session.update({
       where: { id: session.id },
-      data: { revokedAt: new Date(), revokedReason: 'rotated', lastUsedAt: new Date() },
+      data: { revokedAt: now, revokedReason: 'rotated', lastUsedAt: now },
     });
 
     return this.issueSession(session.user, meta, session.familyId);

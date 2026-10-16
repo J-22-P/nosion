@@ -48,9 +48,19 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     });
   }
 
+  /**
+   * ต่อฐานข้อมูลตอนเริ่ม — ต่อไม่ได้ **ไม่ล้มทั้ง process** (Prisma ต่อเองตอน query แรกอยู่แล้ว)
+   * บน Vercel การล้มตอนบูต = `FUNCTION_INVOCATION_FAILED` แล้ว instance ใหม่ถูกเปิดมาลองซ้ำ → connection ยิ่งแน่น
+   * เจอจริงบน staging (Phase 8 ขั้น 2): pooler เต็มชั่วคราว ทุก instance ใหม่ตาย API ล่มทั้งตัว ~15 นาที
+   * แบบนี้คำขอที่ต้องใช้ DB ได้ error ทีละคำขอ (ProblemDetails 500) และหายเองเมื่อ pooler ว่าง
+   */
   async onModuleInit(): Promise<void> {
-    await this.$connect();
-    this.logger.log('เชื่อมต่อฐานข้อมูลแล้ว');
+    try {
+      await this.$connect();
+      this.logger.log('เชื่อมต่อฐานข้อมูลแล้ว');
+    } catch (err) {
+      this.logger.warn(`ยังต่อฐานข้อมูลไม่ได้ตอนเริ่ม — จะลองใหม่ตอน query แรก: ${String(err)}`);
+    }
   }
 
   async onModuleDestroy(): Promise<void> {

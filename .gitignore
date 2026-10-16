@@ -25,3 +25,4 @@ _tmp_*
 # Next.js สร้างไฟล์นี้ใหม่ทุกครั้งที่ build
 next-env.d.ts
 .vercel
+apps/web/lighthouse-report/

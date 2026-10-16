@@ -72,7 +72,7 @@ describe('Auth flow', () => {
     expect(wrongPassword.body.detail).toBe(noSuchUser.body.detail);
   });
 
-  it('หมุน refresh token แล้วใบเก่าใช้ไม่ได้ และการใช้ซ้ำทำให้ทุก session ใน family ถูกเพิกถอน', async () => {
+  it('หมุน refresh token: ใบเก่าซ้ำภายใน 20 วิได้ใบใหม่ (สองแท็บ) · พ้นช่วงแล้วใช้ซ้ำ = เพิกถอนทั้ง family', async () => {
     const email = uniqueEmail('rotate');
     const registered = await api()
       .post('/api/v1/auth/register')
@@ -85,7 +85,16 @@ describe('Auth flow', () => {
     const rotated = await api().post('/api/v1/auth/refresh').set('Cookie', firstCookie).expect(200);
     expect(rotated.body.accessToken).toBeTruthy();
 
-    // ใช้ใบเก่าซ้ำ = สัญญาณว่า token ถูกขโมย
+    // ใบเก่าถูกส่งมาอีกภายใน 20 วิ (สองแท็บ / รีเฟรชระหว่างหมุน / คำตอบหาย) — ไม่ใช่การขโมย ได้ใบใหม่
+    const twin = await api().post('/api/v1/auth/refresh').set('Cookie', firstCookie).expect(200);
+    expect(twin.body.accessToken).toBeTruthy();
+    expect(extractRefreshCookie(twin)).not.toBe(extractRefreshCookie(rotated));
+
+    // พ้นช่วงผ่อนผันแล้ว ใช้ใบเก่าซ้ำ = สัญญาณว่า token ถูกขโมย
+    await prisma.session.updateMany({
+      where: { revokedReason: 'rotated', user: { email } },
+      data: { revokedAt: new Date(Date.now() - 60_000) },
+    });
     const reuse = await api().post('/api/v1/auth/refresh').set('Cookie', firstCookie).expect(401);
     expect(reuse.body.type).toContain('token-reuse-detected');
 

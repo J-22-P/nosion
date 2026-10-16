@@ -125,3 +125,33 @@ jobs:
           status=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$WEB_URL/api/v1/auth/demo")
           echo "POST /api/v1/auth/demo → $status"
           test "$status" = 200
+
+  # Lighthouse ทุกหน้าหลักบน staging จริง (สเปก Phase 8: ≥ 90 ทุกหมวด) — มือถือ (จำลองเน็ต/CPU ช้า) + desktop
+  # ใช้ demo login 1 ครั้งต่อ form factor (จำกัด 5 ครั้ง/ชม./IP — runner คนละ IP กับผู้ใช้)
+  lighthouse:
+    needs: smoke
+    runs-on: ubuntu-24.04
+    environment: staging
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: ./.github/actions/setup
+      - run: pnpm --filter @nosion/web exec playwright install --with-deps chromium
+      - name: lighthouse (mobile + desktop)
+        env:
+          LH_BASE_URL: ${{ vars.STAGING_WEB_URL }}
+        run: |
+          set -euo pipefail
+          test -n "$LH_BASE_URL" || { echo "::warning::ยังไม่ได้ตั้ง vars.STAGING_WEB_URL — ข้าม"; exit 0; }
+          cd apps/web
+          status=0
+          LH_FORM_FACTOR=mobile node scripts/lighthouse.mjs || status=1
+          LH_FORM_FACTOR=desktop node scripts/lighthouse.mjs || status=1
+          exit $status
+      - if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: lighthouse-report
+          path: apps/web/lighthouse-report
+          retention-days: 14

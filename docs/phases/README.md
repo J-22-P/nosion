@@ -32,4 +32,4 @@
 | 5     | [phase-5-calendar-nl-palette.md](./phase-5-calendar-nl-palette.md) | ✅ 10/10 · DoD ผ่าน · ขึ้น staging แล้ว |
 | 6     | [phase-6-habit.md](./phase-6-habit.md)                             | ✅ 6/6 · Habit อย่างเดียว (ตัด Workout) |
 | 7     | [phase-7-offline-sync.md](./phase-7-offline-sync.md)               | ✅ 6/6 · DoD ผ่านบน staging จริง        |
-| 8     | [phase-8-polish-portfolio.md](./phase-8-polish-portfolio.md)       | ▶ ขั้น 1/10                             |
+| 8     | [phase-8-polish-portfolio.md](./phase-8-polish-portfolio.md)       | ▶ ขั้น 2/9                              |
