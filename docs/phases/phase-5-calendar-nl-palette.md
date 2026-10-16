@@ -1,7 +1,8 @@
 # Phase 5 · Calendar + NL Parser + ⌘K (สัปดาห์ 14)
 
 > เป้าหมาย: พิมพ์ประโยคเดียวแล้วได้รายการที่ถูกโมดูล ถูกวัน ถูกรอบ พร้อมการเตือน · เห็นทุกโมดูลบนปฏิทินเดียว — สเปก 6.3, 6.4, 8.3, 8.4, 8.11.4, 15 Phase 5
-> **DoD:** พิมพ์ "ค่าเน็ต 799 ทุกวันที่ 5" ใน ⌘K แล้วได้บิลรายเดือนพร้อมการเตือน ครบในคำสั่งเดียว
+> **DoD:** พิมพ์ "ค่าเน็ต 799 ทุกวันที่ 5" ใน ⌘K แล้วได้บิลรายเดือนพร้อมการเตือน ครบในคำสั่งเดียว — ✅ ผ่านใน smoke test กับ API จริง (ขั้น 7)
+> ความรู้เบื้องหลัง: [บท 18](../learn/18-phase5-nl-parser-calendar-and-palette.md) · [ADR-012](../adr/012-nl-parser-mask-and-scan.md)
 
 ## แผน (ปรับได้ระหว่างทาง)
 
@@ -15,8 +16,8 @@
 | 6   | ลากรายการเปลี่ยนวัน (optimistic + rollback)                                                                 | `fe52eef`   | ✅    |
 | 7   | Command Palette ⌘K 3 โหมด (ค้นหา / คำสั่ง / สร้าง) — **DoD**                                                | `a797d05`   | ✅    |
 | 8   | `<QuickCapture>` ใน Tasks/Expenses ใช้ parser เต็ม + chip แก้ได้                                            | `4e2beca`   | ✅    |
-| 9   | Keyboard shortcut ครบตาม 8.4 + หน้าต่าง `?`                                                                 | (รอ commit) | ✅    |
-| 10  | บท learn 18 + ADR-012 (parser แบบ mask-and-scan)                                                            | —           | ⬜    |
+| 9   | Keyboard shortcut ครบตาม 8.4 + หน้าต่าง `?`                                                                 | `5cfdb27`   | ✅    |
+| 10  | บท learn 18 + ADR-012 (parser แบบ mask-and-scan)                                                            | (รอ commit) | ✅    |
 
 **ค้างฝั่งเจ้าของ (สเปก 8.11.5):** mockup ของ ⌘K และปฏิทินบนมือถือยังไม่มี — ถ้ายังไม่มีตอนถึงขั้น 5/7 จะประกอบจาก token + component ใน 8.7
 ตาม pattern ของหน้าที่มี mockup แล้ว และบันทึกไว้ในขั้นนั้น
@@ -66,7 +67,7 @@
 
 - [x] ขั้น 2: ย้าย `parseNaturalLanguage` ของ task/expense มาใช้ parser กลาง
 
-📚 ความรู้เบื้องหลัง: บท 18 (เขียนในขั้น 10)
+📚 ความรู้เบื้องหลัง: [บท 18](../learn/18-phase5-nl-parser-calendar-and-palette.md) หัวข้อ 1–3 · [ADR-012](../adr/012-nl-parser-mask-and-scan.md)
 
 ---
 
@@ -330,7 +331,7 @@ chip ที่ parse ได้แก้ไขได้ (วันที่ เ�
 
 ---
 
-## ขั้น 9 · Keyboard shortcut ครบตาม 8.4 + หน้าต่าง `?` — (รอ commit)
+## ขั้น 9 · Keyboard shortcut ครบตาม 8.4 + หน้าต่าง `?` — `5cfdb27`
 
 **เป้าหมาย:** ทุกปุ่มในตารางสเปก 8.4 ทำงานจริง และมีหน้าต่างบอกว่ามีปุ่มอะไรบ้าง
 
@@ -367,3 +368,20 @@ chip ที่ parse ได้แก้ไขได้ (วันที่ เ�
   `j`/`k` → `e` (complete) → ⌘Z (PATCH `status: pending`) → `3` (`priority: high`) → `x` สองรายการ → bulk complete
 - UI suite 42/42 สองรอบติด · ใน Linux container (เหมือน CI) เทสต์ปุ่มลัด 10/10 หลังแก้เทสต์ให้รอ toast ก่อน ⌘Z ·
   visual baseline ไม่เปลี่ยน (65 ผ่าน) · `pnpm verify` ผ่าน
+
+---
+
+## ขั้น 10 · บท learn 18 + ADR-012 — (รอ commit)
+
+- 📁 `docs/learn/18-phase5-nl-parser-calendar-and-palette.md` — 10 หัวข้อ: rule-based vs LLM · mask-and-scan + ขอบคำไทย/อังกฤษ + เวลาแบบไทย ·
+  "พรุ่งนี้" ตามโซน · parser แยกชิ้น/โมดูลตีความ · ปฏิทิน query เดียว + projected · iCal · ลากเปลี่ยนวัน (optimistic, version, DST) ·
+  ⌘K (combobox, race ของ dialog) · ข้อความเป็นแหล่งความจริงของ chip · ปุ่มลัด/undo — พร้อมกับดัก ⚠️ คำถามสัมภาษณ์ 🎤 ข้อเสีย และแบบฝึกหัด 10 ข้อ
+- 📁 `docs/adr/012-nl-parser-mask-and-scan.md` — ทำไม rule-based ชุดเดียว FE/BE, parser ไม่รู้จักโมดูล, ข้อความเป็นแหล่งความจริง · ทางเลือก LLM /
+  chrono-node / regex ต่อโมดูล / parse ฝั่ง server อย่างเดียว / ส่ง payload จาก client
+- สารบัญบท (00, index.html) · ตาราง ADR · อภิธานศัพท์ 9 คำ
+
+## สรุป Phase 5
+
+- **DoD ผ่าน** บนเครื่อง (smoke กับ API + DB จริง) · ยังไม่ขึ้น staging — 10 commit รอ push
+- สิ่งที่เจ้าของต้องทำ: push → ลองบน staging (⌘K, ปฏิทิน, subscribe iCal ใน Google/Apple Calendar ซึ่งต้องใช้ URL สาธารณะ) · mockup ⌘K / ปฏิทินมือถือยังไม่มี
+- ต่อไป: Phase 6 (Workout + Habit — "พิสูจน์สถาปัตยกรรม": parser, ปฏิทิน, ⌘K ต้องรองรับโมดูลใหม่โดยไม่แก้ core)

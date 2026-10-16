@@ -14,5 +14,6 @@
 | [009](./009-monochrome-design-system-dual-theme.md) | Monochrome design system + dual theme    | ยอมรับแล้ว |
 | [010](./010-floating-time-and-month-end-clamp.md)   | Floating time + clamp วันสิ้นเดือน       | ยอมรับแล้ว |
 | [011](./011-reminders-outbox-polling.md)            | การเตือน: PostgreSQL + sweeper (outbox)  | ยอมรับแล้ว |
+| [012](./012-nl-parser-mask-and-scan.md)             | NL parser mask-and-scan ชุดเดียว FE/BE   | ยอมรับแล้ว |
 
 > ADR-007 และ 008 จองไว้ตามสเปกภาคผนวก (ยังไม่เขียน)
