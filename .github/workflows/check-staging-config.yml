@@ -29,7 +29,13 @@ jobs:
                 .map((l) => l.match(/^([A-Z0-9_]+)="?(.*?)"?$/)).filter(Boolean).map((m) => [m[1], m[2]]),
             );
             const raw = env.DATABASE_URL;
-            if (!raw) { console.log("DATABASE_URL: ไม่มีค่า (ไม่ได้ตั้ง หรือเป็น Sensitive ที่ CLI อ่านไม่ได้)"); process.exit(0); }
+            if (!raw || !raw.includes("@")) {
+              // ตัวแปร Sensitive ของ Vercel ไม่มีใครอ่านค่ากลับได้ (CLI ได้ "[SENSITIVE]") — ตรวจได้แค่ที่ Supabase/ตอนตั้งค่า
+              const msg = "DATABASE_URL: อ่านค่าไม่ได้ (ตั้งเป็น Sensitive) — ตรวจที่ตอนตั้งค่า: ต้องเป็น Transaction pooler :6543 + ?pgbouncer=true&connection_limit=1";
+              console.log(msg);
+              fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, "### DATABASE_URL (staging API)\n\n" + msg + "\n");
+              process.exit(0);
+            }
             // แยกด้วย regex (รหัสผ่านอาจมีอักขระที่ new URL() ไม่รับ) — ห้าม log ค่าดิบ
             const tail = raw.slice(raw.lastIndexOf("@") + 1);
             const m = tail.match(/^([^:/?]+)(?::(\d+))?[^?]*(?:\?(.*))?$/) || [];
