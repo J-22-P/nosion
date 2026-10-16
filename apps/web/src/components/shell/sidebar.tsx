@@ -3,9 +3,8 @@
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@nosion/ui';
-import { StatusPill } from '@/components/ui/status-pill';
+import { SyncStatus } from '@/features/sync/sync-status';
 import { useUIStore } from '@/lib/stores/ui-store';
-import { useOnlineStatus } from '@/lib/use-online-status';
 import { LogoMark } from './logo';
 import { PRIMARY_NAV, SETTINGS_NAV, isActive, type NavItem } from './nav';
 
@@ -21,7 +20,6 @@ const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? 'dev';
 export function Sidebar({ pathname }: { pathname: string }) {
   const collapsed = useUIStore((s) => s.sidebarCollapsed);
   const toggle = useUIStore((s) => s.toggleSidebar);
-  const online = useOnlineStatus();
   const expanded = !collapsed;
 
   return (
@@ -63,10 +61,7 @@ export function Sidebar({ pathname }: { pathname: string }) {
           expanded={expanded}
         />
         <div className={cn('hidden px-2', expanded && 'lg:block')}>
-          <StatusPill
-            status={online ? 'online' : 'offline'}
-            label={online ? `Sync · v${APP_VERSION}` : 'ออฟไลน์'}
-          />
+          <SyncStatus appVersion={APP_VERSION} />
         </div>
         <button
           type="button"

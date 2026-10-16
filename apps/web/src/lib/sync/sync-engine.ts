@@ -8,6 +8,8 @@ const BATCH = 100;
 export interface SyncState {
   /** จำนวน operation ที่รอส่ง (ของผู้ใช้ปัจจุบัน) */
   pending: number;
+  /** ตัว operation ที่รอส่ง เรียงตามลำดับ — UI ใช้แสดงรายการที่สร้างตอนออฟไลน์ + จุด "รอซิงก์" */
+  queue: readonly SyncOperationInput[];
   status: 'idle' | 'syncing' | 'offline' | 'error';
   lastSyncedAt: string | null;
   lastError: string | null;
@@ -38,7 +40,13 @@ export interface SyncEngineDeps {
  * engine ไม่รู้จัก React/toast/แคช — ผลส่งออกทาง listener ให้ชั้น UI ตัดสินใจเอง
  */
 export class SyncEngine {
-  private state: SyncState = { pending: 0, status: 'idle', lastSyncedAt: null, lastError: null };
+  private state: SyncState = {
+    pending: 0,
+    queue: [],
+    status: 'idle',
+    lastSyncedAt: null,
+    lastError: null,
+  };
   private userId: string | null = null;
   private running: Promise<void> | null = null;
   private readonly stateListeners = new Set<(state: SyncState) => void>();
@@ -66,8 +74,16 @@ export class SyncEngine {
   /** ผูกกับผู้ใช้ที่ล็อกอิน — นับคิวของคนนั้นใหม่ (null = ออกจากระบบ: คิวยังอยู่ในเครื่อง รอเจ้าของกลับมา) */
   async setUser(userId: string | null): Promise<void> {
     this.userId = userId;
-    const pending = userId ? await this.deps.storage.count(userId) : 0;
-    if (this.userId === userId) this.set({ pending });
+    if (!userId) return this.set({ pending: 0, queue: [] });
+    await this.reload(userId);
+  }
+
+  /** อ่านคิวจากที่เก็บจริง — แท็บอื่นอาจเข้าคิว/ส่งไปแล้ว */
+  private async reload(userId: string) {
+    const records = await this.deps.storage.list(userId);
+    if (this.userId === userId) {
+      this.set({ pending: records.length, queue: records.map((r) => r.op) });
+    }
   }
 
   async enqueue(op: NewSyncOperation): Promise<SyncOperationInput> {
@@ -80,6 +96,7 @@ export class SyncEngine {
     });
     this.set({
       pending: this.state.pending + 1,
+      queue: [...this.state.queue, full],
       ...(this.deps.isOnline() ? {} : { status: 'offline' }),
     });
     return full;
@@ -126,12 +143,19 @@ export class SyncEngine {
           );
         }
         await this.deps.storage.remove(batch.map((r) => r.seq));
-        this.set({ pending: Math.max(0, this.state.pending - batch.length) });
+        const sent = new Set(batch.map((r) => r.op.opId));
+        const queue = this.state.queue.filter((op) => !sent.has(op.opId));
+        this.set({ pending: queue.length, queue });
       }
-      this.set({ status: 'idle', lastSyncedAt: this.now().toISOString(), lastError: null });
+      // "ซิงก์ล่าสุด" = ครั้งล่าสุดที่ส่งของถึง server จริง (คิวว่างไม่นับ)
+      this.set({
+        status: 'idle',
+        lastError: null,
+        ...(results.length ? { lastSyncedAt: this.now().toISOString() } : {}),
+      });
     } finally {
       // นับจากที่เก็บจริงอีกรอบ — ระหว่างส่งอาจมีการเข้าคิวเพิ่ม (แท็บนี้หรือแท็บอื่น)
-      if (this.userId === userId) this.set({ pending: await this.deps.storage.count(userId) });
+      await this.reload(userId);
       if (results.length) for (const listener of this.resultListeners) listener(results);
     }
   }

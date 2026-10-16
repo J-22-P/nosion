@@ -1,24 +1,19 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useSyncExternalStore } from 'react';
+import { useEffect } from 'react';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/features/auth/auth-store';
-import { bindSyncQueryClient, syncEngine, wipePersistedQueries, type SyncState } from '@/lib/sync';
+import { bindSyncQueryClient, syncEngine, wipePersistedQueries } from '@/lib/sync';
+import { ConflictDialog, useConflictStore } from './conflict-dialog';
 import { summarizeResults } from './summarize';
+import { useSyncState } from './use-sync';
 
 /** ระหว่างยังมีของค้างและออนไลน์ ลองส่งใหม่ทุกเท่านี้ (เผื่อ server ล่ม/429 ไปชั่วคราว) */
 const RETRY_MS = 30_000;
 
 /** tag ของ Background Sync — service worker ปลุกแท็บที่เปิดอยู่ให้ flush เมื่อเครื่องกลับมาออนไลน์ */
 const SYNC_TAG = 'nosion-outbox';
-
-const SERVER_STATE: SyncState = { pending: 0, status: 'idle', lastSyncedAt: null, lastError: null };
-
-/** สถานะของ outbox สำหรับ UI (pill · sidebar · การ์ด — ขั้น 4) */
-export function useSyncState(): SyncState {
-  return useSyncExternalStore(syncEngine.subscribe, syncEngine.getState, () => SERVER_STATE);
-}
 
 /**
  * ผูกตัวซิงก์เข้ากับแอป (วางครั้งเดียวใน providers)
@@ -97,10 +92,19 @@ export function SyncBridge() {
         if (saved && !conflicts.length && !errors.length) {
           toast.success(`ซิงก์แล้ว ${saved} รายการ`);
         }
-        for (const c of conflicts) {
-          toast.warning('แก้ชนกับอุปกรณ์อื่น — ใช้ค่าบนเซิร์ฟเวอร์', {
-            description: `${c.title}${c.fields.length ? ` · ${c.fields.join(', ')}` : ''}`,
-          });
+        if (conflicts.length) {
+          useConflictStore.getState().add(results.filter((r) => r.status === 'conflict'));
+          toast.warning(
+            conflicts.length === 1
+              ? 'แก้ชนกับอุปกรณ์อื่น — ใช้ค่าบนเซิร์ฟเวอร์'
+              : `แก้ชนกับอุปกรณ์อื่น ${conflicts.length} รายการ — ใช้ค่าบนเซิร์ฟเวอร์`,
+            {
+              description: conflicts
+                .map((c) => `${c.title}${c.fields.length ? ` · ${c.fields.join(', ')}` : ''}`)
+                .join('\n'),
+              action: { label: 'ดูรายละเอียด', onClick: () => useConflictStore.getState().show() },
+            },
+          );
         }
         if (deleted) toast.info(`${deleted} รายการถูกลบจากอุปกรณ์อื่นไปก่อนแล้ว`);
         if (errors.length) {
@@ -110,5 +114,5 @@ export function SyncBridge() {
     [queryClient],
   );
 
-  return null;
+  return <ConflictDialog />;
 }

@@ -47,6 +47,8 @@ export function useTogglePush() {
   });
 }
 
+const PRECACHE_DELAY_MS = 3_000;
+
 /**
  * ลงทะเบียน service worker ตอนเปิดแอป (Push + แคชออฟไลน์) และฟังข้อความจากมัน:
  * กด "จ่ายแล้ว" จาก notification → SW แจ้งมา → รีเฟรชทุกการ์ดที่อ่าน ['entries']
@@ -57,18 +59,23 @@ export function ServiceWorkerBridge() {
     if (!('serviceWorker' in navigator)) return;
     registerServiceWorker().catch(() => undefined); // ลงทะเบียนไม่ได้ (เช่น http ที่ไม่ใช่ localhost) — แอปยังใช้ได้ปกติ
     // ให้ SW เก็บหน้า/ไฟล์รุ่นล่าสุดไว้ใช้ออฟไลน์ (หลัง deploy ชื่อไฟล์เปลี่ยน) — SW เว้นช่วงเองไม่ให้ถี่
-    if (navigator.onLine) {
+    // รอให้หน้าแรกโหลดเสร็จก่อน: precache ดึง ~10 หน้า + ~50 ไฟล์ ถ้ายิงพร้อมกันหน้าแรกจะช้า
+    const timer = setTimeout(() => {
+      if (!navigator.onLine) return;
       void navigator.serviceWorker.ready
         .then((reg) => reg.active?.postMessage({ type: 'nosion:precache' }))
         .catch(() => undefined);
-    }
+    }, PRECACHE_DELAY_MS);
     const onMessage = (event: MessageEvent<{ type?: string }>) => {
       if (event.data?.type === 'nosion:entries-changed') {
         void queryClient.invalidateQueries({ queryKey: ['entries'] });
       }
     };
     navigator.serviceWorker.addEventListener('message', onMessage);
-    return () => navigator.serviceWorker.removeEventListener('message', onMessage);
+    return () => {
+      clearTimeout(timer);
+      navigator.serviceWorker.removeEventListener('message', onMessage);
+    };
   }, [queryClient]);
   return null;
 }

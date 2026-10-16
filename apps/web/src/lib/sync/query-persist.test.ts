@@ -84,4 +84,19 @@ describe('persistQueryClient', () => {
     await whenRestored();
     expect(client.getQueryData(['entries', 'today'])).toBe('สด');
   });
+
+  it('ที่เก็บค้าง (IndexedDB open ไม่ตอบ) → 1.5 วิแล้วไปต่อแบบไม่มีแคช ไม่ค้างทั้งแอป', async () => {
+    const hung: KvStorage = {
+      get: () => new Promise(() => undefined),
+      set: async () => undefined,
+      remove: async () => undefined,
+    };
+    let done = false;
+    persistQueryClient(new QueryClient(), hung);
+    void whenRestored().then(() => (done = true));
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(done).toBe(false);
+    await vi.advanceTimersByTimeAsync(600);
+    expect(done).toBe(true);
+  });
 });

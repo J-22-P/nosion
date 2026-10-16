@@ -12,7 +12,8 @@ import { Kbd } from '@/components/ui/kbd';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusPill } from '@/components/ui/status-pill';
 import { useMaterialize } from '@/features/recurrence/use-recurrence';
-import { useOnlineStatus } from '@/lib/use-online-status';
+import { syncedAgo } from '@/features/sync/connection';
+import { syncNow, useConnection } from '@/features/sync/use-sync';
 import { todayApi } from './api';
 import { desktopSpan, isTypingTarget } from './layout';
 import { StandupSheet } from './standup-sheet';
@@ -40,7 +41,9 @@ function zoneLabel(timeZone: string): string {
 /** หน้า Today (สเปก 8.11.1) — การ์ดทั้งหมดมาจาก GET /today ในคำขอเดียว */
 export function TodayView() {
   const query = useToday();
-  const online = useOnlineStatus();
+  const connection = useConnection();
+  const online = connection.online;
+  const ago = syncedAgo(connection.lastSyncedAt);
   const materialize = useMaterialize();
   const router = useRouter();
   const pathname = usePathname();
@@ -88,9 +91,23 @@ export function TodayView() {
             </span>
           ) : null}
           <StatusPill
-            status={online ? 'online' : 'offline'}
-            label={online ? 'ระบบเชื่อมต่อสมบูรณ์' : 'ออฟไลน์'}
+            status={connection.status}
+            label={
+              connection.status === 'online'
+                ? `ระบบเชื่อมต่อสมบูรณ์${ago ? ` · Sync ล่าสุด ${ago}` : ''}`
+                : connection.label
+            }
           />
+          {/* จำนวน mutation ใน outbox — ภาษา dev ตั้งใจให้เป็นจุดโชว์ (สเปก 8.6) */}
+          <span
+            className={cn(
+              'inline-flex h-7 items-center rounded-chip border border-hairline bg-wash px-3 font-mono text-xs',
+              connection.pending ? 'text-accent' : 'text-fg-secondary',
+            )}
+            aria-label={`รอซิงก์ ${connection.pending} รายการ`}
+          >
+            MUT: {connection.pending}
+          </span>
         </div>
         <div className="mt-6 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0 space-y-2">
@@ -181,7 +198,7 @@ export function TodayView() {
           aside={
             <span className="hidden items-center gap-2 font-mono text-xs text-fg-secondary sm:inline-flex">
               <span aria-hidden="true" className="size-1.5 rounded-full bg-track-fill" />
-              {online ? 'Online · Outbox 0' : 'Offline'}
+              {online ? 'Online' : 'Offline'} · Outbox {connection.pending}
             </span>
           }
         />
@@ -201,10 +218,17 @@ export function TodayView() {
               disabled={materialize.isPending}
             />
             <QuickAction
-              icon={<Inbox size={18} />}
+              icon={
+                <Inbox
+                  size={18}
+                  className={cn(connection.status === 'syncing' && 'animate-pulse text-accent')}
+                />
+              }
               title="Offline Outbox Status"
-              description={online ? '0 pending muts · Synced' : 'ออฟไลน์ — รอส่งใน Phase 7'}
-              disabled
+              description={`${connection.pending} pending muts · ${connection.outbox}`}
+              // กด = ซิงก์เดี๋ยวนี้ (ตัวกระตุ้นแบบ manual ของ outbox)
+              onClick={() => void syncNow()}
+              disabled={!online}
             />
           </div>
         </CardContent>

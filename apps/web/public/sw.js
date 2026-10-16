@@ -9,7 +9,7 @@
  * แคช (เฉพาะ build จริง: /sw.js?cache=1)
  *  - หน้า (navigation) = network-first: ออนไลน์ได้ของสดเสมอและเก็บไว้ · ออฟไลน์ใช้ที่เก็บล่าสุด
  *  - /_next/static/* และไอคอน = cache-first: ชื่อไฟล์มี hash เนื้อหาไม่เปลี่ยน
- *  - ติดตั้งแล้วเก็บทุกหน้าของแอป + ไฟล์ที่หน้าอ้างถึงล่วงหน้า → ออฟไลน์เปิดหน้าที่ยังไม่เคยเข้าได้
+ *  - หน้าเว็บว่างแล้ว (หลังโหลด) สั่งเก็บทุกหน้าของแอป + ไฟล์ที่หน้าอ้างถึงล่วงหน้า → ออฟไลน์เปิดหน้าที่ยังไม่เคยเข้าได้
  *  - ไม่แตะ API — ข้อมูลออฟไลน์มาจากแคชของ TanStack Query ใน IndexedDB (ฝั่งหน้าเว็บ) · การเขียนเข้าคิว outbox
  */
 const PARAMS = new URL(self.location.href).searchParams;
@@ -34,9 +34,10 @@ const APP_ROUTES = [
 const PRECACHE_EVERY_MS = 60 * 60 * 1000;
 let lastPrecache = 0;
 
-self.addEventListener('install', (event) => {
+// ติดตั้งให้เสร็จทันที — ไม่ precache ตอนนี้ เพราะจะแย่งเน็ตกับการโหลดหน้าแรก (มือถือเน็ตช้าเห็นชัด)
+// หน้าเว็บส่ง nosion:precache มาเองเมื่อว่างแล้ว (ServiceWorkerBridge)
+self.addEventListener('install', () => {
   self.skipWaiting();
-  if (CACHE_ENABLED) event.waitUntil(precache().catch(() => undefined));
 });
 
 self.addEventListener('activate', (event) => {
@@ -51,26 +52,43 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-/** หน้าแอปทุกหน้า + ไฟล์ JS/CSS ที่หน้าอ้างถึง — หลัง deploy หน้าเว็บส่ง nosion:precache มาให้เก็บรุ่นใหม่ */
+/** หน้าแอปทุกหน้า + ไฟล์ JS/CSS ที่หน้าอ้างถึง — หน้าเว็บสั่งทุกครั้งที่เปิด (เว้นช่วง 1 ชม.) จึงได้รุ่นใหม่หลัง deploy */
 async function precache() {
   lastPrecache = Date.now();
   const pages = await caches.open(PAGES);
   const assets = new Set();
   for (const route of APP_ROUTES) {
     const res = await fetch(route, { credentials: 'same-origin' });
-    if (!res.ok) continue;
+    if (!res.ok) {
+      await discard(res);
+      continue;
+    }
     const html = await res.clone().text();
     await pages.put(route, res);
-    // ชื่อไฟล์ของ route group มีวงเล็บ (chunks/app/(app)/tasks/page-….js) — ตัด ) ท้ายของ url(...) ใน CSS ทีหลัง
-    for (const match of html.matchAll(/\/_next\/static\/[^"'\s\\]+/g)) {
-      assets.add(match[0].replace(/[);,]+$/, ''));
-    }
+    // เอาเฉพาะ URL ที่จบด้วยนามสกุลไฟล์จริง — ใน HTML มีชิ้นส่วน URL ที่ถูกตัด (preload/flight data) ปนอยู่
+    // ชื่อไฟล์ของ route group มีวงเล็บ (chunks/app/(app)/tasks/page-….js) จึงห้ามตัดที่วงเล็บ
+    for (const match of html.matchAll(ASSET_RE)) assets.add(match[0]);
   }
   const statics = await caches.open(STATIC);
   for (const url of assets) {
     if (await statics.match(url)) continue;
     const res = await fetch(url).catch(() => null);
     if (res && res.ok) await statics.put(url, res);
+    else if (res) await discard(res);
+  }
+}
+
+const ASSET_RE = /\/_next\/static\/[^"'\s\\]+?\.(?:js|css|woff2?|png|svg|ico)(?=["'\s\\)?]|$)/g;
+
+/**
+ * อ่าน body ที่ไม่ใช้ทิ้ง — ไม่งั้น connection ค้าง (HTTP/1.1 ได้ 6 ต่อ host) แล้ว fetch ถัดไปรอไม่จบ:
+ * install ไม่เสร็จ SW ไม่ได้คุมหน้า (เจอจริงตอนทำขั้น 4)
+ */
+async function discard(res) {
+  try {
+    await res.body?.cancel();
+  } catch {
+    /* ไม่เป็นไร */
   }
 }
 

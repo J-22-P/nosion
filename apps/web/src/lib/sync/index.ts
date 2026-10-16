@@ -10,6 +10,7 @@ export { isLocalId, isQueued, localId, targetOf } from './offline';
 export { isNetworkError } from './sync-engine';
 export { persistQueryClient, whenRestored, wipePersistedQueries } from './query-persist';
 export type { SyncState } from './sync-engine';
+export { pendingView, type PendingView } from './pending';
 
 const isOnline = () => typeof navigator === 'undefined' || navigator.onLine;
 

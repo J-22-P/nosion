@@ -58,6 +58,8 @@ export interface TaskCardProps {
   onSelect?: () => void;
   /** ปุ่มลัด 1–4 */
   onPriority?: (priority: Exclude<EntryDto['priority'], 'none'>) => void;
+  /** มี operation ค้างใน outbox (ยังไม่ถึง server) → จุดสีเทาที่มุม (สเปก 8.6) */
+  pending?: boolean;
 }
 
 /**
@@ -75,6 +77,7 @@ export const TaskCard = memo(function TaskCard({
   selected = false,
   onSelect,
   onPriority,
+  pending = false,
 }: TaskCardProps) {
   const done = entry.status === 'done';
   const overdue = isOverdueDate(entry.occurredAt, entry.status, entry.isAllDay);
@@ -106,7 +109,7 @@ export const TaskCard = memo(function TaskCard({
       data-shortcut-item
       tabIndex={0}
       onKeyDown={onKeyDown}
-      aria-label={`${entry.title}${selected ? ' (เลือกอยู่)' : ''}`}
+      aria-label={`${entry.title}${selected ? ' (เลือกอยู่)' : ''}${pending ? ' (รอซิงก์)' : ''}`}
       className={cn(
         'group relative flex gap-3 rounded-row bg-sunken p-4 transition-colors duration-[180ms] hover:bg-wash-active',
         'focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] focus-visible:ring-2 focus-visible:ring-accent',
@@ -114,6 +117,14 @@ export const TaskCard = memo(function TaskCard({
         'max-md:flex-wrap',
       )}
     >
+      {pending ? (
+        <span
+          title="รอซิงก์"
+          data-testid="pending-dot"
+          aria-hidden="true"
+          className="absolute left-1.5 top-1.5 size-1.5 rounded-full bg-fg-tertiary"
+        />
+      ) : null}
       <Checkbox
         checked={done}
         onCheckedChange={onToggle}

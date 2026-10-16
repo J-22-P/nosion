@@ -31,4 +31,4 @@
 | 4     | [phase-4-reminders.md](./phase-4-reminders.md)                     | 🟡 รอ DoD บนมือถือจริง                  |
 | 5     | [phase-5-calendar-nl-palette.md](./phase-5-calendar-nl-palette.md) | ✅ 10/10 · DoD ผ่าน · ขึ้น staging แล้ว |
 | 6     | [phase-6-habit.md](./phase-6-habit.md)                             | ✅ 6/6 · Habit อย่างเดียว (ตัด Workout) |
-| 7     | [phase-7-offline-sync.md](./phase-7-offline-sync.md)               | ▶ ขั้น 3/6                              |
+| 7     | [phase-7-offline-sync.md](./phase-7-offline-sync.md)               | ▶ ขั้น 4/6                              |

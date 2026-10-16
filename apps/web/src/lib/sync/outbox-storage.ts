@@ -1,4 +1,5 @@
 import type { SyncOperationInput } from '@nosion/contracts';
+import { openDb } from './idb';
 
 /** operation หนึ่งตัวที่รอส่ง — seq เรียงตามเวลาที่ทำ (ลำดับสำคัญ: แก้รายการที่สร้างตอนออฟไลน์ต้องตามหลังการสร้าง) */
 export interface OutboxRecord {
@@ -48,14 +49,9 @@ const STORE = 'outbox';
 export function indexedDbOutbox(factory: IDBFactory = indexedDB): OutboxStorage {
   let db: Promise<IDBDatabase> | null = null;
   const open = () =>
-    (db ??= new Promise((resolve, reject) => {
-      const req = factory.open(DB_NAME, 1);
-      req.onupgradeneeded = () => {
-        const store = req.result.createObjectStore(STORE, { keyPath: 'seq', autoIncrement: true });
-        store.createIndex('userId', 'userId');
-      };
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
+    (db ??= openDb(factory, DB_NAME, (d) => {
+      const store = d.createObjectStore(STORE, { keyPath: 'seq', autoIncrement: true });
+      store.createIndex('userId', 'userId');
     }));
 
   async function run<T>(

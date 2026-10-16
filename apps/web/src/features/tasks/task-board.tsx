@@ -20,7 +20,9 @@ import {
   useReopenEntry,
   useUpdateEntry,
 } from '@/features/entries/use-entries';
+import { usePendingView } from '@/features/sync/use-sync';
 import { pushUndo } from '@/lib/shortcuts/undo-store';
+import { isLocalId } from '@/lib/sync';
 import { ApiError } from '@/lib/api-client';
 import { PRIORITY_LABEL } from '@/lib/format';
 import { TaskCard } from './task-card';
@@ -94,7 +96,20 @@ export function TaskBoard({ filters, view }: { filters: EntryFilters; view: Task
     [projects.data],
   );
 
-  const entries = useMemo(() => query.data?.data ?? [], [query.data]);
+  /**
+   * งานที่สร้างตอนออฟไลน์ (ยังไม่มีในแคชจาก server) แสดงต่อท้ายรายการ — เฉพาะมุมมองที่ไม่ได้กรองด้วย
+   * โปรเจกต์/แท็ก/คำค้น (ฝั่ง client ยังไม่รู้ค่าเหล่านั้นจนกว่า server จะ parse ตอนซิงก์)
+   */
+  const pending = usePendingView();
+  const showLocal = !filters.projectId && !filters.tagIds && !filters.q;
+  const localTasks = useMemo(
+    () => (showLocal ? pending.created.filter((e) => e.module === 'task') : []),
+    [pending.created, showLocal],
+  );
+  const entries = useMemo(
+    () => [...(query.data?.data ?? []), ...localTasks.filter((e) => e.status !== 'done')],
+    [query.data, localTasks],
+  );
   const groups = useMemo(
     () => groupEntries(entries, view, projectNames),
     [entries, view, projectNames],
@@ -216,8 +231,12 @@ export function TaskBoard({ filters, view }: { filters: EntryFilters; view: Task
       onSelect: () => toggleSelect(entry.id),
       onPriority: (priority: EntryDto['priority']) => setPriority(entry, priority),
       timerRunning: runningEntryId === entry.id,
-      onToggleTimer: () =>
-        runningEntryId === entry.id ? stopTimer.stop(entry.id) : startTimer.mutate(entry.id),
+      // จับเวลาต้องออนไลน์และต้องมี id จริง — งานที่ยังรอซิงก์ไม่มีปุ่มนี้
+      onToggleTimer: isLocalId(entry.id)
+        ? undefined
+        : () =>
+            runningEntryId === entry.id ? stopTimer.stop(entry.id) : startTimer.mutate(entry.id),
+      pending: pending.touched.has(entry.id),
     };
   }
 
@@ -279,7 +298,10 @@ export function TaskBoard({ filters, view }: { filters: EntryFilters; view: Task
     );
   }
 
-  const doneEntries = doneQuery.data?.data ?? [];
+  const doneEntries = [
+    ...localTasks.filter((e) => e.status === 'done'),
+    ...(doneQuery.data?.data ?? []),
+  ];
 
   return (
     <div className="space-y-4">

@@ -832,6 +832,17 @@ test.describe('ออฟไลน์ (Phase 7)', () => {
     await expect(page.getByText(/ออฟไลน์ 3 · บันทึกในเครื่องแล้ว/)).toBeVisible();
     expect(pushes).toEqual([]);
 
+    // UI สถานะ (ขั้น 4): pill แดงบอกจำนวน · งานที่เพิ่มขึ้นในรายการพร้อมจุด "รอซิงก์"
+    await expect(
+      page.getByRole('status').filter({ hasText: 'ออฟไลน์ · รอซิงก์ 4' }).first(),
+    ).toBeVisible();
+    for (const title of ['ออฟไลน์ 1', 'ออฟไลน์ 2', 'ออฟไลน์ 3']) {
+      await expect(page.getByRole('listitem', { name: `${title} (รอซิงก์)` })).toBeVisible();
+    }
+    await expect(
+      page.getByRole('listitem', { name: 'Re-architect Auth Token refresh flow (รอซิงก์)' }),
+    ).toBeVisible();
+
     // คิวอยู่ใน IndexedDB — รีเฟรชไม่ได้ตอนออฟไลน์ (ขั้น 3) แต่ดูของในที่เก็บได้
     const stored = await page.evaluate(
       () =>
@@ -854,6 +865,61 @@ test.describe('ออฟไลน์ (Phase 7)', () => {
       ['parse', 'ออฟไลน์ 3'],
     ]);
     await expect(page.getByText('ซิงก์แล้ว 4 รายการ')).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: /^Online$/ })).toBeVisible();
+  });
+
+  test('แก้ชนกับอุปกรณ์อื่น: toast บอกช่องที่ชน → "ดูรายละเอียด" เปิด dialog ค่าของคุณ vs ค่าที่ใช้ · Sync Status ใน sidebar', async ({
+    page,
+    context,
+  }) => {
+    await page.route('**/api/v1/sync/push', async (route) => {
+      const { operations } = route.request().postDataJSON() as {
+        operations: { opId: string }[];
+      };
+      await route.fulfill({
+        json: {
+          results: operations.map((o) => ({
+            opId: o.opId,
+            status: 'conflict',
+            entry: { ...ACTIVE_TASKS[0], priority: 'urgent' },
+            conflicts: [{ field: 'priority', client: 'low', server: 'urgent' }],
+          })),
+          serverTime: new Date().toISOString(),
+        },
+      });
+    });
+    await page.goto('/tasks');
+    await expect(page.getByText('Re-architect Auth Token refresh flow').first()).toBeVisible({
+      timeout: 15_000,
+    });
+    await page.locator('main').click({ position: { x: 5, y: 5 } });
+
+    await context.setOffline(true);
+    await page.keyboard.press('j');
+    await page.keyboard.press('1'); // ตั้งเป็น low (เดิม urgent) ตอนออฟไลน์ — อีกเครื่องคง urgent ไว้
+    await context.setOffline(false);
+
+    await expect(page.getByText('แก้ชนกับอุปกรณ์อื่น — ใช้ค่าบนเซิร์ฟเวอร์')).toBeVisible();
+    await page.getByRole('button', { name: 'ดูรายละเอียด' }).click();
+    const dialog = page.getByRole('dialog', { name: 'แก้ชนกับอุปกรณ์อื่น' });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole('row', { name: 'ความสำคัญ low urgent' })).toBeVisible();
+    const axe = await new AxeBuilder({ page })
+      .include('dialog')
+      .withTags(['wcag2a', 'wcag2aa'])
+      .analyze();
+    expect(axe.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')).toEqual(
+      [],
+    );
+    await page.keyboard.press('Escape');
+
+    // Sync Status ใน sidebar: popover บอกซิงก์ล่าสุด + ปุ่มซิงก์เดี๋ยวนี้ + ทางไปดูรายการที่ชน
+    await page.getByRole('button', { name: /^สถานะการซิงก์/ }).click();
+    const panel = page.getByRole('region', { name: 'สถานะการซิงก์' });
+    await expect(panel.getByText('เมื่อสักครู่')).toBeVisible();
+    await expect(panel.getByRole('button', { name: 'ซิงก์เดี๋ยวนี้' })).toBeEnabled();
+    await panel.getByRole('button', { name: 'ดูรายการที่แก้ชน (1)' }).click();
+    await expect(dialog).toBeVisible();
   });
 
   test('เปิดแอปตอนออฟไลน์: รีเฟรชแล้วยังอยู่ในแอป เห็นข้อมูลเดิมจาก IndexedDB · SW เก็บทุกหน้าไว้ · เพิ่มงานหลังรีเฟรชแล้วซิงก์ได้', async ({
@@ -909,6 +975,8 @@ test.describe('ออฟไลน์ (Phase 7)', () => {
       )
       .toBe(true);
 
+    // SW ต้องคุมหน้านี้อยู่ก่อนตัดเน็ต (clients.claim หลังติดตั้ง) — ไม่งั้นรีเฟรชไม่ผ่าน SW
+    await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
     await context.setOffline(true);
     await page.reload();
     await expect(page).toHaveURL(/\/tasks/);

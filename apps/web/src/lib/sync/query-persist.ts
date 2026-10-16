@@ -5,6 +5,7 @@ import {
   type Query,
   type QueryClient,
 } from '@tanstack/react-query';
+import { openDb } from './idb';
 
 /**
  * เก็บแคชของ TanStack Query ลง IndexedDB → เปิดแอปตอนออฟไลน์แล้วเห็นข้อมูลล่าสุด (สเปก 8.6 · Phase 7 ขั้น 3)
@@ -19,6 +20,8 @@ const KEY = 'query-cache';
 const BUSTER = 'v1';
 const MAX_AGE_MS = 7 * 86_400_000;
 const SAVE_DELAY_MS = 1_000;
+/** อ่านแคชจากดิสก์ได้ไม่เกินเท่านี้ — เกินแล้วเปิดแอปต่อแบบไม่มีแคช (หน้าจอห้ามค้างรอ IndexedDB) */
+const RESTORE_TIMEOUT_MS = 1_500;
 const SKIP = new Set(['parse', 'push', 'calendar-feed']);
 
 interface Saved {
@@ -35,13 +38,7 @@ export interface KvStorage {
 
 export function indexedDbKv(factory: IDBFactory = indexedDB): KvStorage {
   let db: Promise<IDBDatabase> | null = null;
-  const open = () =>
-    (db ??= new Promise((resolve, reject) => {
-      const req = factory.open(DB_NAME, 1);
-      req.onupgradeneeded = () => req.result.createObjectStore(STORE);
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
-    }));
+  const open = () => (db ??= openDb(factory, DB_NAME, (d) => d.createObjectStore(STORE)));
   const run = async <T>(
     mode: IDBTransactionMode,
     work: (s: IDBObjectStore) => IDBRequest<T>,
@@ -93,18 +90,25 @@ export function persistQueryClient(
   };
 
   let unsubscribe = () => {};
-  restored = storage
+  let timedOut = false;
+  const load = storage
     .get(KEY)
     .then((raw) => {
       const saved = raw as Saved | undefined;
-      if (saved?.buster === BUSTER && now() - saved.savedAt < MAX_AGE_MS) {
+      if (!timedOut && saved?.buster === BUSTER && now() - saved.savedAt < MAX_AGE_MS) {
         hydrate(queryClient, saved.state);
       }
     })
-    .catch(() => undefined)
-    .finally(() => {
-      if (!stopped) unsubscribe = queryClient.getQueryCache().subscribe(schedule);
-    });
+    .catch(() => undefined);
+  const deadline = new Promise<void>((resolve) =>
+    setTimeout(() => {
+      timedOut = true;
+      resolve();
+    }, RESTORE_TIMEOUT_MS),
+  );
+  restored = Promise.race([load, deadline]).finally(() => {
+    if (!stopped) unsubscribe = queryClient.getQueryCache().subscribe(schedule);
+  });
 
   wipe = async () => {
     if (timer) clearTimeout(timer);

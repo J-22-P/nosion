@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Kbd } from '@/components/ui/kbd';
 import { StatusPill } from '@/components/ui/status-pill';
 import { useUIStore } from '@/lib/stores/ui-store';
-import { useOnlineStatus } from '@/lib/use-online-status';
+import { useConnection } from '@/features/sync/use-sync';
 import { LogoMark } from './logo';
 import { Avatar, ProfileMenu } from './profile-menu';
 import { currentNav } from './nav';
@@ -21,7 +21,7 @@ function openCommandPalette() {
  * ช่องค้นหาคือ "ปุ่ม" เปิด ⌘K ไม่ใช่ input · Connection pill · กระดิ่ง · โปรไฟล์
  */
 export function TopBar({ displayName, isDemo }: { displayName: string; isDemo: boolean }) {
-  const online = useOnlineStatus();
+  const connection = useConnection();
 
   return (
     <header className="glass sticky top-0 z-20 hidden h-16 items-center gap-4 border-b border-hairline px-6 md:flex lg:px-10">
@@ -38,8 +38,8 @@ export function TopBar({ displayName, isDemo }: { displayName: string; isDemo: b
 
       <div className="ml-auto flex items-center gap-2">
         <StatusPill
-          status={online ? 'online' : 'offline'}
-          label={online ? 'Online' : 'ออฟไลน์'}
+          status={connection.status}
+          label={connection.label}
           className="hidden lg:inline-flex"
         />
         <Button variant="ghost" size="icon" shape="circle" aria-label="การแจ้งเตือน">
@@ -55,7 +55,7 @@ export function TopBar({ displayName, isDemo }: { displayName: string; isDemo: b
  * Header มือถือ (8.2): โลโก้ + ชื่อหน้าย่อย · ค้นหา · กระดิ่ง · โปรไฟล์ (ไปหน้า hub)
  */
 export function MobileHeader({ pathname, displayName }: { pathname: string; displayName: string }) {
-  const online = useOnlineStatus();
+  const connection = useConnection();
   const nav = currentNav(pathname);
 
   return (
@@ -67,7 +67,11 @@ export function MobileHeader({ pathname, displayName }: { pathname: string; disp
         </p>
         <p className="truncate text-xs text-fg-secondary" lang="en">
           {nav?.en ?? ''}
-          {online ? null : <span className="text-danger"> · ออฟไลน์</span>}
+          {connection.status === 'offline' ? (
+            <span className="text-danger"> · {connection.label}</span>
+          ) : connection.status === 'syncing' ? (
+            <span className="text-accent"> · {connection.label}</span>
+          ) : null}
         </p>
       </div>
       <Button
