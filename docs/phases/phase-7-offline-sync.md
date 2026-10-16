@@ -8,8 +8,8 @@
 | #   | ขั้น                                                                                                                      | Commit      | สถานะ |
 | --- | ------------------------------------------------------------------------------------------------------------------------- | ----------- | ----- |
 | 1   | API: `POST /sync/push` (create/update/complete/defer/delete/restore/parse · merge ระดับ field · ลบชนะ) + `GET /sync/pull` | `5ccaee7`   | ✅    |
-| 2   | เว็บ: outbox ใน IndexedDB + ตัวซิงก์ (online/โฟกัส/ปุ่ม) · mutation ของรายการเข้า outbox เมื่อออฟไลน์                     | (รอ commit) | ✅    |
-| 3   | เปิดแอปตอนออฟไลน์: เก็บ cache ของ TanStack Query ลง IndexedDB · service worker แคชหน้า + static · Background Sync         | —           | ⬜    |
+| 2   | เว็บ: outbox ใน IndexedDB + ตัวซิงก์ (online/โฟกัส/ปุ่ม) · mutation ของรายการเข้า outbox เมื่อออฟไลน์                     | `d80a172`   | ✅    |
+| 3   | เปิดแอปตอนออฟไลน์: เก็บ cache ของ TanStack Query ลง IndexedDB · service worker แคชหน้า + static · Background Sync         | (รอ commit) | ✅    |
 | 4   | UI สถานะ: connection pill 3 สถานะ · Sync Status ใน sidebar · `MUT: n` · การ์ด Outbox · จุด "รอซิงก์" · แจ้ง conflict      | —           | ⬜    |
 | 5   | E2E: ตัดเน็ต → สร้าง 3 รายการ → ต่อเน็ต → ครบไม่ซ้ำ (mock + API จริง) · PWA ติดตั้งได้                                    | —           | ⬜    |
 | 6   | บท learn 20 + ADR-014                                                                                                     | —           | ⬜    |
@@ -51,7 +51,7 @@
   merged · conflict (server ชนะ + diff) · ลบชนะ / ลบซ้ำ / complete ซ้ำ · **เลื่อนวันส่งซ้ำเลื่อนครั้งเดียว** · partial success · pull + tombstone + แยกผู้ใช้ · 422/401
 - API 118 + worker 19 · `pnpm verify` exit 0
 
-## ขั้น 2 · เว็บ: outbox ใน IndexedDB + ตัวซิงก์ — (รอ commit)
+## ขั้น 2 · เว็บ: outbox ใน IndexedDB + ตัวซิงก์ — `d80a172`
 
 **สิ่งที่เปลี่ยน**
 
@@ -86,4 +86,38 @@
   summarize · pickBase 2 · findCachedEntry
 - Playwright ui: **ตัดเน็ต → ติ๊กงาน (`j` `e`) + เพิ่ม 3 งาน → ไม่มีคำขอ · IndexedDB มี 4 · ต่อเน็ต → `/sync/push` ชุดเดียวตามลำดับ → "ซิงก์แล้ว 4 รายการ"** ·
   เทสต์นิสัยเดิมปรับตาม (`clientId` ถูกส่งเสมอ) · 52 ผ่าน
+- `pnpm verify` exit 0
+
+## ขั้น 3 · เปิดแอปตอนออฟไลน์ — (รอ commit)
+
+**สิ่งที่เปลี่ยน**
+
+- 📁 `lib/sync/query-persist.ts` — เก็บแคชของ TanStack Query ลง IndexedDB (`nosion-cache`) ด้วย `dehydrate`/`hydrate` ที่มากับ react-query ·
+  เขียนหน่วง 1 วิ · อายุ 7 วัน · ไม่เก็บ preview ของ parser / ผลค้นหา / push · `whenRestored()` ให้ query ที่ต้องรอแคชจากดิสก์
+- 📁 `features/auth/use-session.ts` + `auth-store.ts` — ขอ token ไม่ได้เพราะ **เน็ตหลุด** → ใช้โปรไฟล์ในแคช (`setOfflineUser`: รู้ว่าเป็นใคร แต่ไม่มี token) ·
+  ต่างจาก refresh ที่ถูก **ปฏิเสธ** (401) → ออกจากระบบตามเดิม · เน็ตกลับมาคำขอแรกได้ 401 → api-client หมุน token เอง
+- 📁 `features/sync/sync-bridge.tsx` — สถานะกลายเป็น "ไม่ได้ล็อกอิน" → ล้างแคชในหน่วยความจำ + บนดิสก์ · มีของค้างตอนออฟไลน์ → ขอ Background Sync
+- 📁 `public/sw.js` (เฉพาะ build จริง — `/sw.js?cache=1`)
+  - ติดตั้งแล้วเก็บทุกหน้าของแอป + ไฟล์ `/_next/static/*` ที่หน้าอ้างถึงล่วงหน้า · หน้าเว็บส่ง `nosion:precache` ตอนเปิด (SW เว้นช่วง 1 ชม.) ให้เก็บรุ่นใหม่หลัง deploy
+  - หน้า = network-first (เก็บตาม path) · static/ไอคอน = cache-first · ไม่แตะ `/api/` · หน้าที่ไม่มีในที่เก็บ → หน้า "ออฟไลน์อยู่"
+  - `sync` (tag `nosion-outbox`) → ส่ง `nosion:sync` ให้แท็บที่เปิดอยู่ flush
+
+**การตัดสินใจ**
+
+- **ข้อมูลออฟไลน์มาจากแคชของ query ไม่ใช่ SW แคช API** — SW ไม่มี access token (อยู่ใน memory ของหน้าเท่านั้น) และแคช HTTP ไม่รู้ว่าข้อมูลไหนใหม่กว่า ·
+  แคชของ query รู้ `dataUpdatedAt` → hydrate ไม่ทับของสดที่โหลดเสร็จก่อนอ่านดิสก์
+- **session ใช้ `networkMode: 'always'`** — ค่าเริ่มต้นพัก queryFn ตอนออฟไลน์ → จอค้าง skeleton ตลอด · ตัวนี้ตัดสินเองว่า "เน็ตหลุด" หรือ "หมดสิทธิ์"
+  และรอ `isFetching` จบก่อนตัดสิน (แคชจากดิสก์มาถึงก่อนผลรอบนี้ได้ — ถ้าไม่รอจะออกจากระบบผิด ๆ)
+- **ล้างแคชเมื่อไม่ได้ล็อกอิน** — เดิม logout ไม่ล้างแคชในหน่วยความจำ (คนถัดไปเห็นข้อมูลเก่าแวบหนึ่ง) · พอแคชลงดิสก์กลายเป็นเรื่องความเป็นส่วนตัว จึงแก้ที่จุดเดียว
+- Background Sync ทำได้แค่ **ปลุกแท็บที่เปิดอยู่** — การส่งต้องใช้ access token · ปิดแท็บหมดแล้วคิวรอจนเปิดแอปครั้งถัดไป (คิวอยู่ใน IndexedDB ไม่หาย)
+- ไฟล์ static รุ่นเก่าสะสมใน `nosion-static-v1` จนกว่าจะเปลี่ยน `VERSION` — ชื่อไฟล์มี hash จึงไม่เสิร์ฟผิด แค่กินที่ · ยอมรับไว้ก่อน
+
+**เจอระหว่างทาง:** รีเฟรชตอนออฟไลน์แล้วจอค้าง skeleton — HTML มาจากแคชแต่ JS ของหน้าไม่ถูกเก็บ: regex ที่หาไฟล์ในหน้าตัด URL ตรง `(` ของ route group
+(`chunks/app/(app)/tasks/page-….js`) · แก้ให้รับวงเล็บแล้วค่อยตัด `)` ท้ายของ `url(...)` ใน CSS
+
+**วิธีตรวจ**
+
+- unit (+4): persist 3 (เก็บ→เปิดใหม่ได้คืน · ตัด preview/ค้นหา · เกิน 7 วันไม่ใช้ · ลบเมื่อออกจากระบบ · ไม่ทับข้อมูลที่ใหม่กว่า) · `serviceWorkerUrl` (cache=1 เฉพาะ build จริง)
+- Playwright ui: **โหลด /tasks → รอแคชลงดิสก์ + SW เก็บหน้า → ตัดเน็ต → รีเฟรช: ยังอยู่ /tasks เห็นงานเดิม → เพิ่มงาน → ต่อเน็ต → `/sync/push`** ·
+  **เปิด /habits (ไม่เคยเปิด) ตอนออฟไลน์ได้** · 53 ผ่าน
 - `pnpm verify` exit 0

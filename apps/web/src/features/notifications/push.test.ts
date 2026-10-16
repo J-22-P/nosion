@@ -51,9 +51,16 @@ describe('base64UrlToBytes', () => {
 
 describe('serviceWorkerUrl', () => {
   it('local: บอก API คนละพอร์ต · staging (proxy): ไม่ส่ง = origin เดียวกัน', () => {
-    expect(serviceWorkerUrl('http://localhost:3001')).toBe(
+    expect(serviceWorkerUrl('http://localhost:3001', false)).toBe(
       '/sw.js?api=http%3A%2F%2Flocalhost%3A3001',
     );
-    expect(serviceWorkerUrl('')).toBe('/sw.js');
+    expect(serviceWorkerUrl('', false)).toBe('/sw.js');
+  });
+
+  it('build จริงเปิดแคชออฟไลน์ (cache=1) · dev ไม่เปิด', () => {
+    expect(serviceWorkerUrl('', true)).toBe('/sw.js?cache=1');
+    expect(serviceWorkerUrl('http://localhost:3001', true)).toBe(
+      '/sw.js?api=http%3A%2F%2Flocalhost%3A3001&cache=1',
+    );
   });
 });

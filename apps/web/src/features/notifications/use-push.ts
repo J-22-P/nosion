@@ -48,7 +48,7 @@ export function useTogglePush() {
 }
 
 /**
- * ลงทะเบียน service worker ตอนเปิดแอป และฟังข้อความจากมัน:
+ * ลงทะเบียน service worker ตอนเปิดแอป (Push + แคชออฟไลน์) และฟังข้อความจากมัน:
  * กด "จ่ายแล้ว" จาก notification → SW แจ้งมา → รีเฟรชทุกการ์ดที่อ่าน ['entries']
  */
 export function ServiceWorkerBridge() {
@@ -56,6 +56,12 @@ export function ServiceWorkerBridge() {
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
     registerServiceWorker().catch(() => undefined); // ลงทะเบียนไม่ได้ (เช่น http ที่ไม่ใช่ localhost) — แอปยังใช้ได้ปกติ
+    // ให้ SW เก็บหน้า/ไฟล์รุ่นล่าสุดไว้ใช้ออฟไลน์ (หลัง deploy ชื่อไฟล์เปลี่ยน) — SW เว้นช่วงเองไม่ให้ถี่
+    if (navigator.onLine) {
+      void navigator.serviceWorker.ready
+        .then((reg) => reg.active?.postMessage({ type: 'nosion:precache' }))
+        .catch(() => undefined);
+    }
     const onMessage = (event: MessageEvent<{ type?: string }>) => {
       if (event.data?.type === 'nosion:entries-changed') {
         void queryClient.invalidateQueries({ queryKey: ['entries'] });

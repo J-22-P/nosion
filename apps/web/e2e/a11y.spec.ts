@@ -793,7 +793,7 @@ test.describe('สรุปสัปดาห์ (Phase 6)', () => {
   });
 });
 
-test.describe('ออฟไลน์ (Phase 7 ขั้น 2)', () => {
+test.describe('ออฟไลน์ (Phase 7)', () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
   test('ตัดเน็ต → เพิ่มงาน 3 รายการ + ติ๊กงานเดิม → เข้าคิวไม่ล้ม · ต่อเน็ต → /sync/push ชุดเดียวตามลำดับ', async ({
@@ -854,5 +854,78 @@ test.describe('ออฟไลน์ (Phase 7 ขั้น 2)', () => {
       ['parse', 'ออฟไลน์ 3'],
     ]);
     await expect(page.getByText('ซิงก์แล้ว 4 รายการ')).toBeVisible();
+  });
+
+  test('เปิดแอปตอนออฟไลน์: รีเฟรชแล้วยังอยู่ในแอป เห็นข้อมูลเดิมจาก IndexedDB · SW เก็บทุกหน้าไว้ · เพิ่มงานหลังรีเฟรชแล้วซิงก์ได้', async ({
+    page,
+    context,
+  }) => {
+    const pushes: { op: string; text?: string }[][] = [];
+    await page.route('**/api/v1/sync/push', async (route) => {
+      const { operations } = route.request().postDataJSON() as {
+        operations: { op: string; opId: string; text?: string }[];
+      };
+      pushes.push(operations);
+      await route.fulfill({
+        json: {
+          results: operations.map((o) => ({ opId: o.opId, status: 'applied' })),
+          serverTime: new Date().toISOString(),
+        },
+      });
+    });
+    await page.goto('/tasks');
+    const title = page.getByText('Re-architect Auth Token refresh flow').first();
+    await expect(title).toBeVisible({ timeout: 15_000 });
+
+    // แคชของ query ถูกเขียนลงดิสก์ (หน่วง 1 วิ) · SW ติดตั้งแล้วเก็บทุกหน้าของแอป
+    await expect
+      .poll(
+        () =>
+          page.evaluate(
+            () =>
+              new Promise<boolean>((resolve) => {
+                const req = indexedDB.open('nosion-cache');
+                req.onsuccess = () => {
+                  const get = req.result.transaction('kv').objectStore('kv').get('query-cache');
+                  get.onsuccess = () => resolve(Boolean(get.result));
+                  get.onerror = () => resolve(false);
+                };
+                req.onerror = () => resolve(false);
+              }),
+          ),
+        { timeout: 10_000 },
+      )
+      .toBe(true);
+    await expect
+      .poll(
+        () =>
+          page.evaluate(async () => {
+            const pages = await caches.open('nosion-pages-v1');
+            return (
+              await Promise.all(['/today', '/calendar', '/habits'].map((p) => pages.match(p)))
+            ).every(Boolean);
+          }),
+        { timeout: 15_000 },
+      )
+      .toBe(true);
+
+    await context.setOffline(true);
+    await page.reload();
+    await expect(page).toHaveURL(/\/tasks/);
+    await expect(title).toBeVisible({ timeout: 15_000 });
+
+    const input = page.getByLabel('ชื่องานใหม่');
+    await input.fill('หลังรีเฟรชตอนออฟไลน์');
+    await input.press('Enter');
+    await expect(page.getByText(/บันทึกในเครื่องแล้ว/)).toBeVisible();
+
+    await context.setOffline(false);
+    await expect.poll(() => pushes.length).toBe(1);
+    expect(pushes[0]!.map((o) => [o.op, o.text])).toEqual([['parse', 'หลังรีเฟรชตอนออฟไลน์']]);
+
+    // หน้าที่ไม่เคยเปิดเลยก็เปิดตอนออฟไลน์ได้ (SW เก็บหน้า + JS ไว้ตั้งแต่ติดตั้ง) — ข้อมูลยังไม่มีแต่แอปไม่พัง
+    await context.setOffline(true);
+    await page.goto('/habits');
+    await expect(page.getByLabel('สร้างนิสัยใหม่ด้วยข้อความ')).toBeVisible({ timeout: 15_000 });
   });
 });

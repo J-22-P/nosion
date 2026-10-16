@@ -13,6 +13,11 @@ interface AuthState {
   user: AuthUserDto | null;
   status: 'loading' | 'authenticated' | 'anonymous';
   setSession: (token: string, user: AuthUserDto) => void;
+  /**
+   * เปิดแอปตอนออฟไลน์: ขอ token ใหม่ไม่ได้ แต่รู้ว่าเป็นใครจากแคชในเครื่อง (Phase 7)
+   * ใช้แอปต่อได้ (ทำแล้วเข้าคิว) · เน็ตกลับมาคำขอแรกได้ 401 → api-client หมุน token จาก refresh cookie เอง
+   */
+  setOfflineUser: (user: AuthUserDto) => void;
   setToken: (token: string | null) => void;
   setUser: (user: AuthUserDto | null) => void;
   clear: () => void;
@@ -23,6 +28,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   status: 'loading',
   setSession: (accessToken, user) => set({ accessToken, user, status: 'authenticated' }),
+  setOfflineUser: (user) => set({ user, status: 'authenticated' }),
   setToken: (accessToken) =>
     set((state) => ({
       accessToken,

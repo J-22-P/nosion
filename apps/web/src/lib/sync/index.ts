@@ -7,6 +7,8 @@ import { indexedDbOutbox, memoryOutbox, type OutboxStorage } from './outbox-stor
 import { SyncEngine } from './sync-engine';
 
 export { isLocalId, isQueued, localId, targetOf } from './offline';
+export { isNetworkError } from './sync-engine';
+export { persistQueryClient, whenRestored, wipePersistedQueries } from './query-persist';
 export type { SyncState } from './sync-engine';
 
 const isOnline = () => typeof navigator === 'undefined' || navigator.onLine;

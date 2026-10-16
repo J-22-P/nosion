@@ -43,9 +43,19 @@ export function base64UrlToBytes(value: string): Uint8Array<ArrayBuffer> {
   return bytes;
 }
 
-/** บอก service worker ว่า API อยู่ที่ไหน (local = คนละพอร์ต · staging = origin เดียวกันผ่าน proxy) */
-export function serviceWorkerUrl(apiUrl = API_URL): string {
-  return apiUrl ? `/sw.js?api=${encodeURIComponent(apiUrl)}` : '/sw.js';
+/**
+ * บอก service worker ว่า API อยู่ที่ไหน (local = คนละพอร์ต · staging = origin เดียวกันผ่าน proxy)
+ * และเปิดแคชหน้า/ไฟล์ static (Phase 7) เฉพาะ build จริง — `next dev` แคชแล้ว hot reload จะเห็นของเก่า
+ */
+export function serviceWorkerUrl(
+  apiUrl = API_URL,
+  cache = process.env.NODE_ENV === 'production',
+): string {
+  const params = new URLSearchParams();
+  if (apiUrl) params.set('api', apiUrl);
+  if (cache) params.set('cache', '1');
+  const qs = params.toString();
+  return qs ? `/sw.js?${qs}` : '/sw.js';
 }
 
 export const pushApi = {

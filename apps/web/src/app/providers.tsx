@@ -5,30 +5,35 @@ import { ThemeProvider } from 'next-themes';
 import { useState } from 'react';
 import { Toaster } from 'sonner';
 import { ApiError } from '@/lib/api-client';
+import { persistQueryClient } from '@/lib/sync';
 import '@/features/auth/auth-store';
 import { ServiceWorkerBridge } from '@/features/notifications/use-push';
 import { SyncBridge } from '@/features/sync/sync-bridge';
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            staleTime: 30_000,
-            refetchOnWindowFocus: false,
-            // 4xx เป็นความผิดของคำขอ — retry ไปก็ได้ผลเดิม เสีย quota เปล่า
-            retry: (failureCount, error) => {
-              if (error instanceof ApiError && error.status < 500) return false;
-              return failureCount < 2;
-            },
+  const [queryClient] = useState(() => {
+    const client = new QueryClient({
+      defaultOptions: {
+        queries: {
+          staleTime: 30_000,
+          refetchOnWindowFocus: false,
+          // 4xx เป็นความผิดของคำขอ — retry ไปก็ได้ผลเดิม เสีย quota เปล่า
+          retry: (failureCount, error) => {
+            if (error instanceof ApiError && error.status < 500) return false;
+            return failureCount < 2;
           },
-          // ค่าเริ่มต้น 'online' จะพัก mutation ไว้ตอนออฟไลน์จนกว่าเน็ตกลับ (หายเมื่อรีเฟรช)
-          // ชั้น api ตัดสินเองว่าส่งหรือเข้าคิว outbox (lib/sync) → ให้ mutationFn ทำงานเสมอ
-          mutations: { networkMode: 'always' },
         },
-      }),
-  );
+        // ค่าเริ่มต้น 'online' จะพัก mutation ไว้ตอนออฟไลน์จนกว่าเน็ตกลับ (หายเมื่อรีเฟรช)
+        // ชั้น api ตัดสินเองว่าส่งหรือเข้าคิว outbox (lib/sync) → ให้ mutationFn ทำงานเสมอ
+        mutations: { networkMode: 'always' },
+      },
+    });
+    // เริ่มก่อน query แรก — session รอแคชจากดิสก์ (whenRestored) ก่อนตัดสินเรื่องออฟไลน์
+    if (typeof window !== 'undefined' && typeof indexedDB !== 'undefined') {
+      persistQueryClient(client);
+    }
+    return client;
+  });
 
   return (
     <QueryClientProvider client={queryClient}>

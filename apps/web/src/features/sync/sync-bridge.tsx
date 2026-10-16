@@ -4,11 +4,14 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/features/auth/auth-store';
-import { bindSyncQueryClient, syncEngine, type SyncState } from '@/lib/sync';
+import { bindSyncQueryClient, syncEngine, wipePersistedQueries, type SyncState } from '@/lib/sync';
 import { summarizeResults } from './summarize';
 
 /** ระหว่างยังมีของค้างและออนไลน์ ลองส่งใหม่ทุกเท่านี้ (เผื่อ server ล่ม/429 ไปชั่วคราว) */
 const RETRY_MS = 30_000;
+
+/** tag ของ Background Sync — service worker ปลุกแท็บที่เปิดอยู่ให้ flush เมื่อเครื่องกลับมาออนไลน์ */
+const SYNC_TAG = 'nosion-outbox';
 
 const SERVER_STATE: SyncState = { pending: 0, status: 'idle', lastSyncedAt: null, lastError: null };
 
@@ -26,9 +29,33 @@ export function useSyncState(): SyncState {
 export function SyncBridge() {
   const queryClient = useQueryClient();
   const userId = useAuthStore((s) => s.user?.id ?? null);
-  const { pending } = useSyncState();
+  const { pending, status } = useSyncState();
 
   useEffect(() => bindSyncQueryClient(queryClient), [queryClient]);
+
+  // ไม่ได้ล็อกอิน (ออกจากระบบ / refresh ถูกปฏิเสธ) → ล้างข้อมูลของคนก่อนทั้งในหน่วยความจำและบนดิสก์
+  // (คงไว้แค่ session ซึ่งหน้า login ยังสังเกตอยู่) · คิว outbox ไม่ลบ: แยกตามผู้ใช้ รอเจ้าของกลับมาส่ง
+  useEffect(
+    () =>
+      useAuthStore.subscribe((state, prev) => {
+        if (state.status !== 'anonymous' || prev.status === 'anonymous') return;
+        queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== 'session' });
+        void wipePersistedQueries();
+      }),
+    [queryClient],
+  );
+
+  // มีของค้างตอนออฟไลน์ → ขอ Background Sync (Chromium) ให้ปลุกเราทันทีที่เน็ตกลับ แม้แท็บอยู่เบื้องหลัง
+  useEffect(() => {
+    if (status !== 'offline' || !pending || !('serviceWorker' in navigator)) return;
+    void navigator.serviceWorker.ready
+      .then((reg) =>
+        (
+          reg as ServiceWorkerRegistration & { sync?: { register(tag: string): Promise<void> } }
+        ).sync?.register(SYNC_TAG),
+      )
+      .catch(() => undefined);
+  }, [status, pending]);
 
   useEffect(() => {
     void syncEngine.setUser(userId).then(() => syncEngine.flush());
