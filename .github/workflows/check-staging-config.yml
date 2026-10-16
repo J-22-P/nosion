@@ -5,6 +5,10 @@ name: Check staging config
 # พิมพ์เฉพาะ "รูปร่าง" ของค่า (พอร์ต · พารามิเตอร์ · โดเมนท้าย) — ไม่พิมพ์ user / password / host เต็ม
 on:
   workflow_dispatch:
+    inputs:
+      since:
+        description: ดู error ของ API ย้อนหลังเท่าไร (เช่น 2h, 1d)
+        default: 2h
 
 permissions:
   contents: read
@@ -59,3 +63,30 @@ jobs:
             fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, "### DATABASE_URL (staging API)\n\n" + lines.map((l) => "- " + l).join("\n") + "\n");
           '
           rm -f .vercel/.env.production.local
+
+  # error 5xx ของ API ย้อนหลัง (runtime log ของ Vercel) — ไม่ต้องยิงโหลดใหม่เพื่อดูว่าพังเพราะอะไร
+  # ลบ connection string · อีเมล · token ออกก่อนพิมพ์ (log ของ Actions เปิดให้ทุกคนที่เห็น repo)
+  api-errors:
+    runs-on: ubuntu-24.04
+    environment: staging
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_API }}
+      SINCE: ${{ inputs.since || '2h' }}
+    steps:
+      - run: npx vercel@63.1.0 pull --yes --environment=production --token="$VERCEL_TOKEN" >/dev/null
+      - name: error 5xx ย้อนหลัง
+        run: |
+          set -o pipefail
+          npx vercel@63.1.0 logs --environment production --status-code 5xx --since "$SINCE" --limit 60 --expand --token="$VERCEL_TOKEN" 2>&1 \
+            | sed -E \
+                -e 's#postgres(ql)?://[^[:space:]"]+#[db-url]#g' \
+                -e 's#rediss?://[^[:space:]"]+#[redis-url]#g' \
+                -e 's#[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[a-z]{2,}#[email]#g' \
+                -e 's#eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+#[jwt]#g' \
+                -e 's#Bearer [A-Za-z0-9._-]+#Bearer [token]#g' \
+            | tee errors.txt | head -300
+          echo "### API 5xx ย้อนหลัง $SINCE — $(grep -c . errors.txt || true) บรรทัด" >> "$GITHUB_STEP_SUMMARY"
+          rm -f errors.txt .vercel/.env.production.local
+
