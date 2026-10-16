@@ -996,4 +996,18 @@ test.describe('ออฟไลน์ (Phase 7)', () => {
     await page.goto('/habits');
     await expect(page.getByLabel('สร้างนิสัยใหม่ด้วยข้อความ')).toBeVisible({ timeout: 15_000 });
   });
+
+  test('PWA ติดตั้งได้: manifest ครบ + service worker คุมหน้า → Chromium ไม่รายงาน installability error', async ({
+    page,
+  }) => {
+    await page.goto('/today');
+    await page.waitForFunction(() => navigator.serviceWorker.controller !== null, null, {
+      timeout: 15_000,
+    });
+    const cdp = await page.context().newCDPSession(page);
+    const { installabilityErrors } = (await cdp.send('Page.getInstallabilityErrors')) as {
+      installabilityErrors: { errorId: string }[];
+    };
+    expect(installabilityErrors.map((e) => e.errorId)).toEqual([]);
+  });
 });

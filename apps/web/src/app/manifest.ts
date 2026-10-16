@@ -3,8 +3,8 @@ import type { MetadataRoute } from 'next';
 /**
  * Web App Manifest (สเปก 8.6 / 8.7.7) — Next เสิร์ฟที่ /manifest.webmanifest และใส่ <link rel="manifest"> ให้เอง
  *
- * Phase 2a มีแค่ข้อมูลสำหรับ "เพิ่มลงหน้าจอหลัก" (ชื่อ ไอคอน สี)
- * service worker + offline มาใน Phase 7 — ก่อนหน้านั้นเบราว์เซอร์บางตัวจะยังไม่เสนอปุ่ม Install
+ * ชื่อ ไอคอน สี สำหรับ "เพิ่มลงหน้าจอหลัก" + service worker ที่แคชหน้าไว้ใช้ออฟไลน์ (Phase 7)
+ * → ติดตั้งเป็นแอปได้ (Playwright ตรวจด้วย Page.getInstallabilityErrors ของ Chromium)
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {

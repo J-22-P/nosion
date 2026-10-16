@@ -10,8 +10,8 @@
 | 1   | API: `POST /sync/push` (create/update/complete/defer/delete/restore/parse · merge ระดับ field · ลบชนะ) + `GET /sync/pull` | `5ccaee7`   | ✅    |
 | 2   | เว็บ: outbox ใน IndexedDB + ตัวซิงก์ (online/โฟกัส/ปุ่ม) · mutation ของรายการเข้า outbox เมื่อออฟไลน์                     | `d80a172`   | ✅    |
 | 3   | เปิดแอปตอนออฟไลน์: เก็บ cache ของ TanStack Query ลง IndexedDB · service worker แคชหน้า + static · Background Sync         | `59f8687`   | ✅    |
-| 4   | UI สถานะ: connection pill 3 สถานะ · Sync Status ใน sidebar · `MUT: n` · การ์ด Outbox · จุด "รอซิงก์" · แจ้ง conflict      | (รอ commit) | ✅    |
-| 5   | E2E: ตัดเน็ต → สร้าง 3 รายการ → ต่อเน็ต → ครบไม่ซ้ำ (mock + API จริง) · PWA ติดตั้งได้                                    | —           | ⬜    |
+| 4   | UI สถานะ: connection pill 3 สถานะ · Sync Status ใน sidebar · `MUT: n` · การ์ด Outbox · จุด "รอซิงก์" · แจ้ง conflict      | `989a243`   | ✅    |
+| 5   | E2E: ตัดเน็ต → สร้าง 3 รายการ → ต่อเน็ต → ครบไม่ซ้ำ (mock + API จริง) · PWA ติดตั้งได้                                    | (รอ commit) | ✅    |
 | 6   | บท learn 20 + ADR-014                                                                                                     | —           | ⬜    |
 
 **ขอบเขต:** รายการ (งาน · รายจ่าย) และบันทึกด่วนผ่าน parser ทำงานออฟไลน์ได้ · ปุ่ม +1 ของนิสัยยังต้องออนไลน์
@@ -122,7 +122,7 @@
   **เปิด /habits (ไม่เคยเปิด) ตอนออฟไลน์ได้** · 53 ผ่าน
 - `pnpm verify` exit 0
 
-## ขั้น 4 · UI สถานะการซิงก์ — (รอ commit)
+## ขั้น 4 · UI สถานะการซิงก์ — `989a243`
 
 **สิ่งที่เปลี่ยน**
 
@@ -163,3 +163,25 @@
   54 ผ่าน (`--workers=2`) · เทสต์ออฟไลน์ซ้ำ 3 รอบผ่าน
 - visual baseline ของ Today/sidebar เปลี่ยน (chip `MUT`, การ์ด Outbox กดได้) — สร้างใหม่บน runner ตอนจบ phase
 - `pnpm verify` exit 0
+
+## ขั้น 5 · E2E กับ API จริง + PWA ติดตั้งได้ — (รอ commit)
+
+**สิ่งที่เปลี่ยน**
+
+- 📁 `e2e/smoke.spec.ts` — **DoD Phase 7 กับ API + Postgres จริง**: demo login → รอ SW คุมหน้า + เก็บหน้า + แคชลงดิสก์ → ตัดเน็ต → **รีเฟรช** →
+  สร้าง 3 งาน (pill `ออฟไลน์ · รอซิงก์ 3`) → ต่อเน็ต → "ซิงก์แล้ว 3 รายการ" → ถาม server ตรง (refresh cookie ของ context) ได้ 3 รายการชื่อตรง ไม่ซ้ำ
+- 📁 `e2e/a11y.spec.ts` — PWA: `Page.getInstallabilityErrors` ของ Chromium ว่าง (manifest ครบ + SW คุมหน้า)
+- `manifest.ts` — คอมเมนต์ตามจริง (SW + ออฟไลน์มาแล้ว)
+
+**การตัดสินใจ**
+
+- ตรวจผลที่ server ด้วย `page.request` + refresh cookie ของ context เดียวกัน — ไม่พึ่ง UI บอกว่า "ซิงก์แล้ว" อย่างเดียว (UI อาจพูดถูกแต่ server มีซ้ำ)
+- ชุดเทสต์ออฟไลน์ (mock) ครอบคลุมรายละเอียด UI · smoke ครอบคลุมเส้นทางจริงทั้งสาย (SW จริง · IndexedDB จริง · `/sync/push` จริง · Postgres จริง) — ไม่ซ้ำกัน
+
+**วิธีรัน smoke ในเครื่อง:** colima (postgres/redis) ขึ้น → `redis-cli flushdb` (ล้างตัวนับ demo login 5 ครั้ง/ชม.) →
+`DATABASE_URL=…/nosion_test JWT_SECRET=… node --env-file=.env apps/api/dist/main.js` (`.env` ที่รากมีบรรทัดที่ shell `source` ไม่ได้ — ใช้ `--env-file`) →
+`pnpm --filter @nosion/web exec playwright test --project=smoke --workers=1`
+
+**วิธีตรวจ**
+
+- smoke 5/5 (API จริง) · ui 55/55 (`--workers=2`) · `pnpm verify` exit 0

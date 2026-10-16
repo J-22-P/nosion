@@ -75,3 +75,58 @@ test('บันทึกด่วนหน้า Expenses: บิลรายเ
   await input.press('Enter');
   await expect(page.getByText('ตั้งบิลประจำแล้ว')).toBeVisible();
 });
+
+/**
+ * DoD Phase 7 (สเปก 15): เปิดโหมดเครื่องบิน → ใช้แอปได้ปกติ → ปิดโหมด → ข้อมูลขึ้น server ครบ
+ * API + DB จริง: รีเฟรชตอนออฟไลน์ (SW + แคชใน IndexedDB) → สร้าง 3 งาน → ต่อเน็ต → server มีครบ 3 ไม่ซ้ำ
+ */
+test('DoD Phase 7: ออฟไลน์ → รีเฟรช → สร้าง 3 งาน → ต่อเน็ต → server มีครบ 3 ไม่ซ้ำ', async ({
+  page,
+  context,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /ลองใช้ทันที/ }).click();
+  await page.waitForURL('**/tasks');
+  const input = page.getByLabel('ชื่องานใหม่');
+  await expect(input).toBeVisible();
+
+  // พร้อมออฟไลน์: SW คุมหน้า + เก็บทุกหน้าแล้ว + แคชของ query ลงดิสก์แล้ว
+  await page.waitForFunction(() => navigator.serviceWorker.controller !== null, null, {
+    timeout: 15_000,
+  });
+  await expect
+    .poll(() => page.evaluate(async () => Boolean(await caches.match('/today'))), {
+      timeout: 20_000,
+    })
+    .toBe(true);
+  await page.waitForTimeout(1_500);
+
+  await context.setOffline(true);
+  await page.reload();
+  await expect(input).toBeVisible({ timeout: 15_000 });
+
+  const stamp = Date.now();
+  const titles = [1, 2, 3].map((i) => `ออฟไลน์ ${stamp} #${i}`);
+  for (const title of titles) {
+    await input.fill(title);
+    await input.press('Enter');
+    await expect(input).toHaveValue('');
+  }
+  await expect(
+    page.getByRole('status').filter({ hasText: 'ออฟไลน์ · รอซิงก์ 3' }).first(),
+  ).toBeVisible();
+
+  await context.setOffline(false);
+  await expect(page.getByText('ซิงก์แล้ว 3 รายการ')).toBeVisible({ timeout: 15_000 });
+
+  // ถาม server ตรง (refresh cookie ของ context นี้) — ต้องมีครบ 3 และไม่ซ้ำ
+  const api = `${process.env.E2E_API_URL ?? 'http://localhost:3001'}/api/v1`;
+  const { accessToken } = (await (await page.request.post(`${api}/auth/refresh`)).json()) as {
+    accessToken: string;
+  };
+  const res = await page.request.get(`${api}/entries?q=${encodeURIComponent(String(stamp))}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  const { data } = (await res.json()) as { data: { title: string }[] };
+  expect(data.map((e) => e.title).sort()).toEqual(titles);
+});
