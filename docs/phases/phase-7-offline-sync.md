@@ -11,8 +11,8 @@
 | 2   | เว็บ: outbox ใน IndexedDB + ตัวซิงก์ (online/โฟกัส/ปุ่ม) · mutation ของรายการเข้า outbox เมื่อออฟไลน์                     | `d80a172`   | ✅    |
 | 3   | เปิดแอปตอนออฟไลน์: เก็บ cache ของ TanStack Query ลง IndexedDB · service worker แคชหน้า + static · Background Sync         | `59f8687`   | ✅    |
 | 4   | UI สถานะ: connection pill 3 สถานะ · Sync Status ใน sidebar · `MUT: n` · การ์ด Outbox · จุด "รอซิงก์" · แจ้ง conflict      | `989a243`   | ✅    |
-| 5   | E2E: ตัดเน็ต → สร้าง 3 รายการ → ต่อเน็ต → ครบไม่ซ้ำ (mock + API จริง) · PWA ติดตั้งได้                                    | (รอ commit) | ✅    |
-| 6   | บท learn 20 + ADR-014                                                                                                     | —           | ⬜    |
+| 5   | E2E: ตัดเน็ต → สร้าง 3 รายการ → ต่อเน็ต → ครบไม่ซ้ำ (mock + API จริง) · PWA ติดตั้งได้                                    | `7f404e7`   | ✅    |
+| 6   | บท learn 20 + ADR-014                                                                                                     | (รอ commit) | ✅    |
 
 **ขอบเขต:** รายการ (งาน · รายจ่าย) และบันทึกด่วนผ่าน parser ทำงานออฟไลน์ได้ · ปุ่ม +1 ของนิสัยยังต้องออนไลน์
 (เป็นการบวกแบบ atomic ฝั่ง server — ดูขั้น 2 ว่าจะรวมได้ไหม)
@@ -164,7 +164,7 @@
 - visual baseline ของ Today/sidebar เปลี่ยน (chip `MUT`, การ์ด Outbox กดได้) — สร้างใหม่บน runner ตอนจบ phase
 - `pnpm verify` exit 0
 
-## ขั้น 5 · E2E กับ API จริง + PWA ติดตั้งได้ — (รอ commit)
+## ขั้น 5 · E2E กับ API จริง + PWA ติดตั้งได้ — `7f404e7`
 
 **สิ่งที่เปลี่ยน**
 
@@ -185,3 +185,21 @@
 **วิธีตรวจ**
 
 - smoke 5/5 (API จริง) · ui 55/55 (`--workers=2`) · `pnpm verify` exit 0
+
+## ขั้น 6 · บท learn 20 + ADR-014 — (รอ commit)
+
+- 📁 `docs/learn/20-phase7-offline-sync.md` — สามชั้น · idempotency (ตารางว่าอะไรพังเมื่อส่งซ้ำ) · three-way merge จาก base · ทางแยกเดียว + `networkMode` ·
+  สี่อย่างที่ต้องมาจากในเครื่อง (HTML/JS/ข้อมูล/ตัวตน) · UI ที่บอกความจริง · บั๊กสามตัวที่ทำให้จอค้าง · แบบฝึกหัด 8 ข้อ
+- 📁 `docs/adr/014-offline-outbox-and-field-merge.md` — ทางเลือกที่ไม่เลือก: CRDT/local-first DB, LWW ทั้งรายการ, version อย่างเดียว,
+  ประวัติรายช่องบน server, Idempotency-Key ทั้งคำขอ, SW แคช API, Workbox/persist-client
+- สารบัญ `00-how-to-read` + `index.html` · อภิธานศัพท์หมวด Offline sync · README (สถานะ + จุดเด่นข้อ 6) · ติ๊ก checklist Phase 7 ในสเปก (PWA บนมือถือจริงรอเจ้าของ)
+
+## สรุป Phase 7
+
+| DoD                                | หลักฐาน                                                                            |
+| ---------------------------------- | ---------------------------------------------------------------------------------- |
+| เปิดโหมดเครื่องบิน → ใช้แอปได้ปกติ | E2E: ตัดเน็ต → **รีเฟรช** → ยังอยู่ในแอป เห็นข้อมูลเดิม · เปิดหน้าที่ไม่เคยเข้าได้ |
+| ปิดโหมด → ข้อมูลขึ้น server ครบ    | smoke (API + Postgres จริง): สร้าง 3 งานตอนออฟไลน์ → server มี 3 ไม่ซ้ำ            |
+| ไม่ซ้ำ / ไม่ทับเงียบ               | integration 7 เคส (replay, merged, conflict, ลบชนะ, เลื่อนวันครั้งเดียว)           |
+
+**รอเจ้าของ:** ติดตั้ง PWA บนมือถือจริง + ลองโหมดเครื่องบิน · visual baseline ใหม่ (Today: chip `MUT`, การ์ด Outbox) สร้างบน runner หลัง push

@@ -3,7 +3,7 @@
 ระบบจัดการชีวิตที่ต่อโมดูลเพิ่มได้ — งาน การเงิน ออกกำลังกาย และนิสัย
 อยู่บนโครงสร้างข้อมูลเดียวกัน จึงดูรวมกันได้ในหน้าเดียวโดยไม่ต้องสลับแอป
 
-> **สถานะปัจจุบัน:** Phase 0–6 เสร็จแล้ว (Phase 6 ทำเฉพาะ Habit — ตัด Workout) · กำลังทำ Phase 7 (Offline sync) → 8 (Polish)
+> **สถานะปัจจุบัน:** Phase 0–7 เสร็จแล้ว (Phase 6 ทำเฉพาะ Habit — ตัด Workout) · ถัดไป Phase 8 (Polish + Portfolio)
 > — ดู [แผนงานเต็ม](#ทำอะไรต่อ) ท้ายเอกสาร · บันทึกรายขั้นที่ [docs/phases](docs/phases/README.md)
 
 ---
@@ -76,7 +76,14 @@ frontend และ generate TypeScript type ทั้งสองฝั่ง ([
 
 ทุก `PATCH /entries/:id` ต้องส่ง `version` ที่ client เห็นล่าสุดมาด้วย
 ถ้าไม่ตรงกับในฐานข้อมูล API ตอบ 409 พร้อมเวอร์ชันปัจจุบัน แทนที่จะเขียนทับเงียบ ๆ
-— เป็นรากฐานของ offline sync ใน Phase 7
+
+### 6. ใช้ได้ตอนไม่มีเน็ต — ส่งซ้ำไม่ซ้ำ แก้ชนไม่เงียบ
+
+ทำตอนออฟไลน์ → เข้าคิว (outbox) ใน IndexedDB → เน็ตกลับมาส่ง `POST /sync/push` ตามลำดับ
+· ทุก operation มี `opId` ส่งซ้ำได้ผลเดิม (เลื่อนวัน/สร้างกฎไม่ซ้ำ) · สองเครื่องแก้คนละช่องรวมกันเอง
+ช่องเดียวกัน server ชนะและผู้ใช้เห็น diff (ตัดสินจาก "ค่าก่อนแก้" ที่ client ส่งมา) · รีเฟรชตอนออฟไลน์ยังเปิดแอปได้
+(service worker + แคชของ query ใน IndexedDB) — พิสูจน์ด้วย E2E กับ API จริง:
+ตัดเน็ต → รีเฟรช → สร้าง 3 งาน → ต่อเน็ต → server มีครบ 3 ไม่ซ้ำ ([ADR-014](./docs/adr/014-offline-outbox-and-field-merge.md))
 
 ---
 
@@ -235,7 +242,7 @@ cascade และ transaction ซึ่ง mock จับไม่ได้
 - [x] **Phase 4** — Reminder Engine (idempotency, retry, DLQ, quiet hours) _(รอทดสอบ push บนมือถือจริง)_
 - [x] **Phase 5** — Calendar รวมทุกโมดูล, NL Parser, Command Palette (⌘K)
 - [x] **Phase 6** — HabitModule + Weekly Review (บททดสอบจริงของ "แก้ core 0 บรรทัด") · _ตัด WorkoutModule_
-- [ ] **Phase 7** — Offline-first sync พร้อมการแก้ conflict
+- [x] **Phase 7** — Offline-first sync พร้อมการแก้ conflict (outbox · idempotency · merge ระดับ field · PWA)
 - [ ] **Phase 8** — Polish, Lighthouse ≥ 90, deploy production
 
 รายละเอียดทั้งหมดอยู่ใน [NOSION-SPEC.md](../NOSION-SPEC.md)
