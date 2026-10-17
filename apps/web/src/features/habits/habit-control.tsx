@@ -5,6 +5,7 @@ import { cn } from '@nosion/ui';
 import { Check, Minus, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { tr } from '@/i18n/current';
 
 /**
  * ปุ่มของรอบวันนี้ตาม `kind` (สเปก 8.11.1 การ์ดนิสัย · 5.4) — ใช้ทั้งหน้า /habits และการ์ดในหน้า Today
@@ -41,7 +42,7 @@ export function HabitControl({
             variant="secondary"
             size="icon-sm"
             shape="circle"
-            aria-label={`ลด ${title} 1 ${unit}`}
+            aria-label={tr('habits.decrement', { title, unit })}
             disabled={current <= 0}
             onClick={() => onIncrement(-1)}
           >
@@ -54,21 +55,21 @@ export function HabitControl({
             variant="secondary"
             size="icon-sm"
             shape="circle"
-            aria-label={`เพิ่ม ${title} 1 ${unit}`}
+            aria-label={tr('habits.increment', { title, unit })}
             onClick={() => onIncrement(1)}
           >
             <Plus size={14} aria-hidden="true" />
           </Button>
           {done ? (
             <span className="text-xs text-success">
-              <Check size={12} className="inline" aria-hidden="true" /> ครบเป้า
+              <Check size={12} className="inline" aria-hidden="true" /> {tr('habits.goalMet')}
             </span>
           ) : null}
         </div>
         <Progress
           value={Math.min(current, target)}
           max={target}
-          label={`${title} ${current} จาก ${target} ${unit}`}
+          label={tr('habits.progressLabel', { title, current, target, unit })}
         />
       </div>
     );
@@ -77,41 +78,41 @@ export function HabitControl({
   return (
     <div className="flex flex-wrap items-center gap-2">
       {kind === 'before_time' && deadlineLocalTime && !done ? (
-        <span className="text-xs text-fg-secondary">ต้องทำให้ทันก่อน {deadlineLocalTime}</span>
+        <span className="text-xs text-fg-secondary">
+          {tr('habits.beforeDeadline', { time: deadlineLocalTime ?? '' })}
+        </span>
       ) : null}
       <Button
         size="sm"
         shape="pill"
         variant={done ? 'secondary' : 'primary'}
         aria-pressed={done}
-        aria-label={done ? `ยกเลิกทำแล้ว: ${title}` : `ทำแล้ว: ${title}`}
+        aria-label={done ? tr('habits.uncheck', { title }) : tr('habits.check', { title })}
         onClick={() => onCheck(!done)}
         className="gap-1.5"
       >
         <Check size={14} aria-hidden="true" />
-        {done ? 'สำเร็จแล้ว' : kind === 'before_time' ? 'ทำเครื่องหมายว่าสำเร็จ' : 'สำเร็จ'}
+        {done
+          ? tr('habits.succeeded')
+          : kind === 'before_time'
+            ? tr('habits.markSucceeded')
+            : tr('habits.succeed')}
       </Button>
     </div>
   );
 }
 
-const STATE_LABEL: Record<HabitDayState, string> = {
-  done: 'ทำแล้ว',
-  missed: 'พลาด',
-  skipped: 'ข้าม',
-  pending: 'วันนี้ยังไม่ทำ',
-  none: 'ไม่มีรอบ',
-};
+const stateLabel = (state: HabitDayState) => tr(`habits.state.${state}`);
 
 /** แถบ 7 วันล่าสุด — สถานะบอกด้วยรูปทรง/สัญลักษณ์ ไม่พึ่งสีอย่างเดียว */
 export function SevenDays({ days }: { days: { date: string; state: HabitDayState }[] }) {
   return (
-    <ol className="flex gap-1" aria-label="7 วันล่าสุด">
+    <ol className="flex gap-1" aria-label={tr('habits.last7')}>
       {days.map((d) => (
         <li
           key={d.date}
-          title={`${d.date} · ${STATE_LABEL[d.state]}`}
-          aria-label={`${Number(d.date.slice(8, 10))} · ${STATE_LABEL[d.state]}`}
+          title={`${d.date} · ${stateLabel(d.state)}`}
+          aria-label={`${Number(d.date.slice(8, 10))} · ${stateLabel(d.state)}`}
           className={cn(
             'flex size-6 items-center justify-center rounded-[6px] text-[11px] font-medium',
             d.state === 'done' && 'bg-primary text-primary-fg',

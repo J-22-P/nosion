@@ -1,17 +1,22 @@
 import type { SyncResult } from '@nosion/contracts';
+import { tr } from '@/i18n/current';
 
-const FIELD_LABEL: Record<string, string> = {
-  title: 'ชื่อ',
-  description: 'รายละเอียด',
-  status: 'สถานะ',
-  priority: 'ความสำคัญ',
-  occurredAt: 'วันเวลา',
-  isAllDay: 'ทั้งวัน',
-  projectId: 'โปรเจกต์',
-};
+const KNOWN_FIELDS = new Set([
+  'title',
+  'description',
+  'status',
+  'priority',
+  'occurredAt',
+  'isAllDay',
+  'projectId',
+]);
 
 export const fieldLabel = (field: string): string =>
-  FIELD_LABEL[field] ?? (field.startsWith('payload.') ? field.slice('payload.'.length) : field);
+  KNOWN_FIELDS.has(field)
+    ? tr(`syncUi.field.${field}`)
+    : field.startsWith('payload.')
+      ? field.slice('payload.'.length)
+      : field;
 
 export interface SyncSummary {
   /** applied + merged */
@@ -28,7 +33,7 @@ export function summarizeResults(results: SyncResult[]): SyncSummary {
   for (const r of results) {
     if (r.status === 'applied' || r.status === 'merged') summary.saved++;
     else if (r.status === 'deleted') summary.deleted++;
-    else if (r.status === 'error') summary.errors.push(r.error ?? 'ประมวลผลไม่สำเร็จ');
+    else if (r.status === 'error') summary.errors.push(r.error ?? tr('syncUi.processFailed'));
     else
       summary.conflicts.push({
         title: r.entry?.title ?? '',

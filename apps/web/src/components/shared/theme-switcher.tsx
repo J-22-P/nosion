@@ -4,20 +4,16 @@ import { Monitor, Moon, Sun } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
 import { SegmentedControl } from '@/components/ui/segmented-control';
+import { useTranslations } from 'next-intl';
 
 type ThemeChoice = 'system' | 'light' | 'dark';
 
-const OPTIONS = [
-  { value: 'system', label: <Monitor aria-hidden="true" />, ariaLabel: 'ตามระบบ' },
-  { value: 'light', label: <Sun aria-hidden="true" />, ariaLabel: 'สว่าง' },
-  { value: 'dark', label: <Moon aria-hidden="true" />, ariaLabel: 'มืด' },
-] as const;
-
-const OPTIONS_WITH_TEXT = [
-  { value: 'system', label: 'ตามระบบ' },
-  { value: 'light', label: 'สว่าง' },
-  { value: 'dark', label: 'มืด' },
-] as const;
+const ICONS = {
+  system: <Monitor aria-hidden="true" />,
+  light: <Sun aria-hidden="true" />,
+  dark: <Moon aria-hidden="true" />,
+} as const;
+const CHOICES = ['system', 'light', 'dark'] as const;
 
 /**
  * เลือกธีม system / light / dark (สเปก 8.7)
@@ -30,14 +26,20 @@ export function ThemeSwitcher({ compact = false }: { compact?: boolean }) {
   useEffect(() => setMounted(true), []);
 
   const value = (mounted ? theme : 'system') as ThemeChoice;
+  const t = useTranslations('theme');
+  const options = CHOICES.map((choice) =>
+    compact
+      ? { value: choice, label: ICONS[choice], ariaLabel: t(choice) }
+      : { value: choice, label: t(choice) },
+  );
 
   return (
     <SegmentedControl<ThemeChoice>
-      label="ธีม"
+      label={t('label')}
       size={compact ? 'sm' : 'md'}
       value={value}
       onChange={setTheme}
-      options={compact ? OPTIONS : OPTIONS_WITH_TEXT}
+      options={options}
     />
   );
 }

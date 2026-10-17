@@ -7,3 +7,4 @@ export * from './recurrence';
 export * from './nl';
 export * from './quiet-hours';
 export * from './action-token';
+export * from './text';

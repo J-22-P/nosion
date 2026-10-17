@@ -1,6 +1,6 @@
 'use client';
 
-import type { CalendarEventDto, CalendarReminderDto } from '@nosion/contracts';
+import type { CalendarActionDto, CalendarEventDto, CalendarReminderDto } from '@nosion/contracts';
 import { MODULE_THEME } from '@nosion/ui';
 import { Bell, CalendarClock } from 'lucide-react';
 import Link from 'next/link';
@@ -12,18 +12,27 @@ import { Progress } from '@/components/ui/progress';
 import { baht } from '@/features/expenses/format';
 import { canMove, longDayLabel, timeOf, type WeekSnapshot } from './grid';
 import { MODULE_ICON } from './views';
+import { tr } from '@/i18n/current';
+import { moduleLabel } from '@/i18n/current';
 
-const REMINDER_STATUS: Record<CalendarReminderDto['status'], string> = {
-  scheduled: 'รอส่ง',
-  sent: 'ส่งแล้ว',
-  failed: 'ส่งไม่สำเร็จ',
-  cancelled: 'ยกเลิก',
-};
-const CHANNEL: Record<CalendarReminderDto['channel'], string> = {
-  push: 'Push',
-  email: 'อีเมล',
-  webhook: 'Webhook',
-};
+/** ปุ่มของโมดูลมีชื่อมาจาก API (ภาษาไทยเสมอ — calendarActions ไม่รู้ภาษาผู้ใช้) → ใช้คำแปลตามโมดูล+ชนิด */
+const ACTION_KEYS = new Set(['task.complete', 'expense.complete', 'habit.complete', 'habit.open']);
+function actionLabel(module: CalendarEventDto['module'], action: CalendarActionDto): string {
+  const key = `${module}.${action.kind}`;
+  return ACTION_KEYS.has(key) ? tr(`calendarAction.${key}`) : action.label;
+}
+
+/** ป้ายสถานะ — แปลจาก meta.badgeKey ถ้ามี (API รุ่นใหม่) · ไม่มีก็ใช้ข้อความเดิม */
+function badgeOf(event: CalendarEventDto): string | null {
+  const key = event.meta.badgeKey;
+  if (key === 'paid' || key === 'due' || key === 'done') return tr(`calendarBadge.${key}`);
+  if (key === 'before')
+    return tr('calendarBadge.before', { time: String(event.meta.deadline ?? '') });
+  return typeof event.meta.badge === 'string' ? event.meta.badge : null;
+}
+
+const channelLabel = (channel: CalendarReminderDto['channel']) =>
+  channel === 'email' ? tr('dayPanel.channel.email') : channel === 'push' ? 'Push' : 'Webhook';
 
 /**
  * Day panel (สเปก 8.11.4) — timeline ของวันที่เลือก · หัวแสดงการเตือนของวัน
@@ -48,16 +57,18 @@ export function DayPanel({
     <Card>
       <CardHeader
         title={longDayLabel(day)}
-        description={events.length ? `${events.length} รายการ` : 'ไม่มีรายการ'}
+        description={
+          events.length ? tr('calendar.dayItems', { count: events.length }) : tr('calendar.noItems')
+        }
       />
       <CardContent className="space-y-3">
         {reminders.length ? (
-          <ul className="flex flex-wrap gap-1.5" aria-label="การเตือนของวันนี้">
+          <ul className="flex flex-wrap gap-1.5" aria-label={tr('dayPanel.remindersToday')}>
             {reminders.map((r) => (
               <li key={`${r.entryId}-${r.fireAt}`}>
                 <Badge tone={r.status === 'failed' ? 'danger' : 'outline'} mono>
-                  <Bell aria-hidden="true" /> {CHANNEL[r.channel]} {timeOf(r.fireAt, timeZone)} ·{' '}
-                  {REMINDER_STATUS[r.status]}
+                  <Bell aria-hidden="true" /> {channelLabel(r.channel)} {timeOf(r.fireAt, timeZone)}{' '}
+                  · {tr(`dayPanel.reminder.${r.status}`)}
                 </Badge>
               </li>
             ))}
@@ -65,7 +76,7 @@ export function DayPanel({
         ) : null}
 
         {events.length === 0 ? (
-          <p className="py-6 text-center text-sm text-fg-secondary">ว่าง — ไม่มีอะไรต้องทำวันนี้</p>
+          <p className="py-6 text-center text-sm text-fg-secondary">{tr('dayPanel.empty')}</p>
         ) : (
           <ol className="relative space-y-2 border-l border-hairline pl-4">
             {events.map((event) => (
@@ -98,7 +109,7 @@ function DayEvent({
   const theme = MODULE_THEME[event.module];
   const Icon = MODULE_ICON[event.module];
   const done = event.status === 'done';
-  const badge = typeof event.meta.badge === 'string' ? event.meta.badge : null;
+  const badge = badgeOf(event);
   const deepLink = typeof event.meta.deepLink === 'string' ? event.meta.deepLink : null;
   const title = (
     <span className={done ? 'text-fg-secondary line-through' : undefined}>{event.title}</span>
@@ -118,7 +129,7 @@ function DayEvent({
             <Checkbox
               key={a.label}
               checked={done}
-              aria-label={`${a.label}: ${event.title}`}
+              aria-label={`${actionLabel(event.module, a)}: ${event.title}`}
               onCheckedChange={() => event.entryId && onComplete(event.entryId)}
               className="mt-0.5"
             />
@@ -126,12 +137,12 @@ function DayEvent({
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-1.5 text-xs text-fg-secondary">
             <Icon size={13} aria-hidden="true" />
-            <span>{theme.label}</span>
+            <span>{moduleLabel(event.module)}</span>
             <span aria-hidden="true">·</span>
             <span className="font-mono">
-              {event.allDay ? 'ทั้งวัน' : timeOf(event.start, timeZone)}
+              {event.allDay ? tr('calendar.allDay') : timeOf(event.start, timeZone)}
             </span>
-            {event.ruleId ? <span title="เกิดซ้ำ">↻</span> : null}
+            {event.ruleId ? <span title={tr('dayPanel.recurring')}>↻</span> : null}
           </p>
           <p className="mt-0.5 text-sm font-medium">
             {deepLink && !event.projected ? (
@@ -144,7 +155,7 @@ function DayEvent({
           </p>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             {badge ? <Badge tone={done ? 'success' : 'neutral'}>{badge}</Badge> : null}
-            {event.projected ? <Badge tone="outline">รอบล่วงหน้า · ยังไม่ถูกสร้าง</Badge> : null}
+            {event.projected ? <Badge tone="outline">{tr('dayPanel.projected')}</Badge> : null}
             {event.actions
               .filter((a) => a.kind === 'complete' && a.presentation === 'button')
               .map((a) => (
@@ -155,7 +166,7 @@ function DayEvent({
                   shape="pill"
                   onClick={() => event.entryId && onComplete(event.entryId)}
                 >
-                  {a.label}
+                  {actionLabel(event.module, a)}
                 </Button>
               ))}
             {event.actions
@@ -163,14 +174,14 @@ function DayEvent({
               .map((a) =>
                 a.kind === 'open' ? (
                   <Link key={a.label} href={a.href} className="text-xs text-accent hover:underline">
-                    {a.label}
+                    {actionLabel(event.module, a)}
                   </Link>
                 ) : null,
               )}
             {canMove(event) ? (
               <label className="ml-auto inline-flex items-center gap-1 text-xs text-fg-secondary">
                 <CalendarClock size={13} aria-hidden="true" />
-                <span className="sr-only">ย้าย "{event.title}" ไปวัน</span>
+                <span className="sr-only">{tr('dayPanel.moveTo', { title: event.title })}</span>
                 {/* ทางเลือกของการลาก — คีย์บอร์ดและมือถือ (ลาก HTML5 ใช้นิ้วไม่ได้) */}
                 <input
                   type="date"
@@ -194,35 +205,35 @@ function DayEvent({
 export function QuickSnapshot({ snapshot, week }: { snapshot: WeekSnapshot; week: string }) {
   return (
     <Card>
-      <CardHeader title="Quick Snapshot" description={`สถิติสัปดาห์ ${week}`} />
+      <CardHeader title="Quick Snapshot" description={tr('dayPanel.weekStats', { week })} />
       <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
         <div className="rounded-row bg-sunken p-4">
-          <p className="text-xs text-fg-secondary">งานค้าง</p>
+          <p className="text-xs text-fg-secondary">{tr('dayPanel.openTasks')}</p>
           <p className="mt-1 font-mono text-xl font-semibold">
             {snapshot.tasksTotal - snapshot.tasksDone}
             <span className="text-sm font-normal text-fg-secondary">
               {' '}
-              · เสร็จ {snapshot.tasksDone}/{snapshot.tasksTotal}
+              {tr('dayPanel.doneOf', { done: snapshot.tasksDone, total: snapshot.tasksTotal })}
             </span>
           </p>
           <Progress
             value={snapshot.tasksDone}
             max={Math.max(snapshot.tasksTotal, 1)}
-            label="งานที่เสร็จในสัปดาห์"
+            label={tr('dayPanel.weekProgress')}
             className="mt-2"
           />
         </div>
         <div className="rounded-row bg-sunken p-4">
-          <p className="text-xs text-fg-secondary">บิลครบกำหนด</p>
+          <p className="text-xs text-fg-secondary">{tr('dayPanel.billsDue')}</p>
           <p className="mt-1 font-mono text-xl font-semibold">
             {baht(snapshot.dueMinor, snapshot.currency)}
           </p>
           <p className="mt-1 text-xs text-fg-secondary">
             {snapshot.nextDueInDays === null
-              ? 'ไม่มีบิลค้างจ่าย'
+              ? tr('dayPanel.noBills')
               : snapshot.nextDueInDays === 0
-                ? 'ถัดไป: วันนี้'
-                : `ถัดไปอีก ${snapshot.nextDueInDays} วัน`}
+                ? tr('dayPanel.nextToday')
+                : tr('dayPanel.nextInDays', { days: snapshot.nextDueInDays })}
           </p>
         </div>
       </CardContent>

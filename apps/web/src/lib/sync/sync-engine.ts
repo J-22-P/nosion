@@ -1,6 +1,8 @@
 import type { SyncOperationInput, SyncPushDto, SyncResult } from '@nosion/contracts';
 import { ApiError } from '@/lib/api-client';
 import type { OutboxStorage } from './outbox-storage';
+import { tr } from '@/i18n/current';
+import { errorText } from '@/i18n/errors';
 
 /** ต่อคำขอ — ตรงกับเพดานของ POST /sync/push */
 const BATCH = 100;
@@ -87,7 +89,7 @@ export class SyncEngine {
   }
 
   async enqueue(op: NewSyncOperation): Promise<SyncOperationInput> {
-    if (!this.userId) throw new Error('ยังไม่ได้เข้าสู่ระบบ');
+    if (!this.userId) throw new Error(tr('syncUi.notSignedIn'));
     const full = { ...op, opId: this.newId(), at: this.now().toISOString() } as SyncOperationInput;
     await this.deps.storage.add({
       userId: this.userId,
@@ -182,7 +184,7 @@ function isPermanent(err: unknown): boolean {
 }
 
 function describe(err: unknown): string {
-  if (err instanceof ApiError) return err.message;
-  if (isNetworkError(err)) return 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้';
-  return 'ซิงก์ไม่สำเร็จ';
+  if (err instanceof ApiError) return errorText(err) ?? err.message;
+  if (isNetworkError(err)) return tr('syncUi.unreachable');
+  return tr('syncUi.syncFailed');
 }

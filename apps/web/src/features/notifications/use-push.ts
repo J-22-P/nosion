@@ -12,6 +12,7 @@ import {
   pushStateOf,
   registerServiceWorker,
 } from './push';
+import { tr } from '@/i18n/current';
 
 const PUSH_KEY = ['push', 'status'] as const;
 
@@ -36,12 +37,9 @@ export function useTogglePush() {
       else await disablePush();
       return input.enable;
     },
-    onSuccess: (enabled) =>
-      toast.success(
-        enabled ? 'เปิดการแจ้งเตือนบนเครื่องนี้แล้ว' : 'ปิดการแจ้งเตือนบนเครื่องนี้แล้ว',
-      ),
+    onSuccess: (enabled) => toast.success(enabled ? tr('push.enabled') : tr('push.disabled')),
     onError: (error) =>
-      toast.error('เปลี่ยนการแจ้งเตือนไม่สำเร็จ', {
+      toast.error(tr('push.toggleFailed'), {
         description: error instanceof Error ? error.message : undefined,
       }),
     onSettled: () => void queryClient.invalidateQueries({ queryKey: PUSH_KEY }),

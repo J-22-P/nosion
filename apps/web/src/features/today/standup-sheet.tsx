@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { copyText, useStandup } from './use-today';
+import { useTranslations } from 'next-intl';
 
 /**
  * Sheet "สร้าง Standup" (สเปก 8.11.1) — preview markdown + ปุ่มคัดลอก
@@ -14,6 +15,7 @@ import { copyText, useStandup } from './use-today';
  */
 export function StandupSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const t = useTranslations('standup');
   const standup = useStandup(open);
 
   useEffect(() => {
@@ -26,8 +28,8 @@ export function StandupSheet({ open, onClose }: { open: boolean; onClose: () => 
   async function copy() {
     if (!standup.data) return;
     const ok = await copyText(standup.data.markdown);
-    if (ok) toast.success('คัดลอก Standup แล้ว');
-    else toast.error('คัดลอกไม่สำเร็จ', { description: 'เลือกข้อความในกล่องแล้วคัดลอกเองได้' });
+    if (ok) toast.success(t('copied'));
+    else toast.error(t('copyFailed'), { description: t('copyFailedHint') });
   }
 
   return (
@@ -39,9 +41,9 @@ export function StandupSheet({ open, onClose }: { open: boolean; onClose: () => 
     >
       <div className="flex items-center justify-between gap-3 border-b border-hairline px-5 py-4">
         <h2 id="standup-title" className="text-base font-semibold">
-          Standup วันนี้
+          {t('title')}
         </h2>
-        <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="ปิด">
+        <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label={t('close')}>
           <X size={16} aria-hidden="true" />
         </Button>
       </div>
@@ -57,8 +59,11 @@ export function StandupSheet({ open, onClose }: { open: boolean; onClose: () => 
           ) : standup.data ? (
             <>
               <p className="text-xs text-fg-secondary">
-                เสร็จ {standup.data.done.length} · กำลังทำ {standup.data.doing.length} · ติดอยู่{' '}
-                {standup.data.blocked.length}
+                {t('counts', {
+                  done: standup.data.done.length,
+                  doing: standup.data.doing.length,
+                  blocked: standup.data.blocked.length,
+                })}
               </p>
               <textarea
                 readOnly
@@ -70,15 +75,15 @@ export function StandupSheet({ open, onClose }: { open: boolean; onClose: () => 
             </>
           ) : (
             <p role="alert" className="text-sm text-fg-secondary">
-              สร้าง Standup ไม่สำเร็จ — ลองใหม่อีกครั้ง
+              {t('failed')}
             </p>
           )}
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={onClose}>
-              ปิด
+              {t('close')}
             </Button>
             <Button onClick={copy} disabled={!standup.data} className="gap-2">
-              <Copy size={14} aria-hidden="true" /> คัดลอก Markdown
+              <Copy size={14} aria-hidden="true" /> {t('copy')}
             </Button>
           </div>
         </div>

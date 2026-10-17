@@ -1,6 +1,7 @@
 import type { NlPriority, NlResult, NlToken } from '@nosion/core/nl';
 import { describeRrule } from '@/features/command-palette/palette-model';
-import { PRIORITY_LABEL } from '@/lib/format';
+import { dateFormat, tr } from '@/i18n/current';
+import { priorityLabel } from '@/lib/format';
 
 /**
  * chip ของบันทึกด่วน (สเปก 8.11.2 · 8.11.3 · Phase 5 ขั้น 8) — pure ทั้งไฟล์
@@ -27,21 +28,18 @@ export interface CaptureChip {
 
 export const PRIORITIES: NlPriority[] = ['urgent', 'high', 'medium', 'low'];
 
-const TH_SHORT_DATE = (ymd: string) =>
-  new Intl.DateTimeFormat('th-TH', {
-    timeZone: 'UTC',
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-  }).format(new Date(`${ymd}T00:00:00Z`));
+const SHORT_DATE = (ymd: string) =>
+  dateFormat({ timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short' }).format(
+    new Date(`${ymd}T00:00:00Z`),
+  );
 
 /** "วันนี้" · "พรุ่งนี้" · "ศ. 23 ต.ค." — `today` เป็นวันของผู้ใช้ ('YYYY-MM-DD') */
 export function dayLabel(ymd: string, today: string): string {
   const diff = Math.round((Date.parse(ymd) - Date.parse(today)) / 86_400_000);
-  if (diff === 0) return 'วันนี้';
-  if (diff === 1) return 'พรุ่งนี้';
-  if (diff === -1) return 'เมื่อวาน';
-  return TH_SHORT_DATE(ymd);
+  if (diff === 0) return tr('format.today');
+  if (diff === 1) return tr('format.tomorrow');
+  if (diff === -1) return tr('format.yesterday');
+  return SHORT_DATE(ymd);
 }
 
 /** chip ของ token ชนิดที่ช่องนี้สนใจ เรียงตามตำแหน่งในข้อความ */
@@ -74,7 +72,7 @@ export function buildChips(
         case 'priority':
           return {
             ...base,
-            label: `!${PRIORITY_LABEL[t.value]}`,
+            label: `!${priorityLabel(t.value)}`,
             editor: 'priority',
             value: t.value,
             tone: t.value === 'urgent' ? 'danger' : 'default',
@@ -102,7 +100,7 @@ export function buildChips(
         case 'duration':
           return {
             ...base,
-            label: `${t.minutes} นาที`,
+            label: tr('capture.minutes', { n: t.minutes }),
             editor: null,
             value: String(t.minutes),
             tone: 'default',

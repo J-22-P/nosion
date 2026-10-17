@@ -1,10 +1,12 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
+  copyFor,
   createMailTransport,
-  renderEmail,
   type EmailKind,
+  type EmailLang,
   type EmailPropsByKind,
   type MailTransport,
+  renderEmail,
 } from '@nosion/emails';
 import { APP_CONFIG, type AppConfig } from '../config/env';
 
@@ -44,28 +46,38 @@ export class MailService {
     await this.transport.send({ to, ...mail });
   }
 
-  async sendVerifyEmail(to: string, token: string): Promise<void> {
+  async sendVerifyEmail(to: string, token: string, lang: EmailLang = 'th'): Promise<void> {
     await this.send(to, 'verifyEmail', {
+      lang,
       link: `${this.config.APP_URL}/verify-email?token=${token}`,
     });
   }
 
-  async sendPasswordReset(to: string, token: string): Promise<void> {
+  async sendPasswordReset(to: string, token: string, lang: EmailLang = 'th'): Promise<void> {
     await this.send(to, 'resetPassword', {
+      lang,
       link: `${this.config.APP_URL}/reset-password?token=${token}`,
       expiresMinutes: 15,
     });
   }
 
   /** ตรวจพบการใช้ refresh token ซ้ำ (สเปกหัวข้อ 9.2) — ส่งไม่สำเร็จไม่ควรทำให้การเพิกถอน session ล้ม */
-  async sendSuspiciousActivity(to: string, timeZone = 'Asia/Bangkok'): Promise<void> {
-    const when = new Intl.DateTimeFormat('th-TH', {
+  async sendSuspiciousActivity(
+    to: string,
+    timeZone = 'Asia/Bangkok',
+    lang: EmailLang = 'th',
+  ): Promise<void> {
+    const when = new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'th-TH', {
       dateStyle: 'medium',
       timeStyle: 'short',
       timeZone,
     }).format(new Date());
     try {
-      await this.send(to, 'securityAlert', { reason: 'ตรวจพบการใช้ token เดิมซ้ำ', when });
+      await this.send(to, 'securityAlert', {
+        lang,
+        reason: copyFor(lang).securityReasonTokenReuse,
+        when,
+      });
     } catch (err) {
       this.logger.error(`ส่งอีเมลแจ้งเตือนความปลอดภัยไม่สำเร็จ: ${(err as Error).message}`);
     }

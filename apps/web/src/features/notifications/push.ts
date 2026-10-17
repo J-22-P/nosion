@@ -1,5 +1,6 @@
 import type { PushConfigDto, PushSubscribeInput } from '@nosion/contracts';
 import { API_URL, apiFetch } from '@/lib/api-client';
+import { tr } from '@/i18n/current';
 
 /** สถานะ push ของ "เครื่องนี้" — subscription เป็นของเบราว์เซอร์ ไม่ใช่ของบัญชี */
 export type PushState =
@@ -98,7 +99,7 @@ export async function detectPushEnvironment(serverEnabled: boolean): Promise<Pus
 /** ขออนุญาต → subscribe กับ push service ของเบราว์เซอร์ → ส่ง subscription ให้ API */
 export async function enablePush(publicKey: string): Promise<void> {
   const permission = await Notification.requestPermission();
-  if (permission !== 'granted') throw new Error('ไม่ได้รับอนุญาตให้แจ้งเตือน');
+  if (permission !== 'granted') throw new Error(tr('push.permissionDenied'));
   const registration = (await registerServiceWorker()) ?? (await navigator.serviceWorker.ready);
   await navigator.serviceWorker.ready;
   const subscription =

@@ -7,7 +7,6 @@ import { useId } from 'react';
 import { FieldError, Input, Label, Select } from '@/components/ui/input';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ApiError } from '@/lib/api-client';
 import {
   WEEKDAYS,
   buildRrule,
@@ -20,31 +19,14 @@ import {
   type Weekday,
 } from './builder';
 import { useDraftPreview } from './use-recurrence';
+import { tr } from '@/i18n/current';
+import { errorText } from '@/i18n/errors';
 
-const FREQ_OPTIONS = [
-  { value: 'daily', label: 'รายวัน' },
-  { value: 'weekly', label: 'รายสัปดาห์' },
-  { value: 'monthly', label: 'รายเดือน' },
-  { value: 'yearly', label: 'รายปี' },
-] as const satisfies readonly { value: Frequency; label: string }[];
+const FREQS = ['daily', 'weekly', 'monthly', 'yearly'] as const satisfies readonly Frequency[];
 
-const END_OPTIONS = [
-  { value: 'never', label: 'ไม่มีวันจบ' },
-  { value: 'onDate', label: 'ถึงวันที่' },
-  { value: 'afterCount', label: 'จำนวนครั้ง' },
-] as const satisfies readonly { value: RecurrenceEndType; label: string }[];
+const ENDS = ['never', 'onDate', 'afterCount'] as const satisfies readonly RecurrenceEndType[];
 
-const UNIT: Record<Frequency, string> = {
-  daily: 'วัน',
-  weekly: 'สัปดาห์',
-  monthly: 'เดือน',
-  yearly: 'ปี',
-};
-
-const SHORT_WEEKDAY = Object.fromEntries(WEEKDAYS.map((w) => [w.value, w.short])) as Record<
-  Weekday,
-  string
->;
+const shortWeekday = (day: Weekday) => WEEKDAYS.find((w) => w.value === day)?.short ?? day;
 
 /**
  * ตัวสร้างกฎการเกิดซ้ำ (สเปก 15 Phase 3) — ผู้ใช้ไม่ต้องรู้ RFC 5545
@@ -81,10 +63,10 @@ export function RecurrenceBuilder({
   return (
     <div className={cn('grid gap-5 md:grid-cols-[minmax(0,1fr)_240px]', className)}>
       <fieldset className="min-w-0 space-y-4">
-        <legend className="sr-only">ตั้งค่าการเกิดซ้ำ</legend>
+        <legend className="sr-only">{tr('rb.legend')}</legend>
 
         <div>
-          <Label htmlFor={`${id}-start`}>เริ่มวันที่</Label>
+          <Label htmlFor={`${id}-start`}>{tr('rb.startDate')}</Label>
           <Input
             id={`${id}-start`}
             type="date"
@@ -105,19 +87,19 @@ export function RecurrenceBuilder({
         </div>
 
         <div>
-          <span className="mb-1.5 block text-[13px] font-medium text-fg">ทำซ้ำ</span>
+          <span className="mb-1.5 block text-[13px] font-medium text-fg">{tr('rb.repeat')}</span>
           <SegmentedControl
-            label="ความถี่"
+            label={tr('rb.frequency')}
             size="sm"
             value={value.freq}
-            options={FREQ_OPTIONS}
+            options={FREQS.map((f) => ({ value: f, label: tr(`rb.freq.${f}`) }))}
             onChange={(freq) => set({ freq })}
           />
         </div>
 
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <Label htmlFor={`${id}-interval`} className="mb-0">
-            ทุก
+            {tr('rb.every')}
           </Label>
           <Input
             id={`${id}-interval`}
@@ -131,7 +113,7 @@ export function RecurrenceBuilder({
             onChange={(e) => set({ interval: e.target.valueAsNumber })}
             className="h-9 w-20"
           />
-          <span>{UNIT[value.freq]}</span>
+          <span>{tr(`rb.unit.${value.freq}`, { n: value.interval || 1 })}</span>
           {errors.interval ? (
             <p id={`${id}-interval-error`} role="alert" className="w-full text-xs text-danger">
               {errors.interval}
@@ -140,7 +122,7 @@ export function RecurrenceBuilder({
         </div>
 
         {value.freq === 'weekly' ? (
-          <div role="group" aria-label="วันในสัปดาห์" className="flex flex-wrap gap-1.5">
+          <div role="group" aria-label={tr('rb.weekdays')} className="flex flex-wrap gap-1.5">
             {WEEKDAYS.map((day) => {
               const on = activeWeekdays.includes(day.value);
               return (
@@ -167,7 +149,7 @@ export function RecurrenceBuilder({
 
         {value.freq === 'monthly' ? (
           <div>
-            <Label htmlFor={`${id}-monthday`}>วันที่ของเดือน</Label>
+            <Label htmlFor={`${id}-monthday`}>{tr('rb.dayOfMonth')}</Label>
             <Select
               id={`${id}-monthday`}
               value={value.monthDay}
@@ -175,31 +157,31 @@ export function RecurrenceBuilder({
             >
               {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
                 <option key={d} value={d}>
-                  วันที่ {d}
+                  {tr('rb.dayOption', { day: d })}
                 </option>
               ))}
             </Select>
             {value.monthDay > 28 ? (
               <p className="mt-1.5 text-xs text-fg-secondary">
-                เดือนที่ไม่มีวันที่ {value.monthDay} จะใช้วันสุดท้ายของเดือนแทน (เช่น ก.พ. → 28)
+                {tr('rb.clampHint', { day: value.monthDay })}
               </p>
             ) : null}
           </div>
         ) : null}
 
         <div className="space-y-2">
-          <span className="block text-[13px] font-medium text-fg">สิ้นสุด</span>
+          <span className="block text-[13px] font-medium text-fg">{tr('rb.ends')}</span>
           <SegmentedControl
-            label="เงื่อนไขสิ้นสุด"
+            label={tr('rb.endCondition')}
             size="sm"
             value={value.endType}
-            options={END_OPTIONS}
+            options={ENDS.map((e) => ({ value: e, label: tr(`rb.end.${e}`) }))}
             onChange={(endType) => set({ endType })}
           />
           {value.endType === 'onDate' ? (
             <div>
               <Label htmlFor={`${id}-ends`} className="sr-only">
-                วันสิ้นสุด
+                {tr('rb.endDate')}
               </Label>
               <Input
                 id={`${id}-ends`}
@@ -217,7 +199,7 @@ export function RecurrenceBuilder({
             <div>
               <div className="flex items-center gap-2 text-sm">
                 <Label htmlFor={`${id}-count`} className="sr-only">
-                  จำนวนครั้ง
+                  {tr('rb.count')}
                 </Label>
                 <Input
                   id={`${id}-count`}
@@ -230,7 +212,7 @@ export function RecurrenceBuilder({
                   onChange={(e) => set({ maxCount: e.target.valueAsNumber })}
                   className="h-9 w-24"
                 />
-                <span>ครั้ง</span>
+                <span>{tr('rb.timesUnit')}</span>
               </div>
               <FieldError>{errors.maxCount}</FieldError>
             </div>
@@ -259,10 +241,10 @@ function PreviewPanel({
       className="min-w-0 rounded-panel border border-hairline bg-sunken p-4"
     >
       <h3 id={titleId} className="flex items-center gap-2 text-[13px] font-semibold">
-        <CalendarClock size={14} aria-hidden="true" /> 10 รอบถัดไป
+        <CalendarClock size={14} aria-hidden="true" /> {tr('rb.next10')}
       </h3>
       <p className="mt-1 text-xs text-fg-secondary">
-        {invalid ? 'แก้ค่าที่ผิดก่อน' : describeDraft(draft)}
+        {invalid ? tr('rb.fixFirst') : describeDraft(draft)}
       </p>
 
       {/* อ่านให้ screen reader เมื่อรายการเปลี่ยน — ผู้ใช้รู้ผลของตัวเลือกโดยไม่ต้องย้าย focus */}
@@ -275,10 +257,10 @@ function PreviewPanel({
           </div>
         ) : preview.isError ? (
           <p role="alert" className="text-xs text-danger">
-            {preview.error instanceof ApiError ? preview.error.message : 'ดูตัวอย่างไม่สำเร็จ'}
+            {errorText(preview.error) ?? tr('rb.previewFailed')}
           </p>
         ) : preview.data.localDates.length === 0 ? (
-          <p className="text-xs text-fg-secondary">กฎนี้ไม่มีรอบที่เกิดขึ้นจริง</p>
+          <p className="text-xs text-fg-secondary">{tr('rb.noOccurrences')}</p>
         ) : (
           <ol
             className={cn(
@@ -289,7 +271,7 @@ function PreviewPanel({
             {preview.data.localDates.map((ymd, i) => (
               <li key={ymd} className="flex gap-3">
                 <span className="w-5 text-right text-fg-secondary">{i + 1}</span>
-                <span className="w-6 text-fg-secondary">{SHORT_WEEKDAY[weekdayOf(ymd)]}</span>
+                <span className="w-6 text-fg-secondary">{shortWeekday(weekdayOf(ymd))}</span>
                 <span>{formatLocalDate(ymd)}</span>
               </li>
             ))}

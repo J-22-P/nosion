@@ -1,5 +1,5 @@
 import type { EntryStatus, StandupDto, StandupItemDto } from '@nosion/contracts';
-import { isEntryOverdue } from '@nosion/core';
+import { type Lang, isEntryOverdue, text } from '@nosion/core';
 
 /** แท็กที่ถือว่า "ติดอยู่" (ไม่สนตัวพิมพ์) — สเปก 7.3 */
 const BLOCKED_TAG = 'blocked';
@@ -32,8 +32,10 @@ export function buildStandup(input: {
   todayStart: Date;
   todayEnd: Date;
   tasks: StandupTask[];
+  lang?: Lang;
 }): StandupDto {
   const { now, timeZone, todayStart, todayEnd } = input;
+  const lang = input.lang ?? 'th';
   const done: StandupItemDto[] = [];
   const doing: StandupItemDto[] = [];
   const blocked: StandupItemDto[] = [];
@@ -50,7 +52,14 @@ export function buildStandup(input: {
     const waitingFor = t.blockers.filter((b) => !FINISHED.includes(b.status)).map((b) => b.title);
     const taggedBlocked = t.tags.some((tag) => tag.toLowerCase() === BLOCKED_TAG);
     if (waitingFor.length > 0 || taggedBlocked) {
-      blocked.push(item(t, waitingFor.length > 0 ? `รอ: ${waitingFor.join(', ')}` : '#blocked'));
+      blocked.push(
+        item(
+          t,
+          waitingFor.length > 0
+            ? text(lang, 'standup.waitingFor', { items: waitingFor.join(', ') })
+            : '#blocked',
+        ),
+      );
       continue;
     }
 
@@ -58,11 +67,11 @@ export function buildStandup(input: {
     const relevant = t.status === 'active' || (t.occurredAt !== null && t.occurredAt < todayEnd);
     if (!relevant) continue;
     const overdue = isEntryOverdue(t, now, timeZone);
-    doing.push(item(t, overdue ? 'เลยกำหนด' : undefined));
+    doing.push(item(t, overdue ? text(lang, 'standup.overdue') : undefined));
   }
 
   const result = { date: input.date, done, doing, blocked };
-  return { ...result, markdown: toMarkdown(result) };
+  return { ...result, markdown: toMarkdown(result, lang) };
 }
 
 function item(t: StandupTask, note?: string): StandupItemDto {
@@ -71,13 +80,13 @@ function item(t: StandupTask, note?: string): StandupItemDto {
 }
 
 /** markdown สำหรับวางใน Slack / PR — กลุ่มว่างเขียนว่า "ไม่มี" ดีกว่าหายไป (คนอ่านรู้ว่าไม่ได้ลืม) */
-export function toMarkdown(s: Omit<StandupDto, 'markdown'>): string {
+export function toMarkdown(s: Omit<StandupDto, 'markdown'>, lang: Lang = 'th'): string {
   const section = (heading: string, items: StandupItemDto[]) =>
     [
       `**${heading}**`,
       ...(items.length
         ? items.map((i) => `- ${i.title}${i.note ? ` _(${i.note})_` : ''}`)
-        : ['- ไม่มี']),
+        : [`- ${text(lang, 'standup.none')}`]),
     ].join('\n');
   return [
     `## Standup · ${s.date}`,

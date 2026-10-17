@@ -5,7 +5,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { authApi } from '@/features/auth/api';
 import { useSession } from '@/features/auth/use-session';
-import { ApiError } from '@/lib/api-client';
+import { errorText } from '@/i18n/errors';
+import { tr } from '@/i18n/current';
 
 /**
  * โมดูลที่เว็บมีหน้าให้ใช้แล้ว — ฝั่ง API ลงทะเบียนเองผ่าน registry
@@ -32,8 +33,8 @@ export function useEnabledModules() {
       void queryClient.invalidateQueries({ queryKey: ['entries'] });
     },
     onError: (error) =>
-      toast.error('บันทึกไม่สำเร็จ', {
-        description: error instanceof ApiError ? error.message : undefined,
+      toast.error(tr('settings.saveFailed'), {
+        description: errorText(error),
       }),
   });
 
@@ -44,7 +45,7 @@ export function useEnabledModules() {
     setEnabled: (key: ModuleKey, on: boolean) => {
       const next = on ? [...new Set([...enabled, key])] : enabled.filter((k) => k !== key);
       if (next.length === 0) {
-        toast.error('ต้องเปิดอย่างน้อย 1 โมดูล');
+        toast.error(tr('settings.atLeastOneModule'));
         return;
       }
       update.mutate(next);

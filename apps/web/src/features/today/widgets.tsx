@@ -24,6 +24,7 @@ import { ToneBadge } from '@/features/expenses/kpi-cards';
 import { PRIORITY_TONE } from '@/lib/format';
 import { HabitAside, HabitBody } from '@/features/habits/today-habit-body';
 import { useCompleteFromToday } from './use-today';
+import { tr } from '@/i18n/current';
 
 /**
  * การ์ดของหน้า Today — หน้าไม่ได้ hard-code ว่ามีโมดูลอะไร (สเปก 8.11.1)
@@ -83,7 +84,7 @@ export function WidgetCard({ widget, className }: { widget: TodayWidgetDto; clas
       <CardContent className="flex flex-1 flex-col gap-4">
         {widget.isEmpty ? (
           <div className="flex flex-1 flex-col items-start justify-center gap-3 rounded-row bg-sunken p-5">
-            <p className="text-sm text-fg-secondary">ยังไม่มีรายการวันนี้</p>
+            <p className="text-sm text-fg-secondary">{tr('widgets.empty')}</p>
             {widget.emptyCta ? (
               <AddLink href={widget.emptyCta.href} label={widget.emptyCta.label} />
             ) : null}
@@ -177,7 +178,7 @@ const overdueOf = (w: TodayWidgetDto) =>
 
 function OverdueBadge({ widget }: { widget: TodayWidgetDto }) {
   const n = overdueOf(widget);
-  return n > 0 ? <Badge tone="danger">เลยกำหนด {n}</Badge> : null;
+  return n > 0 ? <Badge tone="danger">{tr('widgets.overdue', { count: n })}</Badge> : null;
 }
 
 /** หัวการ์ดขวา: แถบ progress สั้น + เปอร์เซ็นต์ (mockup) */
@@ -190,7 +191,7 @@ function TaskAside({ widget }: { widget: TodayWidgetDto }) {
       <Progress
         value={p.done}
         max={p.total}
-        label="งานวันนี้ที่เสร็จแล้ว"
+        label={tr('widgets.tasksDone')}
         className="w-12 sm:w-24"
       />
       <span className="nums font-mono text-xs font-medium">{pct}%</span>
@@ -222,7 +223,11 @@ function TaskBody({ widget }: { widget: TodayWidgetDto }) {
                 checked={done}
                 disabled={done || complete.isPending}
                 onCheckedChange={() => complete.mutate(item.entryId)}
-                aria-label={done ? `"${item.title}" เสร็จแล้ว` : `ทำ "${item.title}" เสร็จแล้ว`}
+                aria-label={
+                  done
+                    ? tr('widgets.doneLabel', { title: item.title })
+                    : tr('widgets.completeLabel', { title: item.title })
+                }
                 className="mt-0.5"
               />
               <div className="min-w-0 flex-1">
@@ -242,7 +247,9 @@ function TaskBody({ widget }: { widget: TodayWidgetDto }) {
                   ) : null}
                 </p>
                 {done ? (
-                  <p className="mt-0.5 font-mono text-xs text-fg-secondary">เสร็จแล้ววันนี้</p>
+                  <p className="mt-0.5 font-mono text-xs text-fg-secondary">
+                    {tr('widgets.doneToday')}
+                  </p>
                 ) : item.detail ? (
                   <p className="mt-0.5 font-mono text-xs text-danger">{item.detail}</p>
                 ) : null}
@@ -252,7 +259,7 @@ function TaskBody({ widget }: { widget: TodayWidgetDto }) {
         })}
       </ul>
       <div className="mt-auto">
-        <AddLink href="/tasks?new=1" label="เพิ่มงานใหม่" />
+        <AddLink href="/tasks?new=1" label={tr('widgets.newTask')} />
       </div>
     </>
   );
@@ -277,23 +284,25 @@ function ExpenseBody({ widget }: { widget: TodayWidgetDto }) {
       {/* แผงใน (level 1.5): ซ้าย = วันนี้ · ขวา = สะสมเดือนนี้ (mockup) */}
       <div className="grid grid-cols-2 gap-4 rounded-row bg-sunken p-4 md:p-5">
         <div className="min-w-0">
-          <p className="text-xs text-fg-secondary">ใช้จ่ายวันนี้</p>
+          <p className="text-xs text-fg-secondary">{tr('widgets.spentToday')}</p>
           <p
             className="nums mt-1 text-[32px] font-semibold leading-none tracking-display md:text-[40px]"
             lang="en"
           >
             {baht(d.todaySpentMinor, d.currency)}
           </p>
-          <p className="mt-2 text-xs text-fg-secondary">{widget.items.length} รายการ</p>
+          <p className="mt-2 text-xs text-fg-secondary">
+            {tr('widgets.items', { count: widget.items.length })}
+          </p>
         </div>
         <div className="min-w-0 text-right">
-          <p className="text-xs text-fg-secondary">สะสมเดือนนี้</p>
+          <p className="text-xs text-fg-secondary">{tr('widgets.monthToDate')}</p>
           <p className="nums mt-1 text-xl font-semibold leading-tight md:text-2xl" lang="en">
             {baht(d.monthSpentMinor, d.currency)}
           </p>
           {d.budgetMinor !== null ? (
             <p className="nums mt-2 text-xs text-fg-secondary" lang="en">
-              / {baht(d.budgetMinor, d.currency)} · เหลือ{' '}
+              / {baht(d.budgetMinor, d.currency)} · {tr('widgets.left')}{' '}
               {baht(Math.max(d.budgetMinor - d.monthSpentMinor, 0), d.currency)}
             </p>
           ) : null}
@@ -302,14 +311,14 @@ function ExpenseBody({ widget }: { widget: TodayWidgetDto }) {
       {d.budgetMinor !== null ? (
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2 text-xs">
-            <span className="text-fg-secondary">การใช้งานงบประมาณ ({pct}%)</span>
+            <span className="text-fg-secondary">{tr('widgets.budgetUse', { pct: pct ?? 0 })}</span>
             {d.budgetTone !== 'safe' ? <ToneBadge tone={d.budgetTone} /> : null}
           </div>
           <Progress
             value={d.monthSpentMinor}
             max={d.budgetMinor}
             budget
-            label="ยอดใช้เดือนนี้เทียบงบ"
+            label={tr('widgets.budgetProgress')}
             className="h-2"
           />
         </div>
@@ -325,7 +334,7 @@ function ExpenseBody({ widget }: { widget: TodayWidgetDto }) {
           </span>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">{d.nextBill.title}</p>
-            <p className="text-xs text-fg-secondary">บิลถัดไป</p>
+            <p className="text-xs text-fg-secondary">{tr('widgets.nextBill')}</p>
           </div>
           <span className="nums shrink-0 font-mono text-sm font-semibold">
             {bahtExact(d.nextBill.amountMinor, d.nextBill.currency)}

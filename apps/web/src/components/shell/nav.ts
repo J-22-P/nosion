@@ -11,11 +11,22 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
+export type NavKey =
+  | 'today'
+  | 'tasks'
+  | 'expenses'
+  | 'workouts'
+  | 'habits'
+  | 'calendar'
+  | 'review'
+  | 'settings'
+  | 'hub';
+
 export interface NavItem {
   href: string;
-  /** ชื่อไทยที่แสดงเป็นหลัก */
-  label: string;
-  /** ชื่ออังกฤษในวงเล็บบน sidebar และหัวข้อย่อยบน header มือถือ (8.2) */
+  /** ชื่อที่แสดง = ข้อความ `nav.<key>` ตามภาษา (messages/*.json) */
+  key: NavKey;
+  /** ชื่ออังกฤษในวงเล็บบน sidebar (เฉพาะภาษาไทย) และหัวข้อย่อยบน header มือถือ (8.2) */
   en: string;
   icon: LucideIcon;
   /** false = หน้ายังไม่มี (แสดงเป็น "เร็ว ๆ นี้" แทนลิงก์เสีย) */
@@ -24,18 +35,18 @@ export interface NavItem {
 
 /** เมนูหลักบน sidebar (desktop/tablet) — ตามลำดับใน 8.2 */
 export const PRIMARY_NAV: readonly NavItem[] = [
-  { href: '/today', label: 'วันนี้', en: 'Today', icon: Sparkles, ready: true },
-  { href: '/tasks', label: 'งาน', en: 'Tasks', icon: CircleCheck, ready: true },
-  { href: '/expenses', label: 'การเงิน', en: 'Finance', icon: Wallet, ready: true },
-  { href: '/workouts', label: 'ออกกำลังกาย', en: 'Workouts', icon: Dumbbell, ready: false },
-  { href: '/habits', label: 'นิสัย', en: 'Habits', icon: Repeat, ready: true },
-  { href: '/calendar', label: 'ปฏิทิน', en: 'Calendar', icon: CalendarDays, ready: true },
-  { href: '/review', label: 'สรุปสัปดาห์', en: 'Review', icon: BarChart3, ready: true },
+  { href: '/today', key: 'today', en: 'Today', icon: Sparkles, ready: true },
+  { href: '/tasks', key: 'tasks', en: 'Tasks', icon: CircleCheck, ready: true },
+  { href: '/expenses', key: 'expenses', en: 'Finance', icon: Wallet, ready: true },
+  { href: '/workouts', key: 'workouts', en: 'Workouts', icon: Dumbbell, ready: false },
+  { href: '/habits', key: 'habits', en: 'Habits', icon: Repeat, ready: true },
+  { href: '/calendar', key: 'calendar', en: 'Calendar', icon: CalendarDays, ready: true },
+  { href: '/review', key: 'review', en: 'Review', icon: BarChart3, ready: true },
 ];
 
 export const SETTINGS_NAV: NavItem = {
   href: '/settings',
-  label: 'ตั้งค่า',
+  key: 'settings',
   en: 'Settings',
   icon: Settings,
   ready: true,
@@ -43,7 +54,7 @@ export const SETTINGS_NAV: NavItem = {
 
 export const HUB_NAV: NavItem = {
   href: '/hub',
-  label: 'สรุป',
+  key: 'hub',
   en: 'More',
   icon: LayoutGrid,
   ready: true,

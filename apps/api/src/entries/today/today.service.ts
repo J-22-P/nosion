@@ -75,7 +75,7 @@ export class TodayService {
     return {
       date: formatInTimeZone(now, ctx.timezone),
       timezone: ctx.timezone,
-      greeting: greetingFor(now, ctx.timezone, user.displayName),
+      greeting: greetingFor(now, ctx.timezone, user.displayName, ctx.locale),
       widgets: widgets.sort((a, b) => a.order - b.order).map(toWidgetDto),
       failedModules,
     };

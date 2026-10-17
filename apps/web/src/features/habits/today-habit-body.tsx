@@ -4,9 +4,10 @@ import type { HabitKind, TodayWidgetDto } from '@nosion/contracts';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
-import { ApiError } from '@/lib/api-client';
 import { habitsApi } from './api';
 import { HabitControl } from './habit-control';
+import { errorText } from '@/i18n/errors';
+import { tr } from '@/i18n/current';
 
 /** `widget.data.habits` ที่ HabitTrackableModule.summarizeToday ส่งมา (core ไม่อ่าน — เว็บของโมดูลตีความเอง) */
 interface TodayHabit {
@@ -39,8 +40,8 @@ export function HabitBody({ widget }: { widget: TodayWidgetDto }) {
   const queryClient = useQueryClient();
   const settle = () => void queryClient.invalidateQueries({ queryKey: ['entries'] });
   const fail = (error: unknown) =>
-    toast.error('บันทึกไม่สำเร็จ', {
-      description: error instanceof ApiError ? error.message : undefined,
+    toast.error(tr('habits.saveFailed'), {
+      description: errorText(error),
     });
 
   const increment = useMutation({
@@ -63,7 +64,7 @@ export function HabitBody({ widget }: { widget: TodayWidgetDto }) {
         <Progress
           value={widget.progress.done}
           max={widget.progress.total}
-          label="นิสัยที่ทำแล้ววันนี้"
+          label={tr('habits.doneToday')}
         />
       ) : null}
       <ul className="space-y-2">

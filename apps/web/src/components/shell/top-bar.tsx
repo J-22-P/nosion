@@ -10,6 +10,7 @@ import { useConnection } from '@/features/sync/use-sync';
 import { LogoMark } from './logo';
 import { Avatar, ProfileMenu } from './profile-menu';
 import { currentNav } from './nav';
+import { useTranslations } from 'next-intl';
 
 /** ช่องค้นหาบน top bar และปุ่มแว่นขยายบนมือถือเปิด command palette (สเปก 8.3) */
 function openCommandPalette() {
@@ -22,6 +23,7 @@ function openCommandPalette() {
  */
 export function TopBar({ displayName, isDemo }: { displayName: string; isDemo: boolean }) {
   const connection = useConnection();
+  const t = useTranslations('shell');
 
   return (
     <header className="glass sticky top-0 z-20 hidden h-16 items-center gap-4 border-b border-hairline px-6 md:flex lg:px-10">
@@ -32,7 +34,7 @@ export function TopBar({ displayName, isDemo }: { displayName: string; isDemo: b
         className="flex h-10 w-full max-w-md items-center gap-3 rounded-control border border-hairline bg-wash px-3.5 text-left text-sm text-fg-secondary transition-colors hover:bg-wash-active focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
       >
         <Search size={16} aria-hidden="true" />
-        <span className="flex-1 truncate">ค้นหาหรือสั่งการ…</span>
+        <span className="flex-1 truncate">{t('searchOrCommand')}</span>
         <Kbd>⌘K</Kbd>
       </button>
 
@@ -42,7 +44,7 @@ export function TopBar({ displayName, isDemo }: { displayName: string; isDemo: b
           label={connection.label}
           className="hidden lg:inline-flex"
         />
-        <Button variant="ghost" size="icon" shape="circle" aria-label="การแจ้งเตือน">
+        <Button variant="ghost" size="icon" shape="circle" aria-label={t('notifications')}>
           <Bell size={18} strokeWidth={1.75} />
         </Button>
         <ProfileMenu displayName={displayName} isDemo={isDemo} />
@@ -57,6 +59,7 @@ export function TopBar({ displayName, isDemo }: { displayName: string; isDemo: b
 export function MobileHeader({ pathname, displayName }: { pathname: string; displayName: string }) {
   const connection = useConnection();
   const nav = currentNav(pathname);
+  const t = useTranslations('shell');
 
   return (
     <header className="glass sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-hairline px-4 pt-[env(safe-area-inset-top)] md:hidden">
@@ -78,17 +81,17 @@ export function MobileHeader({ pathname, displayName }: { pathname: string; disp
         variant="ghost"
         size="icon"
         shape="circle"
-        aria-label="ค้นหา"
+        aria-label={t('search')}
         onClick={openCommandPalette}
       >
         <Search size={18} strokeWidth={1.75} />
       </Button>
-      <Button variant="ghost" size="icon" shape="circle" aria-label="การแจ้งเตือน">
+      <Button variant="ghost" size="icon" shape="circle" aria-label={t('notifications')}>
         <Bell size={18} strokeWidth={1.75} />
       </Button>
       <Link
         href="/hub"
-        aria-label={`บัญชีของ ${displayName}`}
+        aria-label={t('accountOf', { name: displayName })}
         className="rounded-full focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
       >
         <Avatar name={displayName} />

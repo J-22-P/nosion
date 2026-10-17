@@ -5,8 +5,9 @@ import { useSearchParams } from 'next/navigation';
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@nosion/ui';
 import { API_URL } from '@/lib/api-client';
-import { oauthErrorMessage, oauthStartUrl, PROVIDER_LABEL, useOAuthProviders } from './oauth';
+import { oauthStartUrl, PROVIDER_LABEL, useOAuthErrorMessage, useOAuthProviders } from './oauth';
 import { ProviderIcon } from './provider-icons';
+import { useTranslations } from 'next-intl';
 
 /**
  * ปุ่ม "ดำเนินการต่อด้วย Google / GitHub" (Phase 8 ขั้น 4b)
@@ -30,6 +31,7 @@ export function OAuthButtons() {
 }
 
 function ProviderLink({ provider }: { provider: OAuthProvider }) {
+  const t = useTranslations('oauth');
   return (
     <a
       href={`${API_URL}/api/v1/auth/oauth/${provider}`}
@@ -40,7 +42,7 @@ function ProviderLink({ provider }: { provider: OAuthProvider }) {
       className={cn(buttonVariants({ variant: 'secondary', size: 'lg' }), 'w-full')}
     >
       <ProviderIcon provider={provider} />
-      ดำเนินการต่อด้วย {PROVIDER_LABEL[provider]}
+      {t('continueWith', { provider: PROVIDER_LABEL[provider] })}
     </a>
   );
 }
@@ -48,7 +50,7 @@ function ProviderLink({ provider }: { provider: OAuthProvider }) {
 /** ข้อความเมื่อกลับมาจากผู้ให้บริการแล้วล้ม (`/login?oauth_error=…`) */
 export function OAuthErrorAlert() {
   const params = useSearchParams();
-  const message = oauthErrorMessage(params.get('oauth_error'));
+  const message = useOAuthErrorMessage()(params.get('oauth_error'));
   if (!message) return null;
   return (
     <p role="alert" className="rounded-control bg-danger-soft px-4 py-3 text-sm text-danger">

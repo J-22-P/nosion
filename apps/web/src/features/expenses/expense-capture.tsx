@@ -13,12 +13,13 @@ import { buildChips, rawFor, replaceSpan } from '@/features/capture/nl-chips';
 import { ParsedChips } from '@/features/capture/parsed-chips';
 import { todayIn } from '@/features/calendar/grid';
 import { parseApi } from '@/features/command-palette/api';
-import { QUEUED_NOTE } from '@/features/entries/use-entries';
-import { ApiError } from '@/lib/api-client';
+import { queuedNote } from '@/features/entries/use-entries';
 import { isQueued } from '@/lib/sync';
 import { DEFAULT_TIME_ZONE } from '@/lib/format';
 import { expensesApi } from './api';
 import { CATEGORY } from './categories';
+import { errorText } from '@/i18n/errors';
+import { tr } from '@/i18n/current';
 
 type Parsed = ExpenseParseDto['result'];
 
@@ -82,8 +83,8 @@ export function ExpenseCapture() {
       }),
     onSuccess: (result) => {
       const { entry, rule } = result;
-      toast.success(rule ? 'ตั้งบิลประจำแล้ว' : 'บันทึกรายการแล้ว', {
-        description: isQueued(result) ? `${entry.title} · ${QUEUED_NOTE}` : entry.title,
+      toast.success(rule ? tr('capture.billSet') : tr('capture.saved'), {
+        description: isQueued(result) ? `${entry.title} · ${queuedNote()}` : entry.title,
       });
       void queryClient.invalidateQueries({ queryKey: ['entries'] });
       setText('');
@@ -92,8 +93,8 @@ export function ExpenseCapture() {
       setClientId(newClientId());
     },
     onError: (error) =>
-      toast.error('บันทึกรายการไม่สำเร็จ', {
-        description: error instanceof ApiError ? error.message : undefined,
+      toast.error(tr('capture.saveFailed'), {
+        description: errorText(error),
       }),
   });
 
@@ -106,8 +107,8 @@ export function ExpenseCapture() {
       try {
         result = (await expensesApi.parse(trimmed)).result;
       } catch (error) {
-        toast.error('อ่านข้อความไม่สำเร็จ', {
-          description: error instanceof ApiError ? error.message : undefined,
+        toast.error(tr('capture.parseFailed'), {
+          description: errorText(error),
         });
         return;
       } finally {
@@ -115,7 +116,7 @@ export function ExpenseCapture() {
       }
     }
     if (!result) {
-      toast.error('ไม่พบจำนวนเงิน', { description: 'ลองพิมพ์แบบ "กาแฟ 65" หรือ "ค่าเน็ต 799"' });
+      toast.error(tr('capture.noAmount'), { description: tr('capture.noAmountHint') });
       return;
     }
     create.mutate();
@@ -147,8 +148,8 @@ export function ExpenseCapture() {
                 setCategory(null);
               }
             }}
-            placeholder="บันทึกด่วนด้วยภาษาธรรมชาติ เช่น ‘กาแฟ 65’, ‘ค่าเน็ต 799 ทุกวันที่ 5’"
-            aria-label="บันทึกรายจ่ายด้วยข้อความ"
+            placeholder={tr('capture.expensePlaceholder')}
+            aria-label={tr('capture.expenseLabel')}
             data-shortcut="new"
             aria-describedby={hintId}
             maxLength={200}
@@ -169,8 +170,8 @@ export function ExpenseCapture() {
           className="h-11 shrink-0 gap-2"
         >
           <Plus size={16} aria-hidden="true" />
-          <span className="hidden sm:inline">บันทึกรายจ่าย</span>
-          <span className="sm:hidden">บันทึก</span>
+          <span className="hidden sm:inline">{tr('capture.recordExpense')}</span>
+          <span className="sm:hidden">{tr('capture.record')}</span>
         </Button>
       </div>
       <div id={hintId}>
@@ -184,7 +185,7 @@ export function ExpenseCapture() {
               <>
                 {shownCategory ? (
                   <label className="inline-flex h-6 items-center gap-1 rounded-chip bg-wash-active pl-2 pr-1 text-xs font-medium">
-                    <span className="sr-only">หมวด</span>
+                    <span className="sr-only">{tr('capture.category')}</span>
                     {/* หมวดที่ server เดา — เปลี่ยนได้ ส่งไปเป็น payloadPatch ตอนบันทึก */}
                     <select
                       value={shownCategory}
@@ -199,9 +200,11 @@ export function ExpenseCapture() {
                     </select>
                   </label>
                 ) : null}
-                {shown.payload.direction === 'income' ? <Badge tone="success">รายรับ</Badge> : null}
+                {shown.payload.direction === 'income' ? (
+                  <Badge tone="success">{tr('capture.income')}</Badge>
+                ) : null}
                 {shown.payload.isBill ? (
-                  <Badge tone="outline">บิลประจำ · เตือนล่วงหน้า 1 วัน</Badge>
+                  <Badge tone="outline">{tr('capture.billBadge')}</Badge>
                 ) : null}
               </>
             ) : null

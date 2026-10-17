@@ -2,8 +2,9 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ApiError } from '@/lib/api-client';
 import { expensesApi } from './api';
+import { errorText } from '@/i18n/errors';
+import { tr } from '@/i18n/current';
 
 /**
  * key ขึ้นต้นด้วย 'entries' โดยตั้งใจ (เหมือน sidebar ของ Tasks) —
@@ -64,10 +65,10 @@ export function useSetTotalBudget() {
         ? expensesApi.updateBudget(total.id, { amountMinor, isActive: true })
         : expensesApi.createBudget({ category: null, amountMinor, alertThreshold: 80 });
     },
-    onSuccess: () => toast.success('บันทึกงบประมาณแล้ว'),
+    onSuccess: () => toast.success(tr('expenseQ.budgetSaved')),
     onError: (error) =>
-      toast.error('บันทึกงบไม่สำเร็จ', {
-        description: error instanceof ApiError ? error.message : undefined,
+      toast.error(tr('expenseQ.budgetFailed'), {
+        description: errorText(error),
       }),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['entries'] });

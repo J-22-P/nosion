@@ -6,6 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AVAILABLE_MODULES, useEnabledModules } from './use-modules';
+import { moduleLabel } from '@/i18n/current';
+import { useTranslations } from 'next-intl';
 
 /**
  * เปิด/ปิดโมดูล — ปิดแล้ว Today, ปฏิทิน, ⌘K, สรุปสัปดาห์ จะไม่ถามโมดูลนั้น (registry กรองด้วย enabledModules)
@@ -13,13 +15,10 @@ import { AVAILABLE_MODULES, useEnabledModules } from './use-modules';
  */
 export function ModulesCard() {
   const modules = useEnabledModules();
+  const t = useTranslations('settings');
   return (
     <Card>
-      <CardHeader
-        icon={<LayoutGrid />}
-        title="โมดูล"
-        description="ปิดแล้วข้อมูลเดิมไม่หาย — เปิดกลับมาก็เห็นเหมือนเดิม"
-      />
+      <CardHeader icon={<LayoutGrid />} title={t('modules')} description={t('modulesHint')} />
       <CardContent>
         <ul className="divide-y divide-hairline">
           {AVAILABLE_MODULES.map(({ key, ready }) => {
@@ -31,13 +30,13 @@ export function ModulesCard() {
                   checked={on}
                   disabled={!ready || modules.pending || !modules.loaded}
                   onCheckedChange={(next) => modules.setEnabled(key, next)}
-                  aria-label={`เปิดใช้โมดูล${MODULE_THEME[key].label}`}
+                  aria-label={t('enableModule', { module: moduleLabel(key) })}
                 />
                 <span className="font-mono text-xs" style={{ color: MODULE_THEME[key].cssVar }}>
                   {MODULE_THEME[key].prefix}
                 </span>
-                <span className="flex-1 text-sm">{MODULE_THEME[key].label}</span>
-                {!ready ? <Badge tone="outline">เร็ว ๆ นี้</Badge> : null}
+                <span className="flex-1 text-sm">{moduleLabel(key)}</span>
+                {!ready ? <Badge tone="outline">{t('soon')}</Badge> : null}
               </li>
             );
           })}

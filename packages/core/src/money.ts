@@ -40,6 +40,8 @@ export function formatMoney(
   return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency,
+    // ฿ ทั้งสองภาษา — en-US ค่าเริ่มต้นแสดง "THB 1,200"
+    currencyDisplay: 'narrowSymbol',
     minimumFractionDigits: decimals ? digits : 0,
     maximumFractionDigits: decimals ? digits : 0,
   }).format(major);

@@ -3,7 +3,9 @@
 import type { ApiKeyDto, CreateApiKeyInput, CreatedApiKeyDto } from '@nosion/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ApiError, apiFetch } from '@/lib/api-client';
+import { apiFetch } from '@/lib/api-client';
+import { errorText } from '@/i18n/errors';
+import { tr } from '@/i18n/current';
 
 const KEY = ['api-keys'] as const;
 
@@ -24,8 +26,8 @@ export function useCreateApiKey() {
     mutationFn: apiKeysApi.create,
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: KEY }),
     onError: (error) =>
-      toast.error('สร้าง API key ไม่สำเร็จ', {
-        description: error instanceof ApiError ? error.message : undefined,
+      toast.error(tr('apiKeys.createFailed'), {
+        description: errorText(error),
       }),
   });
 }
@@ -35,12 +37,12 @@ export function useRevokeApiKey() {
   return useMutation({
     mutationFn: apiKeysApi.revoke,
     onSuccess: () => {
-      toast.success('เพิกถอนแล้ว — key นี้ใช้ไม่ได้ทันที');
+      toast.success(tr('apiKeys.revoked'));
       void queryClient.invalidateQueries({ queryKey: KEY });
     },
     onError: (error) =>
-      toast.error('เพิกถอนไม่สำเร็จ', {
-        description: error instanceof ApiError ? error.message : undefined,
+      toast.error(tr('apiKeys.revokeFailed'), {
+        description: errorText(error),
       }),
   });
 }

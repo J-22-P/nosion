@@ -16,6 +16,8 @@ import { pushUndo } from '@/lib/shortcuts/undo-store';
 import { DEFAULT_TIME_ZONE } from '@/lib/format';
 import { calendarApi } from './api';
 import { CALENDAR_VIEWS, moveTarget, todayIn, viewRange, type CalendarView } from './grid';
+import { errorText } from '@/i18n/errors';
+import { tr } from '@/i18n/current';
 
 /**
  * สถานะของหน้าอยู่ใน URL (สเปก 8.11.4): `?view=month|week|agenda` · `?date=YYYY-MM-DD` (วันที่เลือก = day panel)
@@ -120,13 +122,13 @@ export function useCompleteFromCalendar(from: string, to: string) {
     },
     onError: (error, _id, context) => {
       if (context?.previous) queryClient.setQueryData(key, context.previous);
-      toast.error('บันทึกไม่สำเร็จ', {
-        description: error instanceof ApiError ? error.message : undefined,
+      toast.error(tr('calendar.saveFailed'), {
+        description: errorText(error),
       });
     },
     onSuccess: (done) =>
       pushUndo({
-        label: `เสร็จ: ${done.title}`,
+        label: tr('calendar.undoDone', { title: done.title }),
         run: () =>
           entriesApi
             .update(done.id, { status: 'pending', version: done.version })
@@ -153,11 +155,11 @@ export function useRotateFeed() {
     mutationFn: calendarApi.rotateFeed,
     onSuccess: (feed) => {
       queryClient.setQueryData(['calendar-feed'], feed);
-      toast.success('สร้างลิงก์ใหม่แล้ว — ลิงก์เดิมใช้ไม่ได้อีก');
+      toast.success(tr('calendar.feedRotated'));
     },
     onError: (error) =>
-      toast.error('สร้างลิงก์ใหม่ไม่สำเร็จ', {
-        description: error instanceof ApiError ? error.message : undefined,
+      toast.error(tr('calendar.feedRotateFailed'), {
+        description: errorText(error),
       }),
   });
 }
@@ -194,10 +196,10 @@ export function useMoveEvent(from: string, to: string, timeZone: string) {
       return { previous };
     },
     onSuccess: (moved, { event, toDate }) => {
-      toast.success('ย้ายวันแล้ว', { description: `${event.title} → ${toDate}` });
+      toast.success(tr('calendar.moved'), { description: `${event.title} → ${toDate}` });
       // ⌘Z = ย้ายกลับวันเดิม (ทั้งวันส่งวันที่ล้วน · มีเวลาส่งเวลาเดิม) ด้วย version ใหม่หลังย้าย
       pushUndo({
-        label: `ย้ายวัน: ${event.title}`,
+        label: tr('calendar.undoMove', { title: event.title }),
         run: () =>
           entriesApi
             .update(event.entryId!, {
@@ -211,14 +213,9 @@ export function useMoveEvent(from: string, to: string, timeZone: string) {
     onError: (error, _vars, context) => {
       if (context?.previous) queryClient.setQueryData(key, context.previous);
       const conflict = error instanceof ApiError && error.status === 409;
-      toast.error(
-        conflict
-          ? 'รายการนี้ถูกแก้จากที่อื่น — โหลดข้อมูลล่าสุดแล้ว ลองอีกครั้ง'
-          : 'ย้ายวันไม่สำเร็จ',
-        {
-          description: !conflict && error instanceof ApiError ? error.message : undefined,
-        },
-      );
+      toast.error(conflict ? tr('calendar.moveConflict') : tr('calendar.moveFailed'), {
+        description: !conflict && errorText(error),
+      });
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['entries'] });

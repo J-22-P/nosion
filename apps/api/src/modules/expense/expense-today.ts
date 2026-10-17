@@ -1,24 +1,32 @@
-import type { BillDto, BillsUpcomingDto, BudgetStatusDto, ExpensePayload } from '@nosion/contracts';
+import type {
+  BillDto,
+  BillsUpcomingDto,
+  BudgetStatusDto,
+  ExpenseCategory,
+  ExpensePayload,
+} from '@nosion/contracts';
 import {
   formatInTimeZone,
   formatMoney,
+  intlLocaleOf,
+  text,
   type Entry,
+  type Lang,
   type TodayWidget,
   type TodayWidgetAlert,
 } from '@nosion/core';
-import { CATEGORY_LABEL_TH } from './expense-labels';
 import { isSpent } from './spend-rules';
 
 const MAX_ALERTS = 3;
 const LEVEL_RANK: Record<TodayWidgetAlert['level'], number> = { danger: 0, warning: 1, info: 2 };
 
 /** ข้อความวันครบกำหนดแบบคนพูด */
-function dueText(b: BillDto): string {
+function dueText(b: BillDto, lang: Lang): string {
   const d = b.daysUntilDue ?? 0;
-  if (d < 0) return `เลยกำหนด ${-d} วัน`;
-  if (d === 0) return 'ครบกำหนดวันนี้';
-  if (d === 1) return 'ครบกำหนดพรุ่งนี้';
-  return `ครบกำหนดอีก ${d} วัน`;
+  if (d < 0) return text(lang, 'expense.due.overdue', { days: -d });
+  if (d === 0) return text(lang, 'expense.due.today');
+  if (d === 1) return text(lang, 'expense.due.tomorrow');
+  return text(lang, 'expense.due.inDays', { days: d });
 }
 
 /**
@@ -33,10 +41,14 @@ export function buildExpenseTodayWidget(input: {
   bills: BillsUpcomingDto;
   timeZone: string;
   now: Date;
+  lang?: Lang;
 }): TodayWidget {
   const { status, bills, timeZone } = input;
+  const lang = input.lang ?? 'th';
+  const locale = intlLocaleOf(lang);
   const currency = status.currency;
-  const money = (minor: number) => formatMoney(minor, currency, { decimals: false });
+  const money = (minor: number) => formatMoney(minor, currency, { decimals: false, locale });
+  const category = (c: ExpenseCategory) => text(lang, `category.${c}`);
   const today = formatInTimeZone(input.now, timeZone);
 
   // "วันนี้" = วันที่ของรายการตรงกับวันนี้ (บิลค้างจากเมื่อวานที่ core ส่งมาไม่นับเป็นรายจ่ายวันนี้)
@@ -50,20 +62,34 @@ export function buildExpenseTodayWidget(input: {
   const month = status.total;
   const monthPart =
     month.budgetMinor !== null
-      ? `เดือนนี้ ${money(month.spentMinor)} / ${money(month.budgetMinor)}`
-      : `เดือนนี้ ${money(month.spentMinor)}`;
+      ? text(lang, 'expense.today.monthBudget', {
+          spent: money(month.spentMinor),
+          budget: money(month.budgetMinor),
+        })
+      : text(lang, 'expense.today.month', { spent: money(month.spentMinor) });
 
   const alerts: TodayWidgetAlert[] = [];
-  if (month.tone === 'over') alerts.push({ level: 'danger', message: 'เดือนนี้ใช้เกินงบรวมแล้ว' });
+  if (month.tone === 'over') {
+    alerts.push({ level: 'danger', message: text(lang, 'expense.today.overBudget') });
+  }
   for (const c of status.categories) {
     if (c.ratio === null || c.tone === 'safe') continue;
     const pct = Math.round(c.ratio * 100);
     alerts.push(
       c.tone === 'over'
-        ? { level: 'danger', message: `หมวด${CATEGORY_LABEL_TH[c.category]}เกินงบ ${pct - 100}%` }
+        ? {
+            level: 'danger',
+            message: text(lang, 'expense.today.categoryOver', {
+              category: category(c.category),
+              pct: pct - 100,
+            }),
+          }
         : {
             level: 'warning',
-            message: `หมวด${CATEGORY_LABEL_TH[c.category]}ใช้ไป ${pct}% ของงบแล้ว`,
+            message: text(lang, 'expense.today.categoryWarning', {
+              category: category(c.category),
+              pct,
+            }),
           },
     );
   }
@@ -72,7 +98,7 @@ export function buildExpenseTodayWidget(input: {
     if (b.daysUntilDue! > 1) continue;
     alerts.push({
       level: b.daysUntilDue! < 0 ? 'warning' : 'info',
-      message: `${b.title} ${formatMoney(b.amountMinor, b.currency)} ${dueText(b)}`,
+      message: `${b.title} ${formatMoney(b.amountMinor, b.currency, { locale })} ${dueText(b, lang)}`,
     });
   }
   alerts.sort((a, b) => LEVEL_RANK[a.level] - LEVEL_RANK[b.level]);
@@ -82,10 +108,13 @@ export function buildExpenseTodayWidget(input: {
 
   return {
     module: 'expense',
-    title: 'การเงินและงบประมาณ',
+    title: text(lang, 'expense.today.title'),
     order: 20,
-    headline: `วันนี้ใช้ ${money(todaySpentMinor)} · ${monthPart}`,
-    subline: nextBill ? `${nextBill.title} ${dueText(nextBill)}` : undefined,
+    headline: text(lang, 'expense.today.headline', {
+      spent: money(todaySpentMinor),
+      month: monthPart,
+    }),
+    subline: nextBill ? `${nextBill.title} ${dueText(nextBill, lang)}` : undefined,
     progress: { done: month.spentMinor, total: month.budgetMinor },
     alerts: alerts.slice(0, MAX_ALERTS),
     items: todays
@@ -99,11 +128,11 @@ export function buildExpenseTodayWidget(input: {
           title: e.title,
           status: e.status,
           occurredAt: e.occurredAt,
-          detail: `${p.direction === 'income' ? '+' : '−'}${formatMoney(Math.abs(p.amountMinor), p.currency)}`,
+          detail: `${p.direction === 'income' ? '+' : '−'}${formatMoney(Math.abs(p.amountMinor), p.currency, { locale })}`,
         };
       }),
     isEmpty: todays.length === 0 && month.spentMinor === 0 && bills.bills.length === 0,
-    emptyCta: { label: 'บันทึกรายจ่ายแรก', href: '/expenses?new=1' },
+    emptyCta: { label: text(lang, 'expense.today.empty'), href: '/expenses?new=1' },
     data: {
       currency,
       todaySpentMinor,

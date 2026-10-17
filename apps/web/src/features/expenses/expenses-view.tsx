@@ -10,6 +10,7 @@ import { CategoryCard } from './category-card';
 import { ExpenseCapture } from './expense-capture';
 import { BillsKpi, ForecastKpi, SpendKpi } from './kpi-cards';
 import { TransactionsCard } from './transactions-card';
+import { tr } from '@/i18n/current';
 
 /**
  * หน้า Expenses (สเปก 8.11.3) — "ตอบคำถาม 80% ได้ในหน้าเดียว"
@@ -20,21 +21,21 @@ export function ExpensesView() {
     <div className="space-y-6">
       {/* mockup ไม่มีหัวข้อใหญ่ — เริ่มด้วยแถบบันทึกด่วน · h1 คงไว้ให้ screen reader + บรรทัดสถานะเล็ก (mockup มือถือ) */}
       <header className="flex items-center justify-between gap-3">
-        <h1 className="sr-only">การเงิน</h1>
+        <h1 className="sr-only">{tr('expensesView.title')}</h1>
         <p className="flex items-center gap-2 text-xs text-fg-secondary">
           <span aria-hidden="true" className="size-1.5 rounded-full bg-track-fill" />
           <MonthLabel />
         </p>
         <Link href="/expenses/analytics">
           <Button variant="secondary" size="sm" shape="pill" className="gap-1.5">
-            <BarChart3 size={14} aria-hidden="true" /> วิเคราะห์
+            <BarChart3 size={14} aria-hidden="true" /> {tr('expensesView.analytics')}
           </Button>
         </Link>
       </header>
 
       <ExpenseCapture />
 
-      <section aria-label="ตัวชี้วัดเดือนนี้" className="grid gap-4 md:grid-cols-3">
+      <section aria-label={tr('expensesView.kpis')} className="grid gap-4 md:grid-cols-3">
         <SpendKpi />
         <ForecastKpi />
         <BillsKpi />
@@ -53,10 +54,13 @@ export function ExpensesView() {
 /** "งบประมาณ 1 ก.ย. – 30 ก.ย." จาก /budgets/status (ใช้ cache เดียวกับ KPI 1) */
 function MonthLabel() {
   const status = useBudgetStatus();
-  if (!status.data) return <span>งบประมาณเดือนนี้</span>;
+  if (!status.data) return <span>{tr('expensesView.budgetMonth')}</span>;
   return (
     <span>
-      งบประมาณ {shortDate(status.data.firstDay)} – {shortDate(status.data.lastDay)}
+      {tr('expensesView.budgetRange', {
+        from: shortDate(status.data.firstDay),
+        to: shortDate(status.data.lastDay),
+      })}
     </span>
   );
 }

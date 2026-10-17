@@ -7,6 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatClock, formatDuration } from '@/lib/format';
 import { useElapsedSeconds, useFocusToday, useStopTimer } from './use-task-queries';
+import { tr } from '@/i18n/current';
 
 /**
  * การ์ด "Focus Session วันนี้" (สเปก 8.11.2) — desktop อยู่ใต้ sidebar, มือถืออยู่บนสุด
@@ -44,17 +45,19 @@ export function FocusCard({ className }: { className?: string }) {
     <Card className={className}>
       <CardHeader
         icon={<Timer />}
-        title="Focus วันนี้"
-        description={`${data.completedSessions} รอบที่จบแล้ว`}
+        title={tr('focus.title')}
+        description={tr('focus.sessions', { count: data.completedSessions })}
       />
       <CardContent className="space-y-3">
         <p className="flex items-baseline gap-2">
           <span className="nums text-[32px] font-semibold leading-none tracking-display" lang="en">
             {formatDuration(total)}
           </span>
-          <span className="text-sm text-fg-secondary">/ {data.goalMinutes / 60} ชม.</span>
+          <span className="text-sm text-fg-secondary">
+            {tr('focus.goal', { hours: data.goalMinutes / 60 })}
+          </span>
         </p>
-        <Progress value={total} max={goalSeconds} label="เวลาโฟกัสเทียบกับเป้าหมายวันนี้" />
+        <Progress value={total} max={goalSeconds} label={tr('focus.progress')} />
 
         {running ? (
           <div className="flex items-center gap-3 rounded-row bg-sunken p-3">
@@ -73,15 +76,13 @@ export function FocusCard({ className }: { className?: string }) {
               size="sm"
               onClick={() => stop.stop(running.entryId)}
               disabled={stop.isPending}
-              aria-label={`หยุดจับเวลา ${running.entryTitle}`}
+              aria-label={tr('focus.stopLabel', { title: running.entryTitle })}
             >
-              <Square size={12} fill="currentColor" aria-hidden="true" /> หยุด
+              <Square size={12} fill="currentColor" aria-hidden="true" /> {tr('focus.stop')}
             </Button>
           </div>
         ) : (
-          <p className="text-xs text-fg-secondary">
-            กด “เริ่มจับเวลา” ที่การ์ดงานเพื่อเริ่มรอบใหม่
-          </p>
+          <p className="text-xs text-fg-secondary">{tr('focus.hint')}</p>
         )}
       </CardContent>
     </Card>

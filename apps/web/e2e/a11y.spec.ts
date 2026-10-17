@@ -275,9 +275,9 @@ test.describe('Calendar (Phase 5)', () => {
     await expect.poll(() => completed).toEqual([expect.stringContaining('/entries/t_c4/complete')]);
 
     // เลือกวันที่ 5 ต.ค. → panel แสดงบิล TrueMove + ปุ่ม "จ่ายแล้ว" มาจาก actions ของโมดูล
-    await page.getByRole('button', { name: /^วันจันทร์ 5 ตุลาคม 2026/ }).click();
+    await page.getByRole('button', { name: /^วันจันทร์ที่ 5 ตุลาคม 2569/ }).click();
     await expect(page).toHaveURL(/date=2026-10-05/);
-    await expect(page.getByRole('heading', { name: 'วันจันทร์ 5 ตุลาคม 2026' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'วันจันทร์ที่ 5 ตุลาคม 2569' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'จ่ายแล้ว' })).toBeVisible();
 
     // กรองเฉพาะงาน → บิลหายจากปฏิทิน · chip ยังบอกจำนวนของการเงิน (grid 28 ก.ย.–8 พ.ย. รวมรอบ projected)
@@ -334,7 +334,7 @@ test.describe('Calendar · ลากเปลี่ยนวัน (Phase 5 ข�
     const item = page.getByText('Update API docs').filter({ visible: true }).first();
     await expect(item).toBeVisible({ timeout: 15_000 });
 
-    await item.dragTo(cell(page, /^วันศุกร์ 2 ตุลาคม 2026/));
+    await item.dragTo(cell(page, /^วันศุกร์ที่ 2 ตุลาคม 2569/));
     await expect
       .poll(() => body)
       .toEqual({
@@ -342,8 +342,8 @@ test.describe('Calendar · ลากเปลี่ยนวัน (Phase 5 ข�
         isAllDay: false,
         version: 3,
       });
-    await expect(cell(page, /^วันศุกร์ 2 ตุลาคม 2026 · 1 รายการ/)).toBeVisible();
-    await expect(cell(page, /^วันพุธ 30 กันยายน 2026 · 3 รายการ/)).toBeVisible();
+    await expect(cell(page, /^วันศุกร์ที่ 2 ตุลาคม 2569 · 1 รายการ/)).toBeVisible();
+    await expect(cell(page, /^วันพุธที่ 30 กันยายน 2569 · 3 รายการ/)).toBeVisible();
     release();
     await expect(page.getByText('ย้ายวันแล้ว')).toBeVisible();
   });
@@ -360,10 +360,10 @@ test.describe('Calendar · ลากเปลี่ยนวัน (Phase 5 ข�
     const item = page.getByText('Update API docs').filter({ visible: true }).first();
     await expect(item).toBeVisible({ timeout: 15_000 });
 
-    await item.dragTo(cell(page, /^วันศุกร์ 2 ตุลาคม 2026/));
+    await item.dragTo(cell(page, /^วันศุกร์ที่ 2 ตุลาคม 2569/));
     await expect(page.getByText('รายการนี้ถูกแก้จากที่อื่น', { exact: false })).toBeVisible();
-    await expect(cell(page, /^วันศุกร์ 2 ตุลาคม 2026 · ไม่มีรายการ/)).toBeVisible();
-    await expect(cell(page, /^วันพุธ 30 กันยายน 2026 · 4 รายการ/)).toBeVisible();
+    await expect(cell(page, /^วันศุกร์ที่ 2 ตุลาคม 2569 · ไม่มีรายการ/)).toBeVisible();
+    await expect(cell(page, /^วันพุธที่ 30 กันยายน 2569 · 4 รายการ/)).toBeVisible();
   });
 
   test('ทางเลือกของคีย์บอร์ด: เลือกวันใหม่ใน day panel · บิลทั้งวันส่งวันที่ล้วน', async ({
@@ -1210,4 +1210,51 @@ test.describe('GitHub → งานและปฏิทิน (Phase 8 ขั�
     await expect(link).toBeVisible({ timeout: 15_000 });
     await expect(link).toHaveAttribute('href', 'https://github.com/jay/nosion/issues/42');
   });
+});
+
+test.describe('i18n · English (Phase 8 ขั้น 6)', () => {
+  test('หน้า login: กด English → คุกกี้ภาษา + หน้าเป็นภาษาอังกฤษ (URL เดิม ไม่มี /en)', async ({
+    page,
+  }) => {
+    await page.goto('/login');
+    await expect(page.getByRole('heading', { name: 'เข้าสู่ระบบ' })).toBeVisible({
+      timeout: 15_000,
+    });
+    await page.getByRole('button', { name: 'English' }).click();
+    await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible({ timeout: 15_000 });
+    await expect(page).toHaveURL(/\/login$/);
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    const cookies = await page.context().cookies();
+    expect(cookies.find((c) => c.name === 'NOSION_LOCALE')?.value).toBe('en');
+    await expect(page.getByRole('link', { name: 'Continue with Google' })).toBeVisible();
+  });
+
+  const EN_PAGES = [
+    { path: '/today', ready: 'Good afternoon, Jay' },
+    { path: '/tasks', ready: 'All tasks' },
+    { path: '/expenses', ready: 'Spent this month' },
+    { path: '/calendar', ready: 'Quick Snapshot' },
+    { path: '/habits', ready: 'Habits' },
+    { path: '/review', ready: 'Weekly review' },
+    { path: '/settings', ready: 'Language & dates' },
+  ] as const;
+
+  for (const { path, ready } of EN_PAGES) {
+    test(`${path} เป็นภาษาอังกฤษ · axe ผ่าน`, async ({ page, context, baseURL }) => {
+      await context.addCookies([{ name: 'NOSION_LOCALE', value: 'en', url: baseURL! }]);
+      await page.goto(path);
+      await expect(page.getByText(ready).first()).toBeVisible({ timeout: 15_000 });
+      await settle(page);
+      await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+      // เมนูหลักไม่มีชื่อไทยในวงเล็บ/ภาษาไทยหลงเหลือ (ข้อมูลของผู้ใช้ใน mock เป็นไทยได้ — ตรวจเฉพาะ nav)
+      const nav = page.getByRole('navigation', { name: 'Main menu' });
+      if (await nav.isVisible()) await expect(nav).not.toContainText(/[฀-๿]/);
+      const results = await new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+        .analyze();
+      expect(
+        results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical'),
+      ).toEqual([]);
+    });
+  }
 });

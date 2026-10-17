@@ -3,6 +3,7 @@
 import { cn } from '@nosion/ui';
 import { useEffect, useId, useRef, useState } from 'react';
 import { CHART_BG, CHART_FILL, CHART_STROKE, niceMax } from './analytics-data';
+import { tr } from '@/i18n/current';
 
 /**
  * กราฟหลาย series ของหน้า Analytics — SVG เขียนเอง (ไม่มี chart lib)
@@ -149,7 +150,7 @@ export function LineChart({
           viewBox={`0 0 ${W} ${H}`}
           className="h-auto w-full"
           role="img"
-          aria-label={`${title} — รายละเอียดในตารางถัดไป`}
+          aria-label={tr('charts.detailsBelow', { title })}
           aria-describedby={tableId}
           onPointerMove={(e) => {
             const box = e.currentTarget.getBoundingClientRect();
@@ -299,7 +300,7 @@ export function StackedColumns({
           viewBox={`0 0 ${W} ${H}`}
           className="h-auto w-full"
           role="img"
-          aria-label={`${title} — รายละเอียดในตารางถัดไป`}
+          aria-label={tr('charts.detailsBelow', { title })}
           aria-describedby={tableId}
         >
           {ticks.map((t) => (
@@ -415,7 +416,7 @@ function DataTable({
       <caption>{title}</caption>
       <thead>
         <tr>
-          <th scope="col">เดือน</th>
+          <th scope="col">{tr('charts.month')}</th>
           {series.map((s) => (
             <th key={s.key} scope="col">
               {s.label}

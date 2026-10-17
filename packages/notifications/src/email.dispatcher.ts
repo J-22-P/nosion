@@ -20,12 +20,18 @@ export class EmailDispatcher implements ReminderDispatcher {
   async send(_channel: ReminderChannel, message: ReminderMessage): Promise<void> {
     const user = await this.prisma.user.findUnique({
       where: { id: message.userId },
-      select: { email: true, isDemo: true, deletedAt: true },
+      select: {
+        email: true,
+        isDemo: true,
+        deletedAt: true,
+        settings: { select: { locale: true } },
+      },
     });
     if (!user || user.deletedAt) throw new PermanentDeliveryError('ไม่พบผู้ใช้');
     if (user.isDemo) throw new PermanentDeliveryError('บัญชีทดลองไม่ส่งอีเมลจริง');
 
     const mail = await renderEmail('reminder', {
+      lang: user.settings?.locale === 'en' ? 'en' : 'th',
       title: message.title,
       body: message.body,
       openUrl: `${this.appUrl}${message.deepLink}`,

@@ -12,13 +12,12 @@ import { CHART_BG, foldCategories } from './analytics-data';
 import { CATEGORY } from './categories';
 import { baht, bahtCompact, shortMonth } from './format';
 import { useSummary, useTrends } from './use-expense-queries';
+import { currentLocale, dateFormat, tr } from '@/i18n/current';
 
-const LONG_MONTH = new Intl.DateTimeFormat('th-TH', {
-  month: 'long',
-  year: 'numeric',
-  timeZone: 'UTC',
-});
-const longMonth = (period: string) => LONG_MONTH.format(new Date(`${period}-15T00:00:00Z`));
+const longMonth = (period: string) =>
+  dateFormat({ month: 'long', year: 'numeric', timeZone: 'UTC' }).format(
+    new Date(`${period}-15T00:00:00Z`),
+  );
 
 /**
  * หน้า Analytics (สเปก 15 Phase 2b · 8.1 /expenses/analytics)
@@ -38,22 +37,27 @@ export function AnalyticsView() {
             href="/expenses"
             className="inline-flex items-center gap-1 rounded-[4px] text-xs text-fg-secondary hover:text-fg focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
           >
-            <ArrowLeft size={14} aria-hidden="true" /> การเงิน
+            <ArrowLeft size={14} aria-hidden="true" /> {tr('analytics.back')}
           </Link>
           <h1 className="text-[30px] font-semibold leading-tight md:text-[40px]">
-            วิเคราะห์{' '}
-            <span className="text-fg-tertiary tracking-display" lang="en">
-              (Analytics)
-            </span>
+            {tr('analytics.title')}
+            {currentLocale() === 'th' ? (
+              <>
+                {' '}
+                <span className="text-fg-tertiary tracking-display" lang="en">
+                  (Analytics)
+                </span>
+              </>
+            ) : null}
           </h1>
         </div>
         {periods.length ? (
           <label className="flex items-center gap-2 text-sm text-fg-secondary">
-            เดือน
+            {tr('analytics.month')}
             <Select
               value={period}
               onChange={(e) => setPicked(e.target.value)}
-              aria-label="เลือกเดือนของสัดส่วนหมวด"
+              aria-label={tr('analytics.pickMonth')}
             >
               {[...periods].reverse().map((p) => (
                 <option key={p} value={p}>
@@ -69,22 +73,29 @@ export function AnalyticsView() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="min-w-0">
-          <CardHeader icon={<LineIcon />} title="รายรับ vs รายจ่าย" description="6 เดือนล่าสุด" />
+          <CardHeader
+            icon={<LineIcon />}
+            title={tr('analytics.incomeVsExpense')}
+            description={tr('analytics.last6')}
+          />
           <CardContent>
             {trends.isPending ? (
               <Skeleton className="h-52 w-full" />
             ) : !trends.data ? (
-              <ErrorState message="โหลดแนวโน้มไม่สำเร็จ" onRetry={() => void trends.refetch()} />
+              <ErrorState
+                message={tr('analytics.trendFailed')}
+                onRetry={() => void trends.refetch()}
+              />
             ) : (
               <LineChart
-                title="รายรับและรายจ่าย 6 เดือนล่าสุด"
+                title={tr('analytics.incomeExpenseTitle')}
                 categories={trends.data.points.map((p) => ({
                   key: p.period,
                   label: shortMonth(p.period),
                 }))}
                 series={[
-                  { key: 'expense', label: 'รายจ่าย', slot: 0 },
-                  { key: 'income', label: 'รายรับ', slot: 2, dashed: true },
+                  { key: 'expense', label: tr('analytics.expense'), slot: 0 },
+                  { key: 'income', label: tr('analytics.income'), slot: 2, dashed: true },
                 ]}
                 values={[
                   trends.data.points.map((p) => p.expenseMinor),
@@ -100,24 +111,27 @@ export function AnalyticsView() {
         <Card className="min-w-0">
           <CardHeader
             icon={<BarChart3 />}
-            title="คงที่ vs ผันแปร"
-            description="ค่าใช้จ่ายประจำ (บิล) เทียบกับค่าใช้จ่ายจร"
+            title={tr('analytics.fixedVsVariable')}
+            description={tr('analytics.fixedVsVariableHint')}
           />
           <CardContent>
             {trends.isPending ? (
               <Skeleton className="h-52 w-full" />
             ) : !trends.data ? (
-              <ErrorState message="โหลดแนวโน้มไม่สำเร็จ" onRetry={() => void trends.refetch()} />
+              <ErrorState
+                message={tr('analytics.trendFailed')}
+                onRetry={() => void trends.refetch()}
+              />
             ) : (
               <StackedColumns
-                title="ค่าใช้จ่ายคงที่และผันแปร 6 เดือนล่าสุด"
+                title={tr('analytics.fixedVariableTitle')}
                 categories={trends.data.points.map((p) => ({
                   key: p.period,
                   label: shortMonth(p.period),
                 }))}
                 series={[
-                  { key: 'fixed', label: 'คงที่', slot: 0 },
-                  { key: 'variable', label: 'ผันแปร', slot: 4 },
+                  { key: 'fixed', label: tr('analytics.fixed'), slot: 0 },
+                  { key: 'variable', label: tr('analytics.variable'), slot: 4 },
                 ]}
                 values={[
                   trends.data.points.map((p) => p.fixedMinor),
@@ -139,7 +153,7 @@ function ShareCard({ period }: { period: string | undefined }) {
   const data = summary.data;
   const slices = data ? foldCategories(data.byCategory) : [];
   const seriesLabel = (key: string) =>
-    key === 'rest' ? 'อื่น ๆ' : CATEGORY[key as keyof typeof CATEGORY].label;
+    key === 'rest' ? tr('analytics.rest') : CATEGORY[key as keyof typeof CATEGORY].label;
   const series: Series[] = slices.map((s, i) => ({
     key: s.key,
     label: seriesLabel(s.key),
@@ -150,7 +164,7 @@ function ShareCard({ period }: { period: string | undefined }) {
     <Card>
       <CardHeader
         icon={<PieChart />}
-        title="สัดส่วนตามหมวดหมู่"
+        title={tr('analytics.shareTitle')}
         description={period ? longMonth(period) : undefined}
         aside={
           data ? (
@@ -165,28 +179,31 @@ function ShareCard({ period }: { period: string | undefined }) {
             <Skeleton className="h-24 w-full" />
           </>
         ) : !data ? (
-          <ErrorState message="โหลดสรุปเดือนนี้ไม่สำเร็จ" onRetry={() => void summary.refetch()} />
+          <ErrorState
+            message={tr('analytics.summaryFailed')}
+            onRetry={() => void summary.refetch()}
+          />
         ) : slices.length === 0 ? (
           <EmptyState
-            title="ไม่มีรายจ่ายในเดือนนี้"
-            description="เลือกเดือนอื่น หรือบันทึกรายการจากหน้าการเงิน"
+            title={tr('analytics.noSpending')}
+            description={tr('analytics.noSpendingHint')}
           />
         ) : (
           <>
             <ShareBar
               slices={slices.map((s, i) => ({ key: s.key, share: s.share, slot: i }))}
-              label={`สัดส่วนรายจ่ายตามหมวด — รายละเอียดในตารางถัดไป`}
+              label={tr('analytics.shareLabel')}
             />
             {/* ตารางนี้คือ legend + ป้ายตัวเลข (มองเห็นได้) — สีบางช่อง contrast < 3:1 จึงต้องมีตัวเลขกำกับเสมอ */}
             <table className="w-full text-sm">
               <caption className="sr-only">
-                รายจ่ายแยกตามหมวด {period ? longMonth(period) : ''}
+                {tr('analytics.tableCaption', { month: period ? longMonth(period) : '' })}
               </caption>
               <thead className="sr-only">
                 <tr>
-                  <th scope="col">หมวด</th>
-                  <th scope="col">ยอด</th>
-                  <th scope="col">สัดส่วน</th>
+                  <th scope="col">{tr('analytics.col.category')}</th>
+                  <th scope="col">{tr('analytics.col.amount')}</th>
+                  <th scope="col">{tr('analytics.col.share')}</th>
                 </tr>
               </thead>
               <tbody>

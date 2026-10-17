@@ -13,6 +13,7 @@ export interface MeResponse {
   settings: {
     timezone: string;
     locale: string;
+    buddhistEra: boolean;
     currency: string;
     weekStartsOn: number;
     theme: string;

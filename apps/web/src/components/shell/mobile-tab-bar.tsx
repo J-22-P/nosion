@@ -3,15 +3,18 @@
 import Link from 'next/link';
 import { cn } from '@nosion/ui';
 import { HUB_NAV, MOBILE_TABS, isActive, isInHub } from './nav';
+import { useTranslations } from 'next-intl';
 
 /**
  * Bottom tab bar มือถือ 5 ช่อง (8.2) — glass + เคารพ safe-area ใต้ home indicator
  * ไม่มี FAB: quick-add อยู่ใน hero/การ์ดของแต่ละหน้าแทน
  */
 export function MobileTabBar({ pathname }: { pathname: string }) {
+  const t = useTranslations('shell');
+  const tNav = useTranslations('nav');
   return (
     <nav
-      aria-label="เมนูหลัก (มือถือ)"
+      aria-label={t('mobileNav')}
       className="glass fixed inset-x-0 bottom-0 z-20 border-t border-hairline pb-[env(safe-area-inset-bottom)] md:hidden"
     >
       <ul className="flex">
@@ -33,16 +36,16 @@ export function MobileTabBar({ pathname }: { pathname: string }) {
                   className={className}
                 >
                   <Icon size={22} strokeWidth={active ? 2.25 : 1.75} aria-hidden="true" />
-                  {item.label}
+                  {tNav(item.key)}
                 </Link>
               ) : (
                 <span
                   aria-disabled="true"
                   className={cn(className, 'text-fg-secondary [&_svg]:opacity-50')}
-                  title={`${item.label} — เร็ว ๆ นี้`}
+                  title={tNav('soonTitle', { label: tNav(item.key) })}
                 >
                   <Icon size={22} strokeWidth={1.75} aria-hidden="true" />
-                  {item.label}
+                  {tNav(item.key)}
                 </span>
               )}
             </li>

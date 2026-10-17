@@ -8,6 +8,7 @@ import { bindSyncQueryClient, syncEngine, wipePersistedQueries } from '@/lib/syn
 import { ConflictDialog, useConflictStore } from './conflict-dialog';
 import { summarizeResults } from './summarize';
 import { useSyncState } from './use-sync';
+import { tr } from '@/i18n/current';
 
 /** ระหว่างยังมีของค้างและออนไลน์ ลองส่งใหม่ทุกเท่านี้ (เผื่อ server ล่ม/429 ไปชั่วคราว) */
 const RETRY_MS = 30_000;
@@ -90,25 +91,30 @@ export function SyncBridge() {
 
         const { saved, conflicts, deleted, errors } = summarizeResults(results);
         if (saved && !conflicts.length && !errors.length) {
-          toast.success(`ซิงก์แล้ว ${saved} รายการ`);
+          toast.success(tr('syncUi.synced', { count: saved }));
         }
         if (conflicts.length) {
           useConflictStore.getState().add(results.filter((r) => r.status === 'conflict'));
           toast.warning(
             conflicts.length === 1
-              ? 'แก้ชนกับอุปกรณ์อื่น — ใช้ค่าบนเซิร์ฟเวอร์'
-              : `แก้ชนกับอุปกรณ์อื่น ${conflicts.length} รายการ — ใช้ค่าบนเซิร์ฟเวอร์`,
+              ? tr('syncUi.conflictOne')
+              : tr('syncUi.conflictMany', { count: conflicts.length }),
             {
               description: conflicts
                 .map((c) => `${c.title}${c.fields.length ? ` · ${c.fields.join(', ')}` : ''}`)
                 .join('\n'),
-              action: { label: 'ดูรายละเอียด', onClick: () => useConflictStore.getState().show() },
+              action: {
+                label: tr('syncUi.details'),
+                onClick: () => useConflictStore.getState().show(),
+              },
             },
           );
         }
-        if (deleted) toast.info(`${deleted} รายการถูกลบจากอุปกรณ์อื่นไปก่อนแล้ว`);
+        if (deleted) toast.info(tr('syncUi.deletedElsewhere', { count: deleted }));
         if (errors.length) {
-          toast.error(`ซิงก์ไม่สำเร็จ ${errors.length} รายการ`, { description: errors[0] });
+          toast.error(tr('syncUi.failedCount', { count: errors.length }), {
+            description: errors[0],
+          });
         }
       }),
     [queryClient],
