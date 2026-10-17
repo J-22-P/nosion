@@ -8,7 +8,7 @@
   "functions": {
     "api/index.js": {
       "maxDuration": 10,
-      "includeFiles": "dist/**"
+      "includeFiles": "{dist/**,node_modules/swagger-ui-dist/**}"
     }
   },
   "rewrites": [

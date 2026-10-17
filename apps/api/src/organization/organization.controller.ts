@@ -20,13 +20,14 @@ import {
   type ProjectDto,
   type TagDto,
 } from '@nosion/contracts';
-import { CurrentUser } from '../common/decorators';
+import { CurrentUser, PublicApi } from '../common/decorators';
 import { zodBody } from '../common/zod-validation.pipe';
 import { ProjectsService } from './projects.service';
 import { TagsService } from './tags.service';
 
 @ApiTags('projects')
 @Controller('projects')
+@PublicApi()
 export class ProjectsController {
   constructor(private readonly projects: ProjectsService) {}
 
@@ -80,6 +81,7 @@ export class ProjectsController {
 
 @ApiTags('tags')
 @Controller('tags')
+@PublicApi()
 export class TagsController {
   constructor(private readonly tags: TagsService) {}
 

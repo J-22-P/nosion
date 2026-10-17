@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { APP_CONFIG, type AppConfig } from '../infra/config/env';
+import { ApiKeysController } from './api-keys/api-keys.controller';
+import { ApiKeysService } from './api-keys/api-keys.service';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -20,15 +22,23 @@ import { TokenService } from './token.service';
       }),
     }),
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, ApiKeysController],
   providers: [
     AuthService,
+    ApiKeysService,
     TokenService,
     PasswordService,
     SessionRevocationService,
     JwtAuthGuard,
     RateLimitGuard,
   ],
-  exports: [AuthService, TokenService, SessionRevocationService, JwtAuthGuard, RateLimitGuard],
+  exports: [
+    AuthService,
+    ApiKeysService,
+    TokenService,
+    SessionRevocationService,
+    JwtAuthGuard,
+    RateLimitGuard,
+  ],
 })
 export class AuthModule {}

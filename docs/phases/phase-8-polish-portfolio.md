@@ -21,17 +21,20 @@
 
 ## แผน (ปรับได้ระหว่างทาง)
 
-| #   | ขั้น                                                                    | Commit | สถานะ |
-| --- | ----------------------------------------------------------------------- | ------ | ----- |
-| 1   | Visual: threshold 0.2% ตามสเปก + เกณฑ์ต่อพิกเซลที่วัดจาก noise จริง     | —      | ⬜    |
-| 2   | Lighthouse CI ทุกหน้าหลัก ≥ 90 ทุกหมวด + แก้ที่ตก                       | —      | ⬜    |
-| 3   | Import CSV / Todoist (preview ก่อนนำเข้า · กันซ้ำ)                      | —      | ⬜    |
-| 4   | API key (สร้าง/เพิกถอน · scope) + Public API ใน Swagger                 | —      | ⬜    |
-| 5   | GitHub webhook: PR merged → ปิดงานที่อ้างถึง (ตรวจลายเซ็น)              | —      | ⬜    |
-| 6   | i18n: dictionary ไทย/อังกฤษ · สลับภาษาในตั้งค่า · วันที่/เงินตาม locale | —      | ⬜    |
-| 7   | `deploy-production.yml` จาก tag + rollback                              | —      | ⬜    |
-| 8   | ให้คนที่ไม่ใช่ dev ใช้เองได้: onboarding/empty state · README + diagram | —      | ⬜    |
-| 9   | บท learn 21 + ADR                                                       | —      | ⬜    |
+| #   | ขั้น                                                                    | Commit    | สถานะ                       |
+| --- | ----------------------------------------------------------------------- | --------- | --------------------------- |
+| 1   | Visual: threshold 0.2% ตามสเปก + เกณฑ์ต่อพิกเซลที่วัดจาก noise จริง     | `70b9cfa` | ✅                          |
+| 2   | Lighthouse CI ทุกหน้าหลัก ≥ 90 ทุกหมวด + แก้ที่ตก                       | `86b7ecb` | ✅                          |
+| 3   | Import CSV / Todoist (preview ก่อนนำเข้า · กันซ้ำ)                      | —         | ⏭ เจ้าของสั่งข้าม (17 ต.ค.) |
+| 4   | API key (สร้าง/เพิกถอน · scope) + Public API ใน Swagger                 | `400f307` | ✅                          |
+| 4b  | เข้าสู่ระบบด้วย Google / GitHub (OAuth · ผูกบัญชีเดิม)                  | —         | ⬜                          |
+| 5   | GitHub: webhook PR merged → ปิดงาน (ตรวจลายเซ็น) + ดึง issue ลงปฏิทิน   | —         | ⬜                          |
+| 6   | i18n: dictionary ไทย/อังกฤษ · สลับภาษาในตั้งค่า · วันที่/เงินตาม locale | —         | ⬜                          |
+| 7   | `deploy-production.yml` จาก tag + rollback                              | —         | ⬜                          |
+| 8   | ให้คนที่ไม่ใช่ dev ใช้เองได้: onboarding/empty state · README + diagram | —         | ⬜                          |
+| 9   | บท learn 21 + ADR                                                       | —         | ⬜                          |
+
+**วิธีทำงาน (ตั้งแต่ขั้น 4):** แตก `develop` จาก `main` · หนึ่งฟีเจอร์ = หนึ่ง branch `feature/…` จาก `develop` · เสร็จแล้ว merge กลับ `develop` (`--no-ff`)
 
 ---
 
@@ -163,3 +166,46 @@ a11y · best-practices · SEO = 100 ทุกหน้า
 | `/review`   | **88** (88/88/92) | 100               | 100  | 100            | 100 |
 
 perf มือถือบน runner แกว่งระหว่าง run ของโค้ดเดียวกัน (`/calendar` 99 → 88 · `/review` 96 → 88) — ใกล้เส้น 90
+
+## ขั้น 4 · API key + Public API — branch `feature/api-keys`
+
+**เป้าหมาย:** สคริปต์/ระบบอื่นอ่าน-เขียนข้อมูลของผู้ใช้ได้ด้วย key ที่ผู้ใช้สร้างและเพิกถอนเอง (สเปก 7.3 · 7.5 · 9.3 "API key มี scope และตรวจทุกครั้ง")
+
+**สิ่งที่เปลี่ยน**
+
+- 📁 `packages/contracts/src/api-keys.ts` — `createApiKeySchema` (ชื่อ · scope `read`/`write` · อายุ 1–365 วันหรือไม่หมดอายุ)
+- 📁 `apps/api/src/auth/api-keys/` — รูปแบบ key `nos_` + 32 ไบต์สุ่ม · DB เก็บ sha256 + prefix 12 ตัวไว้แสดง ·
+  `GET/POST /me/api-keys` · `DELETE /me/api-keys/:id` (key เต็มคืนครั้งเดียวตอนสร้าง) · ถือ key ที่ใช้ได้พร้อมกันสูงสุด 10
+- 📁 `apps/api/src/auth/guards/jwt-auth.guard.ts` — ทางเข้าที่สอง: `Authorization: Bearer nos_…` หรือ `X-API-Key` ·
+  ใช้ได้เฉพาะ controller ที่ติด **`@PublicApi()`** (entries · tasks · expenses · budgets · habits · calendar · today · review · projects · tags) ·
+  GET/HEAD = `read` · อื่น ๆ = `write` · **60 ครั้ง/นาที/key** + header `RateLimit-Limit/Remaining/Reset` (+ `Retry-After` เมื่อ 429) ·
+  `lastUsedAt` เขียนไม่เกินนาทีละครั้ง
+- 📁 `apps/api/src/openapi.ts` — Swagger UI ที่ **`/api/v1/docs`** + `/api/v1/openapi.json` เปิด**ทุกสภาพแวดล้อม** (เดิมปิดใน production) ·
+  อยู่ใต้ `/api/v1` เพื่อเข้าผ่าน proxy ของเว็บได้ · สร้างเอกสารตอนมีคนเปิดครั้งแรก (ไม่เพิ่ม cold start) · ปุ่ม Authorize ใส่ key ได้
+- `swagger-ui-dist` เป็น dependency ตรงของ API + `includeFiles` ใน `vercel.json` — ไฟล์ static ของ Swagger UI ถูกอ่านด้วย `express.static` ซึ่ง
+  การ trace ของ Vercel อาจไม่เก็บมาให้
+- 📁 `apps/web/src/features/settings/api-keys-card.tsx` — การ์ดในหน้าตั้งค่า: รายการ (prefix · scope · ใช้ล่าสุด · หมดอายุ) ·
+  ฟอร์มสร้าง · กล่อง "คัดลอก key ตอนนี้ ปิดแล้วไม่เห็นอีก" · เพิกถอนต้องกดยืนยันสองครั้ง
+
+**การตัดสินใจ**
+
+- **opt-in ต่อ controller (`@PublicApi`) ไม่ใช่ opt-out** — แบบเดียวกับ `@Public()`: endpoint ใหม่ไม่กลายเป็น Public API เพราะลืม ·
+  หน้าจัดการ key/โปรไฟล์/ออกจากระบบใช้ key ไม่ได้ → **key ที่หลุดไปสร้าง key ใหม่ให้ตัวเองไม่ได้** (มีเทสต์)
+- sha256 ไม่ใช่ Argon2 — key สุ่ม 256 บิตเดาไม่ได้อยู่แล้ว และต้องค้นจาก hash ตรง ๆ ทุกคำขอ (unique index) ซึ่ง hash ที่ใส่ salt ทำไม่ได้
+- คำนำหน้า `nos_` — guard แยกจาก JWT ได้โดยไม่ต้องลอง verify · เครื่องมือสแกน secret จับได้เมื่อหลุดเข้า git
+- rate limit ต่อ **key** ไม่ใช่ต่อ IP · window ตรงนาที (`rl:apikey:<id>:<นาที>`) จึงบอก `RateLimit-Reset` ได้แม่น
+- demo สร้าง key ได้ (ผู้เข้าชมลอง Public API ได้จริง) — key ตายพร้อมบัญชี demo (cascade + ตรวจ `user.expiresAt` ตอนยืนยันตัวตน)
+
+**วิธีตรวจ**
+
+- unit `api-key.spec.ts` (5) · integration `api-keys.int-spec.ts` (7): key เห็นครั้งเดียว/DB มีแค่ hash · read ได้ทั้งสอง header แต่ POST = 403 ·
+  write สร้างงานได้และเป็นของเจ้าของ key · `/me` และ `/me/api-keys` ใช้ key ไม่ได้ · เพิกถอน/หมดอายุ/key มั่ว = 401 · IDOR = 404 · ครั้งที่ 61 = 429 + `Retry-After`
+- API ทั้งชุด: unit 197 · integration 125 ผ่าน
+- build แล้วรัน `NODE_ENV=production` ในเครื่อง → Swagger UI โหลดใน Chromium ภายใต้ CSP ของ helmet (85 operation · ไม่มี error ใน console)
+- UI: `a11y.spec.ts` เพิ่มเทสต์สร้าง/คัดลอก/เพิกถอน + axe ของฟอร์ม · axe ทั้งหน้า `/settings` สองธีมจับได้ลิงก์ "เอกสาร API"
+  แยกจากข้อความด้วยสีอย่างเดียว (`link-in-text-block`) → ขีดเส้นใต้
+
+**ค้าง:** Swagger UI บน Vercel (staging) **ยังไม่ได้ตรวจ** — ตรวจหลัง deploy ว่า `/api/v1/docs/swagger-ui-bundle.js` ได้ 200 ·
+schema ของ body ใน Swagger ยังว่าง (validate ด้วย Zod ไม่ใช่ class DTO) — เอกสารบอกรูปแบบด้วยคำอธิบาย + `packages/contracts`
+
+📚 บท learn 21 (ขั้น 9)

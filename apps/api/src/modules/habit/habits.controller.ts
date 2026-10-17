@@ -8,13 +8,14 @@ import {
   type HabitListDto,
   type HabitTodayDto,
 } from '@nosion/contracts';
-import { CurrentUser } from '../../common/decorators';
+import { CurrentUser, PublicApi } from '../../common/decorators';
 import { zodBody } from '../../common/zod-validation.pipe';
 import { HabitsService } from './habits.service';
 
 /** endpoint เฉพาะโมดูลนิสัย (สเปก 7.3) — สร้าง/หยุด/ลบใช้ /recurrence-rules และ /parse/commit */
 @ApiTags('habits')
 @Controller('habits')
+@PublicApi()
 export class HabitsController {
   constructor(private readonly habits: HabitsService) {}
 

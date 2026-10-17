@@ -133,6 +133,19 @@ export async function mockApi(page: Page, options: { authenticated?: boolean } =
     if (method === 'PATCH' && path === '/me/settings') {
       return json({ ...SETTINGS, ...(route.request().postDataJSON() as object) });
     }
+    if (method === 'GET' && path === '/me/api-keys') {
+      return json([
+        {
+          id: 'key-1',
+          name: 'สคริปต์สรุปรายจ่าย',
+          keyPrefix: 'nos_Ab12Cd34',
+          scopes: ['read'],
+          lastUsedAt: '2026-10-15T02:00:00.000Z',
+          expiresAt: null,
+          createdAt: '2026-10-01T02:00:00.000Z',
+        },
+      ]);
+    }
     if (method === 'GET' && path === '/push/config')
       return json({ publicKey: 'BTestVapidPublicKey' });
     if (method === 'POST' && path === '/recurrence-rules/materialize') {

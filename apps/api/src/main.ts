@@ -5,11 +5,11 @@ loadDotenv();
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { configureApp } from './app.setup';
 import { createLogger, PinoLoggerService } from './common/logger';
 import { loadConfig } from './infra/config/env';
+import { setupOpenApi } from './openapi';
 
 async function bootstrap(): Promise<void> {
   const config = loadConfig();
@@ -25,18 +25,7 @@ async function bootstrap(): Promise<void> {
 
   app.enableShutdownHooks();
 
-  if (config.NODE_ENV !== 'production') {
-    const document = SwaggerModule.createDocument(
-      app,
-      new DocumentBuilder()
-        .setTitle('NOSION API')
-        .setDescription('Personal productivity OS — REST API')
-        .setVersion('1.0')
-        .addBearerAuth()
-        .build(),
-    );
-    SwaggerModule.setup('docs', app, document, { jsonDocumentUrl: 'openapi.json' });
-  }
+  setupOpenApi(app);
 
   await app.listen(config.PORT, '0.0.0.0');
   Logger.log(`NOSION API พร้อมใช้งานที่ http://localhost:${config.PORT}/api/v1`, 'Bootstrap');
