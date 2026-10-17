@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   dayBoundsInTimeZone,
   formatInTimeZone,
+  greetingFor,
   isEntryOverdue,
   monthBoundsInTimeZone,
   periodBounds,
@@ -137,5 +138,18 @@ describe('periodBounds', () => {
   it('รูปแบบผิด → RangeError', () => {
     expect(() => periodBounds('2026-13', 'UTC')).toThrow(RangeError);
     expect(() => periodBounds('2026-8', 'UTC')).toThrow(RangeError);
+  });
+});
+
+describe('greetingFor (ใช้ทั้ง API และเว็บ)', () => {
+  it('เช้า < 12:00 ≤ บ่าย < 18:00 ≤ เย็น ตามโซนของผู้ใช้', () => {
+    // 05:00Z = 12:00 ที่กรุงเทพ
+    expect(greetingFor(new Date('2026-10-17T04:59:00Z'), 'Asia/Bangkok', 'Jay')).toBe(
+      'สวัสดีตอนเช้า Jay',
+    );
+    expect(greetingFor(new Date('2026-10-17T05:00:00Z'), 'Asia/Bangkok', 'Jay')).toBe(
+      'สวัสดีตอนบ่าย Jay',
+    );
+    expect(greetingFor(new Date('2026-10-17T11:00:00Z'), 'Asia/Bangkok', '')).toBe('สวัสดีตอนเย็น');
   });
 });

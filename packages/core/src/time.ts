@@ -133,3 +133,24 @@ export function isEntryOverdue(
   if (!entry.isAllDay) return entry.occurredAt.getTime() < now.getTime();
   return dayBoundsInTimeZone(entry.occurredAt, timeZone).end.getTime() <= now.getTime();
 }
+
+/** ชั่วโมงตามหน้าปัดของผู้ใช้ (0–23) */
+export function localHour(now: Date, timeZone: string): number {
+  const h = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour: 'numeric',
+    hourCycle: 'h23',
+  }).format(now);
+  return Number(h);
+}
+
+/**
+ * คำทักทายหน้า Today (สเปก 8.11.1: เช้า < 12:00 ≤ บ่าย < 18:00 ≤ เย็น)
+ * อยู่ใน core เพราะใช้สองฝั่ง: API ส่งใน GET /today · เว็บแสดงได้ทันทีจาก session โดยไม่รอ API
+ * (รอแล้วข้อความยาวขึ้นบรรทัดใหม่ดันการ์ดทั้งแถวลง — CLS 0.39 · Phase 8)
+ */
+export function greetingFor(now: Date, timeZone: string, name: string): string {
+  const h = localHour(now, timeZone);
+  const part = h < 12 ? 'ตอนเช้า' : h < 18 ? 'ตอนบ่าย' : 'ตอนเย็น';
+  return `สวัสดี${part} ${name}`.trim();
+}

@@ -11,7 +11,11 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Kbd } from '@/components/ui/kbd';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusPill } from '@/components/ui/status-pill';
+import { greetingFor } from '@nosion/core/time';
+import { useSession } from '@/features/auth/use-session';
+import { todayIn } from '@/features/calendar/grid';
 import { useMaterialize } from '@/features/recurrence/use-recurrence';
+import { DEFAULT_TIME_ZONE } from '@/lib/format';
 import { syncedAgo } from '@/features/sync/connection';
 import { syncNow, useConnection } from '@/features/sync/use-sync';
 import { todayApi } from './api';
@@ -78,18 +82,23 @@ export function TodayView() {
   }
 
   const data = query.data;
+  // hero ไม่รอ GET /today — คำทักทาย/วันที่/โซนคำนวณจาก session ได้ทันที (ฟังก์ชันเดียวกับ API ใน @nosion/core)
+  // รอแล้วคำทักทายยาวขึ้นบรรทัดใหม่ ดันการ์ดทั้งแถวลง 74px (CLS 0.39 desktop · Phase 8)
+  const { user, settings } = useSession();
+  const timeZone = data?.timezone ?? settings?.timezone ?? DEFAULT_TIME_ZONE;
+  const greeting =
+    data?.greeting ?? (user ? greetingFor(new Date(), timeZone, user.displayName) : null);
+  const date = data?.date ?? todayIn(timeZone);
 
   return (
     <div className="space-y-6">
       {/* Hero (mockup: ชิปสถานะ → คำทักทายตัวใหญ่ → วันที่ + สรุป · ขวา: quick keys + ปุ่ม Standup) */}
       <Card hero className="p-5 md:p-8">
         <div className="flex flex-wrap items-center gap-2">
-          {data ? (
-            <span className="inline-flex h-7 items-center gap-2 rounded-chip border border-hairline bg-wash px-3 font-mono text-xs text-fg-secondary">
-              <span aria-hidden="true" className="size-1.5 rounded-full bg-track-fill" />
-              {zoneLabel(data.timezone)}
-            </span>
-          ) : null}
+          <span className="inline-flex h-7 items-center gap-2 rounded-chip border border-hairline bg-wash px-3 font-mono text-xs text-fg-secondary">
+            <span aria-hidden="true" className="size-1.5 rounded-full bg-track-fill" />
+            {zoneLabel(timeZone)}
+          </span>
           <StatusPill
             status={connection.status}
             label={
@@ -111,13 +120,13 @@ export function TodayView() {
         </div>
         <div className="mt-6 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0 space-y-2">
-            {data ? (
+            {greeting ? (
               <>
                 <h1 className="text-[32px] font-semibold leading-[1.15] md:text-[44px]">
-                  {data.greeting}
+                  {greeting}
                 </h1>
                 <p className="text-sm text-fg-secondary md:text-base">
-                  {longDate(data.date)} · สรุปสถานะการทำงาน กิจวัตร และแผนวันนี้
+                  {longDate(date)} · สรุปสถานะการทำงาน กิจวัตร และแผนวันนี้
                 </p>
               </>
             ) : (
