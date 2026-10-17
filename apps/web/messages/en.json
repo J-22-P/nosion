@@ -1232,6 +1232,10 @@
     "due": "Due date",
     "priority": "Priority",
     "cancel": "Cancel",
-    "save": "Save"
+    "save": "Save",
+    "descriptionMode": "Details view",
+    "preview": "Preview",
+    "write": "Write",
+    "noDescription": "No details yet — switch to Write to add some"
   }
 }

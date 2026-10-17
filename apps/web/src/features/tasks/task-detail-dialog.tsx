@@ -9,7 +9,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input, Label, Select } from '@/components/ui/input';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Markdown } from '@/components/shared/markdown';
 import { useSession } from '@/features/auth/use-session';
 import { entriesApi } from '@/features/entries/api';
 import { useProjects } from '@/features/entries/use-entries';
@@ -20,6 +22,8 @@ import { DEFAULT_TIME_ZONE, priorityLabel } from '@/lib/format';
 import { useUIStore } from '@/lib/stores/ui-store';
 import { cachedEntry } from '@/lib/sync';
 import { useLocale, useTranslations } from 'next-intl';
+
+type DescriptionMode = 'preview' | 'write';
 
 export const taskDetailKey = (id: string) => ['entries', 'detail', id] as const;
 
@@ -113,6 +117,10 @@ function DetailForm({ entry, onClose }: { entry: EntryDto; onClose: () => void }
   const [description, setDescription] = useState(entry.description ?? '');
   const [date, setDate] = useState(initialDate);
   const [priority, setPriority] = useState<Priority>(entry.priority);
+  // มีรายละเอียดอยู่แล้ว → เปิดมาเป็นหน้าแสดงผล (แบบ GitHub) · ยังว่าง → เปิดช่องเขียนเลย
+  const [descriptionMode, setDescriptionMode] = useState<DescriptionMode>(
+    entry.description?.trim() ? 'preview' : 'write',
+  );
 
   const done = entry.status === 'done';
   const dirty =
@@ -226,16 +234,45 @@ function DetailForm({ entry, onClose }: { entry: EntryDto; onClose: () => void }
       </div>
 
       <div>
-        <Label htmlFor="task-detail-description">{t('description')}</Label>
-        <textarea
-          id="task-detail-description"
-          value={description}
-          maxLength={20_000}
-          rows={7}
-          placeholder={t('descriptionPlaceholder')}
-          onChange={(e) => setDescription(e.target.value)}
-          className="w-full resize-y rounded-control border border-hairline-strong bg-surface px-3.5 py-2.5 text-sm text-fg transition-[border-color,box-shadow] duration-[180ms] placeholder:text-fg-tertiary focus-visible:border-accent focus-visible:shadow-[var(--focus-ring)] focus-visible:outline-none"
-        />
+        <div className="mb-1.5 flex items-center justify-between gap-3">
+          <Label htmlFor="task-detail-description" className="mb-0">
+            {t('description')}
+          </Label>
+          <SegmentedControl<DescriptionMode>
+            label={t('descriptionMode')}
+            size="sm"
+            value={descriptionMode}
+            onChange={setDescriptionMode}
+            options={[
+              { value: 'preview', label: t('preview') },
+              { value: 'write', label: t('write') },
+            ]}
+          />
+        </div>
+        {descriptionMode === 'write' ? (
+          <textarea
+            id="task-detail-description"
+            value={description}
+            maxLength={20_000}
+            rows={10}
+            placeholder={t('descriptionPlaceholder')}
+            onChange={(e) => setDescription(e.target.value)}
+            className="w-full resize-y rounded-control border border-hairline-strong bg-surface px-3.5 py-2.5 font-mono text-[13px] text-fg transition-[border-color,box-shadow] duration-[180ms] placeholder:text-fg-tertiary focus-visible:border-accent focus-visible:shadow-[var(--focus-ring)] focus-visible:outline-none"
+          />
+        ) : (
+          // แสดงผลแบบ GitHub — ดับเบิลคลิกเพื่อแก้ (เหมือนกดแท็บ "เขียน")
+          <div
+            id="task-detail-description"
+            onDoubleClick={() => setDescriptionMode('write')}
+            className="max-h-[50dvh] min-h-24 overflow-y-auto rounded-control border border-hairline px-4 py-3"
+          >
+            {description.trim() ? (
+              <Markdown>{description}</Markdown>
+            ) : (
+              <p className="text-sm text-fg-tertiary">{t('noDescription')}</p>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
