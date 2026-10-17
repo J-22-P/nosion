@@ -1,5 +1,6 @@
 'use client';
 
+import type { CSSProperties } from 'react';
 import type {
   GitHubIntegrationDto,
   GitHubSyncResultDto,
@@ -74,6 +75,8 @@ export function useGitHubSync() {
         toast.warning(tr('github.nothingFound'), {
           description: tr('github.nothingFoundHint'),
           duration: 15_000,
+          // แถบนับเวลาของ toast วิ่งตาม --toast-duration (ค่าเริ่มต้น 5 วิ)
+          style: { '--toast-duration': '15000ms' } as CSSProperties,
         });
         void queryClient.invalidateQueries({ queryKey: KEY });
         return;

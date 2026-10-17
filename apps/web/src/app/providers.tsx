@@ -3,7 +3,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from 'next-themes';
 import { useState } from 'react';
-import { Toaster } from 'sonner';
+import { AppToaster } from '@/components/shared/app-toaster';
 import { ApiError } from '@/lib/api-client';
 import { persistQueryClient } from '@/lib/sync';
 import '@/features/auth/auth-store';
@@ -41,7 +41,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         {children}
         <ServiceWorkerBridge />
         <SyncBridge />
-        <Toaster position="bottom-right" richColors closeButton />
+        <AppToaster />
       </ThemeProvider>
     </QueryClientProvider>
   );

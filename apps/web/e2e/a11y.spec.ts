@@ -1382,3 +1382,64 @@ test.describe('ใช้เองได้โดยไม่ต้องมี�
     );
   });
 });
+
+test.describe('Tasks · หน้าต่างรายละเอียดงาน', () => {
+  const DESCRIPTION = [
+    'Issue [acme/app#2267](https://github.com/acme/app/issues/2267)',
+    '',
+    '## 1. ภาพรวม',
+    'ถ้า **ไม่ติ๊ก** "แสดงข้อมูลรหัสสินค้า" ต้องไม่แสดงรหัส',
+    '',
+    '| # | หน้าจอ / ฟิลด์ | ปัจจุบัน | ต้องการ |',
+    '|---|---|---|---|',
+    '| ① | Modal ตัวเลือกการพิมพ์ | แสดงรหัส | ไม่แสดง |',
+    '',
+    '- [x] ไล่โค้ด',
+    '- [ ] แก้ฟอร์ม PDF',
+    '',
+    '<script>window.__xss = 1</script>',
+  ].join('\n');
+
+  for (const theme of ['light', 'dark'] as const) {
+    test.describe(theme, () => {
+      test.use({ colorScheme: theme });
+
+      test('กดชื่องาน → รายละเอียดแสดงผลแบบ GitHub (หัวข้อ · ตาราง · checklist) · กรอง script · axe ผ่าน · สลับไปเขียนได้', async ({
+        page,
+      }) => {
+        // version ขยับ = server มีรายละเอียดใหม่กว่าที่แคชในรายการ (dialog เริ่มจากแคช แล้วแทนด้วยของล่าสุด)
+        const base = ACTIVE_TASKS[0]!;
+        const task = { ...base, description: DESCRIPTION, version: base.version + 1 };
+        await page.route(`**/api/v1/entries/${task.id}`, (route) =>
+          route.request().method() === 'GET' ? route.fulfill({ json: task }) : route.fallback(),
+        );
+        await page.goto('/tasks');
+        await page.getByRole('button', { name: `ดูรายละเอียด: ${task.title}` }).click();
+
+        const dialog = page.getByRole('dialog', { name: 'รายละเอียดงาน' });
+        await expect(dialog.getByRole('heading', { name: '1. ภาพรวม' })).toBeVisible();
+        await expect(dialog.getByRole('cell', { name: 'Modal ตัวเลือกการพิมพ์' })).toBeVisible();
+        await expect(dialog.getByRole('checkbox', { name: 'ไล่โค้ด' })).toBeChecked();
+        await expect(dialog.getByRole('checkbox', { name: 'แก้ฟอร์ม PDF' })).not.toBeChecked();
+        await expect(dialog.getByRole('link', { name: 'acme/app#2267' })).toHaveAttribute(
+          'target',
+          '_blank',
+        );
+        expect(await page.evaluate(() => (window as { __xss?: number }).__xss)).toBeUndefined();
+        await settle(page);
+
+        const results = await new AxeBuilder({ page })
+          .include('dialog[open]')
+          .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+          .analyze();
+        expect(
+          results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical'),
+        ).toEqual([]);
+        await page.screenshot({ path: `test-results/task-detail-${theme}.png` });
+
+        await dialog.getByRole('radio', { name: 'เขียน' }).click();
+        await expect(dialog.getByRole('textbox', { name: 'รายละเอียด' })).toHaveValue(DESCRIPTION);
+      });
+    });
+  }
+});

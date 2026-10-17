@@ -142,3 +142,91 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/*
+ * Toast (components/shared/app-toaster.tsx) — สีตามประเภทจาก token · แถบนับเวลา
+ * ใช้ sonner แบบ unstyled → กฎที่ sonner ผูกกับ [data-styled=true] ต้องทำเองที่นี่
+ */
+.nosion-toast {
+  --toast-tone: var(--text-secondary);
+  --toast-tone-soft: var(--hover-wash);
+  --toast-duration: 5000ms;
+}
+.nosion-toast[data-type='success'] {
+  --toast-tone: var(--success);
+  --toast-tone-soft: var(--success-soft);
+}
+.nosion-toast[data-type='error'] {
+  --toast-tone: var(--danger);
+  --toast-tone-soft: var(--danger-soft);
+}
+.nosion-toast[data-type='warning'] {
+  --toast-tone: var(--warning);
+  --toast-tone-soft: var(--warning-soft);
+}
+.nosion-toast[data-type='info'],
+.nosion-toast[data-type='loading'] {
+  --toast-tone: var(--accent);
+  --toast-tone-soft: var(--accent-soft);
+}
+.nosion-toast-icon {
+  color: var(--toast-tone);
+  background: var(--toast-tone-soft);
+}
+/* toast ที่ไม่มีประเภท (toast('...')) ไม่มีไอคอน — ไม่ต้องเว้นที่ */
+.nosion-toast-icon:empty {
+  display: none;
+}
+
+/* ซ้อนกันอยู่ข้างหลัง (ยังไม่ชี้เมาส์) → ซ่อนเนื้อหา เห็นแค่ขอบการ์ด */
+.nosion-toast[data-expanded='false'][data-front='false'] > * {
+  opacity: 0;
+}
+
+/* ปุ่มปิด: sonner ใส่พื้น/ขอบตามธีมของตัวเองไว้ (ธีมมืดเป็นวงกลมขาว) → ใช้ของระบบแทน */
+[data-sonner-toaster][data-sonner-theme] .nosion-toast[data-sonner-toast] [data-close-button] {
+  background: transparent;
+  border: 0;
+  color: var(--text-secondary);
+}
+[data-sonner-toaster][data-sonner-theme]
+  .nosion-toast[data-sonner-toast]
+  [data-close-button]:hover {
+  background: var(--hover-wash);
+  color: var(--text-primary);
+}
+
+/* แถบนับเวลา — ยาวเท่าเวลาที่เหลือ หยุดเมื่อชี้เมาส์ (sonner หยุดนับตอน stack ขยาย) */
+.nosion-toast [data-content]::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 3px;
+  background: var(--toast-tone);
+  opacity: 0.55;
+  transform-origin: left;
+  animation: nosion-toast-timer var(--toast-duration) linear forwards;
+}
+.nosion-toast[data-expanded='true'] [data-content]::after,
+[data-sonner-toaster]:hover .nosion-toast [data-content]::after {
+  animation-play-state: paused;
+}
+/* กำลังโหลด / ไม่หายเอง ไม่มีแถบ · ลดการเคลื่อนไหว = ไม่ต้องมีแถบวิ่ง */
+.nosion-toast[data-type='loading'] [data-content]::after,
+.nosion-toast[data-dismissible='false'] [data-content]::after {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nosion-toast [data-content]::after {
+    display: none;
+  }
+}
+@keyframes nosion-toast-timer {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
