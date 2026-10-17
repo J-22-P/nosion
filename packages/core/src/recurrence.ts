@@ -12,6 +12,7 @@
  */
 import { RRule, Frequency, type Options } from 'rrule';
 import { zonedTimeToUtc } from './time';
+import { dateTimeFormat } from './intl';
 
 export type RecurrenceEnd =
   { type: 'never' } | { type: 'onDate'; endsAt: Date } | { type: 'afterCount'; maxCount: number };
@@ -86,7 +87,7 @@ export function isValidTimeZone(timeZone: string): boolean {
 
 /** แปลงเวลา UTC จริง → Date แบบ floating (ฟิลด์ UTC = เวลาหน้าปัดใน `timeZone`) */
 export function toFloating(instant: Date, timeZone: string): Date {
-  const parts = new Intl.DateTimeFormat('en-US', {
+  const parts = dateTimeFormat('en-US', {
     timeZone,
     hourCycle: 'h23',
     year: 'numeric',

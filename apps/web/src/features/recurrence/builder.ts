@@ -1,5 +1,6 @@
 import type { PreviewDraftRuleInput, RecurrenceEndType } from '@nosion/contracts';
 import { currentLocale, tr } from '@/i18n/current';
+import { dateTimeFormat } from '@nosion/core/intl';
 
 /**
  * ตัวสร้างกฎการเกิดซ้ำแบบไม่ต้องรู้ RFC 5545 (สเปก 15 Phase 3) — ส่วนนี้เป็นฟังก์ชันล้วน ทดสอบได้โดยไม่ต้อง render
@@ -131,7 +132,7 @@ export function toRuleInput(
 /** 'YYYY-MM-DD' → "5 มี.ค. 2027" · "Mar 5, 2027" (ปี ค.ศ. เสมอ ให้ตรงกับช่องเลือกวันที่ของเบราว์เซอร์) */
 export function formatLocalDate(ymd: string, withYear = true): string {
   const locale = currentLocale() === 'en' ? 'en-US' : 'th-TH-u-ca-gregory';
-  return new Intl.DateTimeFormat(locale, {
+  return dateTimeFormat(locale, {
     day: 'numeric',
     month: 'short',
     ...(withYear ? { year: 'numeric' as const } : {}),
