@@ -19,13 +19,14 @@ import {
 } from '@nosion/contracts';
 import type { Response } from 'express';
 import { RateLimitGuard } from '../auth/guards/rate-limit.guard';
-import { CurrentUser, Public, RateLimit } from '../common/decorators';
+import { CurrentUser, Public, PublicApi, RateLimit } from '../common/decorators';
 import { zodQuery } from '../common/zod-validation.pipe';
 import { CalendarService } from './calendar.service';
 
 /** ปฏิทินรวมทุกโมดูล (สเปก 6.3 · 7.3 "Cross-module" · 8.11.4) */
 @ApiTags('calendar')
 @Controller('calendar')
+@PublicApi()
 // guard อ่าน @RateLimit เฉพาะ handler ที่ติดไว้ (rotate, .ics)
 @UseGuards(RateLimitGuard)
 export class CalendarController {

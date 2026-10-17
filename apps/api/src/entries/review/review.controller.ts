@@ -1,12 +1,13 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { reviewQuerySchema, type ReviewQuery, type WeeklyReviewDto } from '@nosion/contracts';
-import { CurrentUser } from '../../common/decorators';
+import { CurrentUser, PublicApi } from '../../common/decorators';
 import { zodQuery } from '../../common/zod-validation.pipe';
 import { ReviewService } from './review.service';
 
 @ApiTags('review')
 @Controller('review')
+@PublicApi()
 export class ReviewController {
   constructor(private readonly review: ReviewService) {}
 

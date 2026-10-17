@@ -8,7 +8,7 @@ import type {
   TaskSidebarDto,
   TimerStopResultDto,
 } from '@nosion/contracts';
-import { CurrentUser } from '../../common/decorators';
+import { CurrentUser, PublicApi } from '../../common/decorators';
 import { FocusTimerService } from './focus-timer.service';
 import { TaskStatsService } from './task-stats.service';
 
@@ -18,6 +18,7 @@ import { TaskStatsService } from './task-stats.service';
  */
 @ApiTags('tasks')
 @Controller('tasks')
+@PublicApi()
 export class TasksController {
   constructor(
     private readonly stats: TaskStatsService,

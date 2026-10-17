@@ -6,6 +6,7 @@ import { AppModule } from './app.module';
 import { configureApp } from './app.setup';
 import { createLogger, PinoLoggerService } from './common/logger';
 import { loadConfig } from './infra/config/env';
+import { setupOpenApi } from './openapi';
 
 /**
  * ทางเข้าสำหรับ Vercel Function (staging) — ไม่มี app.listen
@@ -24,6 +25,7 @@ async function createHandler(): Promise<Handler> {
     bufferLogs: true,
   });
   configureApp(app, config);
+  setupOpenApi(app);
   await app.init();
   return app.getHttpAdapter().getInstance() as Handler;
 }

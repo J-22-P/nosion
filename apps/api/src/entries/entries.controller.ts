@@ -27,7 +27,7 @@ import {
   type RecurrenceScope,
   type UpdateEntryInput,
 } from '@nosion/contracts';
-import { CurrentUser } from '../common/decorators';
+import { CurrentUser, PublicApi } from '../common/decorators';
 import { zodBody, zodQuery } from '../common/zod-validation.pipe';
 import { EntriesService } from './entries.service';
 
@@ -37,6 +37,7 @@ import { EntriesService } from './entries.service';
  */
 @ApiTags('entries')
 @Controller('entries')
+@PublicApi()
 export class EntriesController {
   constructor(private readonly entries: EntriesService) {}
 

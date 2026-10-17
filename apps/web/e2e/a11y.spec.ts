@@ -1011,3 +1011,59 @@ test.describe('ออฟไลน์ (Phase 7)', () => {
     expect(installabilityErrors.map((e) => e.errorId)).toEqual([]);
   });
 });
+
+test.describe('Settings · API key (Phase 8 ขั้น 4)', () => {
+  test('สร้าง key → เห็น key เต็มครั้งเดียวพร้อมปุ่มคัดลอก · เพิกถอนต้องกดยืนยัน', async ({
+    page,
+  }) => {
+    let created: Record<string, unknown> | null = null;
+    let revoked: string | null = null;
+    await page.route('**/api/v1/me/api-keys**', async (route) => {
+      const req = route.request();
+      if (req.method() === 'POST') {
+        created = req.postDataJSON() as Record<string, unknown>;
+        return route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            id: 'key-new',
+            name: created.name,
+            keyPrefix: 'nos_Zz99Yy88',
+            scopes: created.scopes,
+            lastUsedAt: null,
+            expiresAt: null,
+            createdAt: '2026-10-17T02:00:00.000Z',
+            key: 'nos_Zz99Yy88-full-secret-shown-once',
+          }),
+        });
+      }
+      if (req.method() === 'DELETE') {
+        revoked = new URL(req.url()).pathname.split('/').pop() ?? null;
+        return route.fulfill({ status: 204 });
+      }
+      return route.fallback();
+    });
+
+    await page.goto('/settings');
+    await expect(page.getByText('สคริปต์สรุปรายจ่าย')).toBeVisible({ timeout: 15_000 });
+
+    await page.getByLabel('ชื่อ key').fill('Zapier');
+    await page.getByRole('checkbox', { name: 'เขียน (สร้าง/แก้/ลบ)' }).click();
+    await page.getByRole('button', { name: 'สร้าง API key' }).click();
+
+    await expect(page.getByLabel('API key ใหม่')).toHaveValue(
+      'nos_Zz99Yy88-full-secret-shown-once',
+    );
+    expect(created).toEqual({ name: 'Zapier', scopes: ['read', 'write'], expiresInDays: null });
+
+    const results = await new AxeBuilder({ page }).include('form').analyze();
+    expect(
+      results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical'),
+    ).toEqual([]);
+
+    await page.getByRole('button', { name: 'เพิกถอน สคริปต์สรุปรายจ่าย' }).click();
+    expect(revoked).toBeNull();
+    await page.getByRole('button', { name: 'ยืนยันเพิกถอน สคริปต์สรุปรายจ่าย' }).click();
+    await expect.poll(() => revoked).toBe('key-1');
+  });
+});
