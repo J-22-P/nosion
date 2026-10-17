@@ -24,6 +24,8 @@ regexes = [
   # prefix ปลอมของ API key ใน mock ของ UI test (เฉพาะค่านี้ — key `nos_` จริงยังถูกจับ)
   '''nos_Ab12Cd34''',
   '''nos_Zz99Yy88''',
+  # กุญแจทดสอบใน unit test ของ OAuthService (ลำดับเลขฐานสิบหก ไม่ใช่กุญแจจริง)
+  '''0123456789abcdef''',
 ]
 paths = [
   '''\.env\.example$''',
