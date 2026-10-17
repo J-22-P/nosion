@@ -1,0 +1,37 @@
+name: Rotate staging API proxy key
+
+# สร้าง/หมุนรหัสลับร่วม API_PROXY_KEY ระหว่าง proxy /api/v1 ของเว็บ กับ API (Phase 8 ขั้น 2)
+# เว็บแนบ IP ผู้ใช้ + รหัสนี้ · API เชื่อ IP นั้นเฉพาะเมื่อรหัสตรง (apps/web/src/middleware.ts · apps/api/src/common/client-ip.ts)
+# สุ่มใหม่ทุกครั้ง · ตั้งเป็น Sensitive ทั้งสอง project · ไม่พิมพ์ค่า · ต้อง deploy ใหม่ให้มีผล (กด "Deploy staging")
+# ลำดับไหนก็ปลอดภัย: ระหว่างที่สองฝั่งยังไม่ตรงกัน API แค่ไม่เชื่อ IP ที่ส่งมา (เหมือนก่อนมีกลไกนี้)
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rotate:
+    runs-on: ubuntu-24.04
+    environment: staging
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+    steps:
+      - name: สุ่มรหัสใหม่
+        run: |
+          key=$(openssl rand -hex 32)
+          echo "::add-mask::$key"
+          printf '%s' "$key" > "$RUNNER_TEMP/key"
+      - name: ตั้งที่ API
+        env:
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_API }}
+        run: npx vercel@63.1.0 env add API_PROXY_KEY production --sensitive --force --yes --token="$VERCEL_TOKEN" < "$RUNNER_TEMP/key"
+      - name: ตั้งที่ web
+        env:
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_WEB }}
+        run: npx vercel@63.1.0 env add API_PROXY_KEY production --sensitive --force --yes --token="$VERCEL_TOKEN" < "$RUNNER_TEMP/key"
+      - if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/key"
+          echo "### API_PROXY_KEY หมุนแล้ว (web + api) — deploy staging ใหม่ให้มีผล" >> "$GITHUB_STEP_SUMMARY"

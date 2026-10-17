@@ -63,23 +63,25 @@ npx vercel@63.1.0 project add nosion-staging-web
 
 **nosion-staging-api**
 
-| ตัวแปร                                 | ค่า                                                               |
-| -------------------------------------- | ----------------------------------------------------------------- |
-| `NODE_ENV`                             | `production`                                                      |
-| `DATABASE_URL`                         | Transaction pooler + `?pgbouncer=true&connection_limit=1`         |
-| `REDIS_URL`                            | `rediss://…` จาก Upstash                                          |
-| `JWT_SECRET`                           | ผลของ `openssl rand -base64 48`                                   |
-| `ENCRYPTION_KEY`                       | ผลของ `openssl rand -hex 32` (64 ตัว)                             |
-| `APP_URL` · `API_URL` · `CORS_ORIGINS` | `https://nosion-staging-web.vercel.app` (โดเมนของ web ทั้งสามตัว) |
-| `ENABLE_DEMO_ACCOUNT`                  | `true`                                                            |
-| `LOG_LEVEL`                            | `info`                                                            |
+| ตัวแปร                                 | ค่า                                                                                                                      |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `NODE_ENV`                             | `production`                                                                                                             |
+| `DATABASE_URL`                         | Transaction pooler + `?pgbouncer=true&connection_limit=1`                                                                |
+| `REDIS_URL`                            | `rediss://…` จาก Upstash                                                                                                 |
+| `JWT_SECRET`                           | ผลของ `openssl rand -base64 48`                                                                                          |
+| `ENCRYPTION_KEY`                       | ผลของ `openssl rand -hex 32` (64 ตัว)                                                                                    |
+| `APP_URL` · `API_URL` · `CORS_ORIGINS` | `https://nosion-staging-web.vercel.app` (โดเมนของ web ทั้งสามตัว)                                                        |
+| `ENABLE_DEMO_ACCOUNT`                  | `true`                                                                                                                   |
+| `LOG_LEVEL`                            | `info`                                                                                                                   |
+| `API_PROXY_KEY`                        | สุ่มด้วย workflow **Rotate staging API proxy key** (ตั้งทั้ง web + api) — API เชื่อ IP ผู้ใช้ที่ proxy ส่งมาเมื่อรหัสตรง |
 
 **nosion-staging-web**
 
-| ตัวแปร                | ค่า                                                                                   |
-| --------------------- | ------------------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_API_URL` | `https://nosion-staging-web.vercel.app` (โดเมนของ **web** เอง — คำขอวิ่งผ่าน rewrite) |
-| `API_PROXY_TARGET`    | `https://nosion-staging-api.vercel.app`                                               |
+| ตัวแปร                | ค่า                                                                                            |
+| --------------------- | ---------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_API_URL` | `https://nosion-staging-web.vercel.app` (โดเมนของ **web** เอง — คำขอวิ่งผ่าน rewrite)          |
+| `API_PROXY_TARGET`    | `https://nosion-staging-api.vercel.app`                                                        |
+| `API_PROXY_KEY`       | ค่าเดียวกับฝั่ง API (workflow ตั้งให้) — ไม่มี = rate limit ต่อ IP เห็นทุกคนเป็น IP ของ Vercel |
 
 ## 4. GitHub (secrets ของ workflow)
 
@@ -151,18 +153,20 @@ wizard ทำ 10 ขั้น: ติดตั้ง/ล็อกอิน flyct
 
 ## ปัญหาที่น่าจะเจอ
 
-| อาการ                                                                          | สาเหตุ / แก้                                                                                                                                                                                                                                |
-| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `prepared statement "s0" already exists`                                       | `DATABASE_URL` ของ API ขาด `?pgbouncer=true`                                                                                                                                                                                                |
-| migrate ค้าง / `P1001`                                                         | `STAGING_DIRECT_URL` เป็น Direct connection (IPv6) — ใช้ Session pooler                                                                                                                                                                     |
-| `Query engine library … rhel-openssl-3.0.x`                                    | `binaryTargets` ใน `schema.prisma` ต้องมี `rhel-openssl-3.0.x` (มีแล้ว)                                                                                                                                                                     |
-| login ได้แต่รีเฟรชหน้าแล้วหลุด                                                 | `NEXT_PUBLIC_API_URL` ชี้ไปโดเมน API ตรง ๆ — ต้องเป็นโดเมนของ web (cookie SameSite=Strict)                                                                                                                                                  |
-| `ENOENT … apps/api/apps/api`                                                   | รัน `vercel` ในโฟลเดอร์ app — ต้องรันจากรากของ repo เมื่อตั้ง Root Directory แล้ว                                                                                                                                                           |
-| คำขอแรกช้า 2–4 วินาที                                                          | cold start ของ Function (Nest + Prisma) — ปกติของ free tier                                                                                                                                                                                 |
-| worker: `/readyz` ไม่ผ่าน · log มี `ECONNREFUSED …:6379`                       | Redis ยังไม่ deploy หรือ `REDIS_URL` ผิด — ต้องเป็น `*.internal` (IPv6) · worker ตั้ง `family: 0` ไว้แล้ว                                                                                                                                   |
-| worker: log บอก "ไม่ได้ตั้ง VAPID"                                             | ตั้ง secrets แบบ `--stage` แล้วยังไม่ deploy — `flyctl deploy` ใหม่                                                                                                                                                                         |
-| กด "จ่ายแล้ว" จาก notification แล้วขึ้น "ทำรายการไม่สำเร็จ"                    | `NOTIFICATION_ACTION_SECRET` บน Vercel API ไม่ตรงกับของ worker หรือยังไม่ redeploy API                                                                                                                                                      |
-| API ล่มทั้งตัว `FUNCTION_INVOCATION_FAILED` หลังเพิ่ม env                      | env ผิดรูปแบบ — API ตรวจ env ตอน boot แล้วไม่ยอมขึ้น · ดูชื่อตัวแปรด้วย `vercel logs -p nosion-staging-api --level error --json` (ข้อความ "ตัวแปรสภาพแวดล้อมไม่ถูกต้อง") · ครั้งแรกเจอ `MAIL_DRIVER = "v MAIL_DRIVER"` (วางตัวคำสั่งแทนค่า) |
-| deploy ใหม่สำเร็จแต่โดเมนยังเป็นของเก่า                                        | เคย Instant Rollback — Vercel หยุดย้ายโดเมน production อัตโนมัติ · `vercel promote <deployment-url>` แล้วจะกลับมาย้ายเองตามปกติ                                                                                                             |
-| ตรวจค่า env ไม่ได้ (เห็นแค่ `[SENSITIVE]`)                                     | ตั้งเป็นแบบ Secret — ค่าที่ไม่ลับ (`VAPID_PUBLIC_KEY`, `VAPID_SUBJECT`, `MAIL_DRIVER`, URL) ให้ตั้งเป็น Config จะตรวจเทียบได้                                                                                                               |
-| ปุ่ม Redeploy บน Vercel กดไม่ได้ ("Prebuilt deployments cannot be redeployed") | staging build บน GitHub Actions — สั่ง `gh workflow run "Deploy staging"` แทน                                                                                                                                                               |
+| อาการ                                                                              | สาเหตุ / แก้                                                                                                                                                                                                                                |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `EMAXCONNSESSION … session mode` ใน log (ดูด้วย workflow **Check staging config**) | `DATABASE_URL` เป็น session pooler :5432 — ใช้ workflow **Fix staging DATABASE_URL** แล้ว deploy ใหม่                                                                                                                                       |
+| demo login ได้ 429 ทั้งที่เพิ่งกดครั้งแรก                                          | API เห็นทุกคนเป็น IP ของ proxy — ตั้ง `API_PROXY_KEY` (workflow **Rotate staging API proxy key**) แล้ว deploy ใหม่                                                                                                                          |
+| `prepared statement "s0" already exists`                                           | `DATABASE_URL` ของ API ขาด `?pgbouncer=true`                                                                                                                                                                                                |
+| migrate ค้าง / `P1001`                                                             | `STAGING_DIRECT_URL` เป็น Direct connection (IPv6) — ใช้ Session pooler                                                                                                                                                                     |
+| `Query engine library … rhel-openssl-3.0.x`                                        | `binaryTargets` ใน `schema.prisma` ต้องมี `rhel-openssl-3.0.x` (มีแล้ว)                                                                                                                                                                     |
+| login ได้แต่รีเฟรชหน้าแล้วหลุด                                                     | `NEXT_PUBLIC_API_URL` ชี้ไปโดเมน API ตรง ๆ — ต้องเป็นโดเมนของ web (cookie SameSite=Strict)                                                                                                                                                  |
+| `ENOENT … apps/api/apps/api`                                                       | รัน `vercel` ในโฟลเดอร์ app — ต้องรันจากรากของ repo เมื่อตั้ง Root Directory แล้ว                                                                                                                                                           |
+| คำขอแรกช้า 2–4 วินาที                                                              | cold start ของ Function (Nest + Prisma) — ปกติของ free tier                                                                                                                                                                                 |
+| worker: `/readyz` ไม่ผ่าน · log มี `ECONNREFUSED …:6379`                           | Redis ยังไม่ deploy หรือ `REDIS_URL` ผิด — ต้องเป็น `*.internal` (IPv6) · worker ตั้ง `family: 0` ไว้แล้ว                                                                                                                                   |
+| worker: log บอก "ไม่ได้ตั้ง VAPID"                                                 | ตั้ง secrets แบบ `--stage` แล้วยังไม่ deploy — `flyctl deploy` ใหม่                                                                                                                                                                         |
+| กด "จ่ายแล้ว" จาก notification แล้วขึ้น "ทำรายการไม่สำเร็จ"                        | `NOTIFICATION_ACTION_SECRET` บน Vercel API ไม่ตรงกับของ worker หรือยังไม่ redeploy API                                                                                                                                                      |
+| API ล่มทั้งตัว `FUNCTION_INVOCATION_FAILED` หลังเพิ่ม env                          | env ผิดรูปแบบ — API ตรวจ env ตอน boot แล้วไม่ยอมขึ้น · ดูชื่อตัวแปรด้วย `vercel logs -p nosion-staging-api --level error --json` (ข้อความ "ตัวแปรสภาพแวดล้อมไม่ถูกต้อง") · ครั้งแรกเจอ `MAIL_DRIVER = "v MAIL_DRIVER"` (วางตัวคำสั่งแทนค่า) |
+| deploy ใหม่สำเร็จแต่โดเมนยังเป็นของเก่า                                            | เคย Instant Rollback — Vercel หยุดย้ายโดเมน production อัตโนมัติ · `vercel promote <deployment-url>` แล้วจะกลับมาย้ายเองตามปกติ                                                                                                             |
+| ตรวจค่า env ไม่ได้ (เห็นแค่ `[SENSITIVE]`)                                         | ตั้งเป็นแบบ Secret — ค่าที่ไม่ลับ (`VAPID_PUBLIC_KEY`, `VAPID_SUBJECT`, `MAIL_DRIVER`, URL) ให้ตั้งเป็น Config จะตรวจเทียบได้                                                                                                               |
+| ปุ่ม Redeploy บน Vercel กดไม่ได้ ("Prebuilt deployments cannot be redeployed")     | staging build บน GitHub Actions — สั่ง `gh workflow run "Deploy staging"` แทน                                                                                                                                                               |

@@ -55,6 +55,14 @@ export const envSchema = z.object({
     .string()
     .default('true')
     .transform((v) => v === 'true'),
+
+  /**
+   * จำนวน proxy หน้า API ที่เชื่อ `X-Forwarded-For` ได้ (Express `trust proxy`) — ไม่ตั้ง: บน Vercel = 1 (edge เขียนทับ
+   * header นี้ ผู้ใช้ปลอมไม่ได้) · ที่อื่น = 0 · ตั้งผิดแล้ว req.ip = IP ของ proxy → rate limit รวมทั้งโลก (เจอจริง Phase 8)
+   */
+  TRUST_PROXY: z.coerce.number().int().min(0).max(5).optional(),
+  /** รหัสลับร่วมกับ proxy `/api/v1` ของเว็บ — มีแล้วถึงจะเชื่อ IP ผู้ใช้ที่ proxy ส่งต่อมา (ดู common/client-ip.ts) */
+  API_PROXY_KEY: z.string().min(32, 'API_PROXY_KEY ต้องยาวอย่างน้อย 32 ตัว').optional(),
 });
 
 export type AppConfig = z.infer<typeof envSchema>;
