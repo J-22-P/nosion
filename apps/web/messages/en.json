@@ -1241,6 +1241,7 @@
   "markdown": {
     "imageGitHub": "Open image on GitHub",
     "imageGitHubHint": "This image is in a private repository and can't be shown here — sign in to GitHub in this browser to see it",
-    "imageFailed": "Couldn't load image — open the original"
+    "imageFailed": "Couldn't load image — open the original",
+    "thumbnailHint": "Thumbnail — click to open the full image on GitHub"
   }
 }

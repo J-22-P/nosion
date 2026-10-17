@@ -131,6 +131,16 @@ function DetailForm({ entry, onClose }: { entry: EntryDto; onClose: () => void }
     entry.description?.trim() ? 'preview' : 'write',
   );
 
+  // รูปย่อที่เก็บไว้ (รูปแนบของ repo ส่วนตัวบน GitHub ฝังตรง ๆ ไม่ได้) — ถามเฉพาะงานที่มีรูป
+  const hasImages = /!\[|<img\s/i.test(entry.description ?? '');
+  const imageQuery = useQuery({
+    queryKey: ['entries', 'images', entry.id],
+    queryFn: () => entriesApi.images(entry.id),
+    enabled: hasImages,
+    staleTime: 5 * 60_000,
+  });
+  const images = Object.fromEntries((imageQuery.data ?? []).map((i) => [i.sourceUrl, i]));
+
   const done = entry.status === 'done';
   const dirty =
     title.trim() !== entry.title ||
@@ -276,7 +286,7 @@ function DetailForm({ entry, onClose }: { entry: EntryDto; onClose: () => void }
             className="max-h-[50dvh] min-h-24 overflow-y-auto rounded-control border border-hairline px-4 py-3"
           >
             {description.trim() ? (
-              <Markdown>{description}</Markdown>
+              <Markdown images={images}>{description}</Markdown>
             ) : (
               <p className="text-sm text-fg-tertiary">{t('noDescription')}</p>
             )}
