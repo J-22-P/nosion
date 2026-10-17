@@ -123,8 +123,14 @@ export function TodayView() {
             ) : (
               <>
                 <h1 className="sr-only">วันนี้</h1>
-                <Skeleton className="h-11 w-72" />
-                <Skeleton className="h-4 w-64" />
+                {/* skeleton อยู่ในบรรทัดที่ใช้ตัวอักษรชุดเดียวกับของจริง → สูงเท่ากันพอดี
+                    (เดิม h-11 + h-4 เตี้ยกว่าข้อความจริง 38px → การ์ดทั้งแถวกระโดด · CLS 0.39 · Phase 8) */}
+                <div aria-hidden="true" className="text-[32px] leading-[1.15] md:text-[44px]">
+                  <Skeleton className="inline-block h-[0.85em] w-72 max-w-full align-middle" />
+                </div>
+                <div aria-hidden="true" className="text-sm md:text-base">
+                  <Skeleton className="inline-block h-[0.85em] w-64 max-w-full align-middle" />
+                </div>
               </>
             )}
           </div>
