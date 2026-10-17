@@ -3,10 +3,12 @@
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@nosion/ui';
+import type { ModuleKey } from '@nosion/contracts';
+import { useSession } from '@/features/auth/use-session';
 import { SyncStatus } from '@/features/sync/sync-status';
 import { useUIStore } from '@/lib/stores/ui-store';
 import { LogoMark } from './logo';
-import { PRIMARY_NAV, SETTINGS_NAV, isActive, type NavItem } from './nav';
+import { PRIMARY_NAV, SETTINGS_NAV, isActive, visibleNav, type NavItem } from './nav';
 import { useLocale, useTranslations } from 'next-intl';
 
 const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? 'dev';
@@ -23,6 +25,8 @@ export function Sidebar({ pathname }: { pathname: string }) {
   const toggle = useUIStore((s) => s.toggleSidebar);
   const expanded = !collapsed;
   const t = useTranslations('shell');
+  const { settings } = useSession();
+  const items = visibleNav(PRIMARY_NAV, settings?.enabledModules as ModuleKey[] | undefined);
 
   return (
     <aside
@@ -48,7 +52,7 @@ export function Sidebar({ pathname }: { pathname: string }) {
 
       <nav aria-label={t('mainNav')} className="flex-1 overflow-y-auto px-3 py-2">
         <ul className="space-y-0.5">
-          {PRIMARY_NAV.map((item) => (
+          {items.map((item) => (
             <li key={item.href}>
               <SidebarLink item={item} active={isActive(pathname, item.href)} expanded={expanded} />
             </li>

@@ -1,3 +1,4 @@
+import type { ModuleKey } from '@nosion/contracts';
 import {
   BarChart3,
   CalendarDays,
@@ -31,15 +32,31 @@ export interface NavItem {
   icon: LucideIcon;
   /** false = หน้ายังไม่มี (แสดงเป็น "เร็ว ๆ นี้" แทนลิงก์เสีย) */
   ready: boolean;
+  /** เมนูของโมดูลนี้ — ผู้ใช้ปิดโมดูลในการตั้งค่าแล้วเมนูถูกซ่อน */
+  module?: ModuleKey;
 }
 
 /** เมนูหลักบน sidebar (desktop/tablet) — ตามลำดับใน 8.2 */
 export const PRIMARY_NAV: readonly NavItem[] = [
   { href: '/today', key: 'today', en: 'Today', icon: Sparkles, ready: true },
-  { href: '/tasks', key: 'tasks', en: 'Tasks', icon: CircleCheck, ready: true },
-  { href: '/expenses', key: 'expenses', en: 'Finance', icon: Wallet, ready: true },
-  { href: '/workouts', key: 'workouts', en: 'Workouts', icon: Dumbbell, ready: false },
-  { href: '/habits', key: 'habits', en: 'Habits', icon: Repeat, ready: true },
+  { href: '/tasks', key: 'tasks', en: 'Tasks', icon: CircleCheck, ready: true, module: 'task' },
+  {
+    href: '/expenses',
+    key: 'expenses',
+    en: 'Finance',
+    icon: Wallet,
+    ready: true,
+    module: 'expense',
+  },
+  {
+    href: '/workouts',
+    key: 'workouts',
+    en: 'Workouts',
+    icon: Dumbbell,
+    ready: false,
+    module: 'workout',
+  },
+  { href: '/habits', key: 'habits', en: 'Habits', icon: Repeat, ready: true, module: 'habit' },
   { href: '/calendar', key: 'calendar', en: 'Calendar', icon: CalendarDays, ready: true },
   { href: '/review', key: 'review', en: 'Review', icon: BarChart3, ready: true },
 ];
@@ -79,6 +96,17 @@ export const HUB_ITEMS: readonly NavItem[] = [
   PRIMARY_NAV[6]!,
   SETTINGS_NAV,
 ];
+
+/**
+ * เมนูที่แสดงได้ — ตัดเมนูของโมดูลที่ผู้ใช้ปิด · `enabled` ยังไม่รู้ (settings ยังไม่มา) = แสดงทั้งหมด
+ * ปิดแค่ซ่อนเมนู: เปิด URL ตรงยังเข้าได้ และข้อมูลไม่หาย
+ */
+export function visibleNav(
+  items: readonly NavItem[],
+  enabled: readonly ModuleKey[] | undefined,
+): NavItem[] {
+  return items.filter((item) => !item.module || !enabled || enabled.includes(item.module));
+}
 
 const ALL = [...PRIMARY_NAV, SETTINGS_NAV, HUB_NAV];
 
