@@ -21,6 +21,9 @@ regexes = [
   '''postgresql://nosion:nosion@''',
   '''minioadmin''',
   '''0{64}''',
+  # prefix ปลอมของ API key ใน mock ของ UI test (เฉพาะค่านี้ — key `nos_` จริงยังถูกจับ)
+  '''nos_Ab12Cd34''',
+  '''nos_Zz99Yy88''',
 ]
 paths = [
   '''\.env\.example$''',
