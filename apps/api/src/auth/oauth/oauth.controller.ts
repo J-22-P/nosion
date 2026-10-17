@@ -129,7 +129,10 @@ export class OAuthController {
   private redirectWithError(res: Response, err: unknown): void {
     if (!(err instanceof OAuthFlowError)) throw err;
     const page = err.linking ? 'settings' : 'login';
-    res.redirect(HttpStatus.FOUND, `${this.config.APP_URL}/${page}?oauth_error=${err.code}`);
+    const query = new URLSearchParams({ oauth_error: err.code });
+    // รหัสมาตรฐานของผู้ให้บริการเท่านั้น (ตัวอักษร/ตัวเลข/_) — ไม่ส่งข้อความดิบ
+    if (err.reason && /^[a-z0-9_]{1,64}$/i.test(err.reason)) query.set('oauth_reason', err.reason);
+    res.redirect(HttpStatus.FOUND, `${this.config.APP_URL}/${page}?${query}`);
   }
 
   /**

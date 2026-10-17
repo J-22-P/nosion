@@ -22,11 +22,13 @@ export const PROVIDER_LABEL: Record<OAuthProvider, string> = {
 /** `?oauth_error=` จาก API → ข้อความที่ผู้ใช้อ่านเข้าใจ (ไม่แสดงข้อความดิบของผู้ให้บริการ) */
 export function useOAuthErrorMessage() {
   const t = useTranslations('oauth.error');
-  return (code: string | null): string | null => {
+  /** `reason` = `?oauth_reason=` (รหัสมาตรฐานของผู้ให้บริการ) — ต่อท้ายให้คนตั้งค่ารู้ว่าต้องแก้อะไร */
+  return (code: string | null, reason?: string | null): string | null => {
     if (!code) return null;
-    return (OAUTH_ERRORS as readonly string[]).includes(code)
+    const message = (OAUTH_ERRORS as readonly string[]).includes(code)
       ? t(code as OAuthErrorCode)
       : t('unknown');
+    return reason && /^[a-z0-9_]{1,64}$/i.test(reason) ? `${message} (${reason})` : message;
   };
 }
 

@@ -1,5 +1,6 @@
 import { ConflictException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import {
+  OAUTH_MISCONFIGURED_REASONS,
   OAUTH_PROVIDERS,
   ProblemType,
   type AuthUserDto,
@@ -64,6 +65,8 @@ export class OAuthFlowError extends Error {
     readonly code: OAuthErrorCode,
     /** ผูกบัญชีจากหน้าตั้งค่า → ส่งกลับหน้าตั้งค่า ไม่ใช่หน้า login */
     readonly linking = false,
+    /** รหัสจากผู้ให้บริการ (ถ้ามี) — ส่งต่อเป็น `?oauth_reason=` */
+    readonly reason?: string,
   ) {
     super(code);
     this.name = 'OAuthFlowError';
@@ -187,10 +190,16 @@ export class OAuthService {
         redirectUri: this.redirectUri(provider),
       });
     } catch (err) {
+      const reason = err instanceof OAuthExchangeError ? err.reason : 'network';
       this.logger.warn(
         `OAuth ${provider} แลก code ไม่สำเร็จ: ${err instanceof OAuthExchangeError ? err.message : String(err)}`,
       );
-      throw new OAuthFlowError('exchange_failed', linking);
+      const misconfigured = (OAUTH_MISCONFIGURED_REASONS as readonly string[]).includes(reason);
+      throw new OAuthFlowError(
+        misconfigured ? 'provider_misconfigured' : 'exchange_failed',
+        linking,
+        reason,
+      );
     }
 
     if (flow.linkUserId) {

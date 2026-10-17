@@ -193,6 +193,7 @@
       "denied": "Sign-in was cancelled",
       "state_mismatch": "The link expired or was opened in another window — try again",
       "exchange_failed": "Couldn't reach the provider — try again",
+      "provider_misconfigured": "Sign-in is misconfigured on the server (client ID/secret or callback URL) — contact the administrator",
       "email_unverified": "This account has no verified email — verify it with the provider first",
       "email_conflict": "An unverified account already uses this email — sign in with your password, then connect from Settings",
       "already_linked": "This account is already connected to another user",

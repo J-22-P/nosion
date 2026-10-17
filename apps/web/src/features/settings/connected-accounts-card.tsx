@@ -125,6 +125,7 @@ function useReturnNotice() {
   const router = useRouter();
   const connected = params.get('connected');
   const error = params.get('oauth_error');
+  const reason = params.get('oauth_reason');
   const t = useTranslations('connected');
   const oauthErrorMessage = useOAuthErrorMessage();
   // แจ้งครั้งเดียวต่อผลลัพธ์ — effect อาจรันซ้ำก่อน router.replace ล้าง query เสร็จ (เคยขึ้น toast ซ้ำ)
@@ -138,8 +139,8 @@ function useReturnNotice() {
     if (connected && connected in PROVIDER_LABEL) {
       toast.success(t('done', { provider: PROVIDER_LABEL[connected as OAuthProvider] }));
     }
-    const message = oauthErrorMessage(error);
+    const message = oauthErrorMessage(error, reason);
     if (message) toast.error(t('failed'), { description: message });
     router.replace('/settings', { scroll: false });
-  }, [connected, error, router, t, oauthErrorMessage]);
+  }, [connected, error, reason, router, t, oauthErrorMessage]);
 }
