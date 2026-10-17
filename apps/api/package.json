@@ -12,7 +12,8 @@
     "test": "vitest run --project unit",
     "test:unit": "vitest run --project unit",
     "test:int": "vitest run --project integration",
-    "db:generate": "prisma generate"
+    "db:generate": "prisma generate",
+    "import:github": "tsx scripts/import-github.mts"
   },
   "dependencies": {
     "@nestjs/common": "11.2.5",
