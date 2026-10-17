@@ -19,3 +19,4 @@ export * from './sync';
 export * from './api-keys';
 export * from './oauth';
 export * from './github';
+export * from './entry-images';

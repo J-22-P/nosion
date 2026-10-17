@@ -1399,6 +1399,8 @@ test.describe('Tasks · หน้าต่างรายละเอียด�
     '',
     '<img width="846" alt="Image" src="https://github.com/user-attachments/assets/private-123" />',
     '',
+    '![ฟอร์ม](https://github.com/user-attachments/assets/thumb-456)',
+    '',
     '<script>window.__xss = 1</script>',
   ].join('\n');
 
@@ -1419,6 +1421,27 @@ test.describe('Tasks · หน้าต่างรายละเอียด�
         await page.route('https://github.com/user-attachments/**', (route) =>
           route.fulfill({ status: 404, body: 'Not Found' }),
         );
+        // รูปที่สคริปต์นำเข้าย่อเก็บไว้แล้ว → แสดงรูปย่อจาก NOSION (URL มีลายเซ็น)
+        await page.route(`**/api/v1/entries/${task.id}/images`, (route) =>
+          route.fulfill({
+            json: [
+              {
+                entryId: task.id,
+                sourceUrl: 'https://github.com/user-attachments/assets/thumb-456',
+                url: 'http://localhost:3001/api/v1/entry-images/img1/sig.webp',
+                width: 800,
+                height: 448,
+                sizeBytes: 13_000,
+              },
+            ],
+          }),
+        );
+        await page.route('**/api/v1/entry-images/img1/sig.webp', (route) =>
+          route.fulfill({
+            path: 'e2e/support/thumbnail.webp',
+            headers: { 'Content-Type': 'image/webp' },
+          }),
+        );
         await page.goto('/tasks');
         await page.getByRole('button', { name: `ดูรายละเอียด: ${task.title}` }).click();
 
@@ -1432,7 +1455,16 @@ test.describe('Tasks · หน้าต่างรายละเอียด�
           '_blank',
         );
         expect(await page.evaluate(() => (window as { __xss?: number }).__xss)).toBeUndefined();
-        // รูปโหลดไม่ได้ → ลิงก์ไปเปิดบน GitHub แทนไอคอนรูปเสีย
+        const thumb = dialog.getByRole('img', { name: 'ฟอร์ม' });
+        await expect(thumb).toHaveAttribute('src', /\/entry-images\/img1\/sig\.webp$/);
+        await expect
+          .poll(() => thumb.evaluate((img: HTMLImageElement) => img.naturalWidth))
+          .toBe(800);
+        await expect(dialog.getByRole('link', { name: 'ฟอร์ม' })).toHaveAttribute(
+          'href',
+          'https://github.com/user-attachments/assets/thumb-456',
+        );
+        // ไม่มีรูปย่อ + โหลดไม่ได้ → ลิงก์ไปเปิดบน GitHub แทนไอคอนรูปเสีย
         await expect(dialog.getByRole('link', { name: /เปิดดูรูปบน GitHub/ })).toHaveAttribute(
           'href',
           'https://github.com/user-attachments/assets/private-123',

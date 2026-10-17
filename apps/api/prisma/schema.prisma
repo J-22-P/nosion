@@ -450,12 +450,22 @@ model Attachment {
   fileName   String
   mimeType   String
   sizeBytes  Int
-  storageKey String
+  /// ไฟล์ใน object storage (ยังไม่มีผู้ใช้) · null = เก็บในแถวนี้เอง (`data`)
+  storageKey String?
   /// ผลลัพธ์ OCR ถ้าเป็นสลิป
   ocrText    String? @db.Text
 
+  /// รูปย่อ WebP ของรูปในรายละเอียดงาน (กว้าง ≤ 800px · ราว 10–60 KB) — เล็กพอเก็บในฐานข้อมูลได้เลย
+  /// ลบงานถาวร = ลบตาม (cascade) ไม่ต้องตามล้างไฟล์ใน storage
+  data      Bytes?
+  /// URL ของรูปต้นฉบับใน description (เช่น github.com/user-attachments/…) — ใช้จับคู่ตอนแสดงผลและกันอัปโหลดซ้ำ
+  sourceUrl String?
+  width     Int?
+  height    Int?
+
   createdAt DateTime @default(now())
 
+  @@unique([entryId, sourceUrl])
   @@index([entryId])
   @@map("attachments")
 }

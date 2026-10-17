@@ -2,6 +2,7 @@ import type {
   BulkActionInput,
   CreateEntryInput,
   EntryDto,
+  EntryImageDto,
   Paginated,
   ProjectDto,
   SyncEditableFields,
@@ -84,6 +85,9 @@ export const entriesApi = {
     apiFetch<Paginated<EntryDto>>(`/entries${toQuery({ ...filters })}`),
 
   get: (id: string) => apiFetch<EntryDto>(`/entries/${id}`),
+
+  /** รูปย่อของรูปในรายละเอียด (นำเข้าจาก GitHub repo ส่วนตัว) */
+  images: (id: string) => apiFetch<EntryImageDto[]>(`/entries/${id}/images`),
 
   create: (input: CreateEntryInput) => {
     const clientId = input.clientId ?? `c-${crypto.randomUUID()}`;
