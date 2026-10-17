@@ -32,7 +32,7 @@
 | 6   | i18n: dictionary ไทย/อังกฤษ · สลับภาษาในตั้งค่า · วันที่/เงินตาม locale | `d44bd34` | ✅                          |
 | 7   | `deploy-production.yml` จาก tag + rollback                              | `a97209f` | ✅                          |
 | 8   | ให้คนที่ไม่ใช่ dev ใช้เองได้: onboarding/empty state · README + diagram | `66a4b99` | ✅                          |
-| 9   | บท learn 21 + ADR                                                       | —         | ✅                          |
+| 9   | บท learn 21 + ADR                                                       | `8bd92fd` | ✅                          |
 
 **วิธีทำงาน (ตั้งแต่ขั้น 4):** แตก `develop` จาก `main` · หนึ่งฟีเจอร์ = หนึ่ง branch `feature/…` จาก `develop` · เสร็จแล้ว merge กลับ `develop` (`--no-ff`)
 
