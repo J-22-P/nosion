@@ -8,7 +8,9 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input, Label } from '@/components/ui/input';
 import { authApi, type MeResponse } from '@/features/auth/api';
-import { ApiError } from '@/lib/api-client';
+import { errorText } from '@/i18n/errors';
+import { useTranslations } from 'next-intl';
+import { tr } from '@/i18n/current';
 
 type Prefs = Pick<
   MeResponse['settings'],
@@ -34,6 +36,7 @@ const pick = (s: MeResponse['settings']): Prefs => ({
 export function PreferencesCard({ settings }: { settings: MeResponse['settings'] }) {
   const id = useId();
   const queryClient = useQueryClient();
+  const t = useTranslations('prefs');
   const [draft, setDraft] = useState<Prefs>(() => pick(settings));
   const saved = pick(settings);
   // ค่าจากเซิร์ฟเวอร์เปลี่ยน (บันทึกจากอีกแท็บ / เลิกรับผ่านอีเมล) → ตามค่าใหม่
@@ -48,11 +51,11 @@ export function PreferencesCard({ settings }: { settings: MeResponse['settings']
       queryClient.setQueryData<MeResponse | null>(['session'], (prev) =>
         prev ? { ...prev, settings: next } : prev,
       );
-      toast.success('บันทึกการตั้งค่าแล้ว');
+      toast.success(t('saved'));
     },
     onError: (error) =>
-      toast.error('บันทึกไม่สำเร็จ', {
-        description: error instanceof ApiError ? error.message : undefined,
+      toast.error(tr('settings.saveFailed'), {
+        description: errorText(error),
       }),
   });
 
@@ -60,10 +63,7 @@ export function PreferencesCard({ settings }: { settings: MeResponse['settings']
 
   return (
     <Card>
-      <CardHeader
-        title="ห้ามรบกวนและสรุปรายวัน"
-        description={`เวลาตามโซน ${settings.timezone} · ใช้กับทุกเครื่องของบัญชีนี้`}
-      />
+      <CardHeader title={t('title')} description={t('description', { tz: settings.timezone })} />
       <CardContent>
         <form
           className="space-y-5"
@@ -73,7 +73,7 @@ export function PreferencesCard({ settings }: { settings: MeResponse['settings']
           }}
         >
           <fieldset className="space-y-3">
-            <legend className="sr-only">ห้ามรบกวน</legend>
+            <legend className="sr-only">{t('quiet')}</legend>
             <div className="flex items-start gap-3">
               <Checkbox
                 id={`${id}-quiet`}
@@ -85,16 +85,16 @@ export function PreferencesCard({ settings }: { settings: MeResponse['settings']
               />
               <div>
                 <label htmlFor={`${id}-quiet`} className="text-sm font-medium">
-                  ห้ามรบกวน
+                  {t('quiet')}
                 </label>
                 <p id={`${id}-quiet-hint`} className="text-xs text-fg-secondary">
-                  การเตือนที่ตรงกับช่วงนี้จะถูกเลื่อนไปส่งตอนช่วงจบ — ไม่หาย
+                  {t('quietHint')}
                 </p>
               </div>
             </div>
             <div className="flex flex-wrap items-end gap-3 pl-8">
               <div>
-                <Label htmlFor={`${id}-qs`}>ตั้งแต่</Label>
+                <Label htmlFor={`${id}-qs`}>{t('from')}</Label>
                 <Input
                   id={`${id}-qs`}
                   type="time"
@@ -105,7 +105,7 @@ export function PreferencesCard({ settings }: { settings: MeResponse['settings']
                 />
               </div>
               <div>
-                <Label htmlFor={`${id}-qe`}>ถึง</Label>
+                <Label htmlFor={`${id}-qe`}>{t('to')}</Label>
                 <Input
                   id={`${id}-qe`}
                   type="time"
@@ -119,13 +119,13 @@ export function PreferencesCard({ settings }: { settings: MeResponse['settings']
             </div>
             {sameQuiet ? (
               <p role="alert" className="pl-8 text-xs text-danger">
-                เวลาเริ่มกับเวลาจบต้องต่างกัน
+                {t('sameTime')}
               </p>
             ) : null}
           </fieldset>
 
           <fieldset className="space-y-3 border-t border-hairline pt-5">
-            <legend className="sr-only">อีเมลสรุปรายวัน</legend>
+            <legend className="sr-only">{t('digest')}</legend>
             <div className="flex items-start gap-3">
               <Checkbox
                 id={`${id}-digest`}
@@ -137,15 +137,15 @@ export function PreferencesCard({ settings }: { settings: MeResponse['settings']
               />
               <div>
                 <label htmlFor={`${id}-digest`} className="text-sm font-medium">
-                  อีเมลสรุปรายวัน
+                  {t('digest')}
                 </label>
                 <p id={`${id}-digest-hint`} className="text-xs text-fg-secondary">
-                  งานเลยกำหนด งานวันนี้ และบิลใน 7 วัน — ไม่ส่งในวันที่ไม่มีอะไรค้าง
+                  {t('digestHint')}
                 </p>
               </div>
             </div>
             <div className="pl-8">
-              <Label htmlFor={`${id}-dt`}>ส่งเวลา</Label>
+              <Label htmlFor={`${id}-dt`}>{t('sendAt')}</Label>
               <Input
                 id={`${id}-dt`}
                 type="time"
@@ -160,11 +160,11 @@ export function PreferencesCard({ settings }: { settings: MeResponse['settings']
           <div className="flex justify-end gap-2">
             {dirty ? (
               <Button variant="secondary" onClick={() => setDraft(saved)} disabled={save.isPending}>
-                ยกเลิก
+                {t('cancel')}
               </Button>
             ) : null}
             <Button type="submit" disabled={!dirty || sameQuiet || save.isPending}>
-              {save.isPending ? 'กำลังบันทึก…' : 'บันทึก'}
+              {save.isPending ? t('saving') : t('save')}
             </Button>
           </div>
         </form>

@@ -12,6 +12,7 @@ import {
   type TrackableModule,
   type UserContext,
   type WeeklySection,
+  text,
 } from '@nosion/core';
 import { RegisterModule } from '../../core/registry/register-module.decorator';
 import { interpretHabit } from './habit-text';
@@ -66,6 +67,9 @@ export class HabitTrackableModule implements TrackableModule<HabitPayload> {
           : p.kind === 'before_time'
             ? `ก่อน ${p.deadlineLocalTime}`
             : undefined,
+        // เว็บแปลจาก key นี้ตามภาษาของผู้ใช้ (toCalendarEvent ไม่รู้ภาษา)
+        badgeKey: done ? 'done' : p.kind === 'before_time' ? 'before' : undefined,
+        deadline: p.deadlineLocalTime,
         progress: { current: p.currentValue, target: p.targetValue, unit: p.unit },
         deepLink: '/habits',
       },
@@ -83,6 +87,7 @@ export class HabitTrackableModule implements TrackableModule<HabitPayload> {
   /** การ์ด "นิสัย" (สเปก 8.11.1) — เฉพาะรอบของวันนี้ · รอบที่พลาดเมื่อวานไม่ค้างมาวันนี้ (ต่างจากงาน) */
   summarizeToday(entries: Entry[], ctx: UserContext): TodayWidget {
     const now = ctx.now ?? new Date();
+    const lang = ctx.locale;
     const today = formatInTimeZone(now, ctx.timezone);
     const todays = entries.filter(
       (e) => e.occurredAt && formatInTimeZone(e.occurredAt, ctx.timezone) === today,
@@ -91,9 +96,11 @@ export class HabitTrackableModule implements TrackableModule<HabitPayload> {
 
     return {
       module: this.key,
-      title: 'นิสัย',
+      title: text(lang, 'habit.today.title'),
       order: 30,
-      headline: todays.length ? `ทำแล้ว ${done} จาก ${todays.length}` : 'วันนี้ไม่มีนิสัยที่ต้องทำ',
+      headline: todays.length
+        ? text(lang, 'habit.today.headline', { done, total: todays.length })
+        : text(lang, 'habit.today.none'),
       progress: { done, total: todays.length },
       items: todays.map((e) => ({
         entryId: e.id,
@@ -122,13 +129,14 @@ export class HabitTrackableModule implements TrackableModule<HabitPayload> {
         }),
       },
       isEmpty: todays.length === 0,
-      emptyCta: { label: 'สร้างนิสัยแรก', href: '/habits?new=1' },
+      emptyCta: { label: text(lang, 'habit.today.empty'), href: '/habits?new=1' },
     };
   }
 
   summarizeWeek(entries: Entry[], ctx: UserContext): WeeklySection {
     // นับเฉพาะรอบที่ถึงวันแล้ว — รอบล่วงหน้าของวันที่ยังมาไม่ถึงไม่ใช่ "ยังไม่ทำ" (Review ของสัปดาห์นี้กลางสัปดาห์)
     const today = formatInTimeZone(ctx.now ?? new Date(), ctx.timezone);
+    const lang = ctx.locale;
     const counted = entries.filter(
       (e) =>
         e.status !== 'skipped' &&
@@ -152,19 +160,27 @@ export class HabitTrackableModule implements TrackableModule<HabitPayload> {
     const best = ranked.at(0);
     const worst = ranked.at(-1);
     if (best && best[1].done > 0)
-      highlights.push(`ทำสม่ำเสมอที่สุด: ${best[0]} (${best[1].done}/${best[1].total})`);
+      highlights.push(
+        text(lang, 'habit.week.best', { title: best[0], done: best[1].done, total: best[1].total }),
+      );
     if (worst && ranked.length > 1 && worst[1].done < worst[1].total) {
-      highlights.push(`ควรใส่ใจ: ${worst[0]} (${worst[1].done}/${worst[1].total})`);
+      highlights.push(
+        text(lang, 'habit.week.worst', {
+          title: worst[0],
+          done: worst[1].done,
+          total: worst[1].total,
+        }),
+      );
     }
 
     return {
       module: this.key,
-      title: 'นิสัย',
+      title: text(lang, 'habit.week.title'),
       order: 30,
       stats: [
-        { label: 'ทำสำเร็จ', value: `${done.length}/${counted.length}` },
-        { label: 'อัตราความสำเร็จ', value: `${rate}%` },
-        { label: 'จำนวนนิสัย', value: String(byTitle.size) },
+        { label: text(lang, 'habit.week.done'), value: `${done.length}/${counted.length}` },
+        { label: text(lang, 'habit.week.rate'), value: `${rate}%` },
+        { label: text(lang, 'habit.week.count'), value: String(byTitle.size) },
       ],
       highlights,
     };

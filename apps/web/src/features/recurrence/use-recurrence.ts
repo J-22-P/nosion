@@ -4,9 +4,10 @@ import type { CreateRecurrenceRuleInput } from '@nosion/contracts';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { ApiError } from '@/lib/api-client';
 import { recurrenceApi } from './api';
 import { toRuleInput, validateDraft, type RecurrenceDraft } from './builder';
+import { errorText } from '@/i18n/errors';
+import { tr } from '@/i18n/current';
 
 /** ค่าที่นิ่งแล้ว `delay` ms — ผู้ใช้กดปรับตัวเลือกรัว ๆ ไม่ยิง preview ทุกครั้ง (endpoint จำกัด 60/นาที) */
 export function useDebounced<T>(value: T, delay = 300): T {
@@ -53,12 +54,15 @@ export function useMaterialize() {
   return useMutation({
     mutationFn: recurrenceApi.materialize,
     onSuccess: ({ rules, created }) =>
-      toast.success(created > 0 ? `สร้างรายการใหม่ ${created} รายการ` : 'รายการล่วงหน้าครบแล้ว', {
-        description: `ตรวจ ${rules} กฎการเกิดซ้ำ · 7 วันข้างหน้า`,
-      }),
+      toast.success(
+        created > 0 ? tr('rb.materialized', { count: created }) : tr('rb.materializedNone'),
+        {
+          description: tr('rb.materializeDetail', { rules }),
+        },
+      ),
     onError: (error) =>
-      toast.error('Materialize ไม่สำเร็จ', {
-        description: error instanceof ApiError ? error.message : undefined,
+      toast.error(tr('rb.materializeFailed'), {
+        description: errorText(error),
       }),
     onSettled: () => void queryClient.invalidateQueries({ queryKey: ['entries'] }),
   });

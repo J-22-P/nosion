@@ -12,10 +12,11 @@ import { buildChips, rawFor, replaceSpan, sameName, withDate } from '@/features/
 import { ParsedChips } from '@/features/capture/parsed-chips';
 import { parseApi } from '@/features/command-palette/api';
 import { todayIn } from '@/features/calendar/grid';
-import { QUEUED_NOTE, useProjects, useTags } from '@/features/entries/use-entries';
-import { ApiError } from '@/lib/api-client';
+import { queuedNote, useProjects, useTags } from '@/features/entries/use-entries';
 import { isQueued } from '@/lib/sync';
 import { DEFAULT_TIME_ZONE } from '@/lib/format';
+import { errorText } from '@/i18n/errors';
+import { tr } from '@/i18n/current';
 
 /** ชิ้นที่งานใช้ — จำนวนเงิน/ปริมาณเป็นส่วนของชื่องาน ไม่ใช่ chip (เหมือนฝั่ง API) */
 const TASK_CHIPS = [
@@ -59,8 +60,8 @@ export function QuickCapture() {
     mutationFn: () => parseApi.commit({ text: text.trim(), module: 'task', clientId }),
     onSuccess: (result) => {
       const { entry, rule } = result;
-      toast.success(rule ? 'เพิ่มงานประจำแล้ว' : 'เพิ่มงานแล้ว', {
-        description: isQueued(result) ? `${entry.title} · ${QUEUED_NOTE}` : entry.title,
+      toast.success(rule ? tr('quickCapture.addedRecurring') : tr('quickCapture.added'), {
+        description: isQueued(result) ? `${entry.title} · ${queuedNote()}` : entry.title,
       });
       void queryClient.invalidateQueries({ queryKey: ['entries'] });
       // แท็ก/โปรเจกต์ใหม่ถูกสร้างที่ server
@@ -70,8 +71,8 @@ export function QuickCapture() {
       setClientId(newClientId());
     },
     onError: (error) =>
-      toast.error('เพิ่มงานไม่สำเร็จ', {
-        description: error instanceof ApiError ? error.message : undefined,
+      toast.error(tr('quickCapture.failed'), {
+        description: errorText(error),
       }),
   });
 
@@ -100,15 +101,15 @@ export function QuickCapture() {
           onKeyDown={(e) => {
             if (e.key === 'Escape') setText('');
           }}
-          placeholder="เพิ่มงาน… เช่น ส่งรายงาน พรุ่งนี้ 5 โมง !high #work +q4"
-          aria-label="ชื่องานใหม่"
+          placeholder={tr('quickCapture.placeholder')}
+          aria-label={tr('quickCapture.label')}
           data-shortcut="new"
           aria-describedby={hintId}
           maxLength={200}
           className="h-11 min-w-0 flex-1 bg-transparent text-[15px] text-fg outline-none placeholder:text-fg-tertiary"
         />
         <label className="relative hidden shrink-0 sm:block">
-          <span className="sr-only">กำหนดส่ง</span>
+          <span className="sr-only">{tr('quickCapture.due')}</span>
           {/* เลือกวันแล้วเขียนลงข้อความ ("23/10/2026") — ข้อความยังเป็นแหล่งความจริงเดียว */}
           <input
             type="date"
@@ -118,8 +119,8 @@ export function QuickCapture() {
           />
         </label>
         <Button type="submit" disabled={!canSubmit} className="shrink-0 gap-2">
-          <span className="hidden sm:inline">สร้างงาน</span>
-          <span className="sm:hidden">เพิ่ม</span>
+          <span className="hidden sm:inline">{tr('quickCapture.create')}</span>
+          <span className="sm:hidden">{tr('quickCapture.add')}</span>
           <Kbd className="hidden border-transparent bg-current/15 text-current sm:inline-flex">
             ↵
           </Kbd>
@@ -127,8 +128,7 @@ export function QuickCapture() {
       </div>
 
       <p id={hintId} className="sr-only">
-        พิมพ์วันเวลาได้ เช่น พรุ่งนี้ 5 โมง, ศุกร์หน้า, ทุกจันทร์ · !urgent !high !medium !low
-        กำหนดความสำคัญ · #ชื่อแท็ก +ชื่อโปรเจกต์ · กดที่ chip เพื่อแก้ · Escape เพื่อล้าง
+        {tr('quickCapture.hint1')} {tr('quickCapture.hint2')}
       </p>
 
       <ParsedChips

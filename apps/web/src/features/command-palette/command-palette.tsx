@@ -14,14 +14,13 @@ import { useLogout } from '@/components/shell/profile-menu';
 import { Kbd } from '@/components/ui/kbd';
 import { useSession } from '@/features/auth/use-session';
 import { entriesApi } from '@/features/entries/api';
-import { QUEUED_NOTE } from '@/features/entries/use-entries';
-import { ApiError } from '@/lib/api-client';
+import { queuedNote } from '@/features/entries/use-entries';
 import { isQueued } from '@/lib/sync';
 import { DEFAULT_TIME_ZONE } from '@/lib/format';
 import { useUIStore } from '@/lib/stores/ui-store';
 import { parseApi } from './api';
 import {
-  COMMANDS,
+  commands,
   createLabel,
   describeParsed,
   entryHref,
@@ -31,6 +30,9 @@ import {
   whenLabel,
   type PaletteCommand,
 } from './palette-model';
+import { useTranslations } from 'next-intl';
+import { useApiErrorText } from '@/i18n/errors';
+import { currentIntlLocale } from '@/i18n/current';
 
 /** debounce ก่อนเรียก /parse และ /entries?q= (สเปก 8.3: 250ms) */
 const DEBOUNCE_MS = 250;
@@ -105,6 +107,8 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
   const logout = useLogout();
   const { settings } = useSession();
   const timeZone = settings?.timezone ?? DEFAULT_TIME_ZONE;
+  const t = useTranslations('palette');
+  const apiErrorText = useApiErrorText();
 
   const [input, setInput] = React.useState('');
   const [active, setActive] = React.useState(0);
@@ -155,8 +159,8 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
     }) => parseApi.commit({ text, module, clientId }),
     onSuccess: (result, { mods, label }) => {
       const queued = isQueued(result);
-      toast.success(`${label}แล้ว`, {
-        description: queued ? `${result.entry.title} · ${QUEUED_NOTE}` : result.entry.title,
+      toast.success(t('created', { label }), {
+        description: queued ? `${result.entry.title} · ${queuedNote()}` : result.entry.title,
       });
       void queryClient.invalidateQueries({ queryKey: ['entries'] });
       setClientId(newClientId());
@@ -168,10 +172,7 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
       // รายการที่ยังรอซิงก์ไม่มีหน้าของตัวเองบน server
       if (mods.shift && !queued) router.push(entryHref(result.entry, timeZone));
     },
-    onError: (error) =>
-      toast.error('สร้างไม่สำเร็จ', {
-        description: error instanceof ApiError ? error.message : undefined,
-      }),
+    onError: (error) => toast.error(t('createFailed'), { description: apiErrorText(error) }),
   });
 
   // preview ตรงกับข้อความล่าสุดหรือยัง — ยังไม่ตรง (เพิ่งพิมพ์) ให้ server เลือกโมดูลเองตอน commit
@@ -199,16 +200,16 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
   });
 
   if (mode === 'idle') {
-    for (const c of COMMANDS.filter((c) => c.action.kind === 'navigate'))
-      items.push(commandItem(c, 'ไปที่'));
+    for (const c of commands().filter((c) => c.action.kind === 'navigate'))
+      items.push(commandItem(c, t('section.goto')));
   } else if (mode === 'command') {
-    for (const c of filterCommands(input)) items.push(commandItem(c, 'คำสั่ง'));
+    for (const c of filterCommands(input)) items.push(commandItem(c, t('section.commands')));
   } else {
     const best = preview.data?.best ?? null;
     if (best) {
       items.push({
         id: `create:${best.module}`,
-        section: 'สร้าง',
+        section: t('section.create'),
         run: (mods) =>
           commit.mutate({
             module: fresh ? best.module : undefined,
@@ -223,7 +224,7 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
     for (const alt of preview.data?.alternatives ?? []) {
       items.push({
         id: `create:${alt.module}`,
-        section: 'หรือสร้างเป็น…',
+        section: t('section.createAs'),
         run: (mods) => commit.mutate({ module: alt.module, mods, label: createLabel(alt) }),
         render: (isActive) => <CreateRow parsed={alt} timeZone={timeZone} active={isActive} />,
       });
@@ -231,7 +232,7 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
     for (const entry of search.data?.data ?? []) {
       items.push({
         id: `entry:${entry.id}`,
-        section: 'ผลการค้นหา',
+        section: t('section.results'),
         run: () => {
           onClose();
           router.push(entryHref(entry, timeZone));
@@ -289,8 +290,8 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
           aria-controls={listId}
           aria-activedescendant={items.length ? optionId(activeIndex) : undefined}
           aria-autocomplete="list"
-          aria-label="ค้นหา สร้างรายการ หรือพิมพ์ > เพื่อสั่งการ"
-          placeholder="พิมพ์ “กาแฟ 65” เพื่อสร้าง · ค้นหา · > คำสั่ง"
+          aria-label={t('inputLabel')}
+          placeholder={t('placeholder')}
           autoComplete="off"
           spellCheck={false}
           // :focus-visible ใน globals.css อยู่นอก layer จึงชนะ outline-none ของ Tailwind — ช่องนี้คือช่องเดียวใน dialog
@@ -300,14 +301,14 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
         />
         {busy ? (
           <span role="status" className="text-xs text-fg-secondary">
-            กำลังคิด…
+            {t('thinking')}
           </span>
         ) : null}
       </div>
 
       {local && local.tokens.length > 0 ? (
         <p
-          aria-label="ส่วนที่เข้าใจ"
+          aria-label={t('understood')}
           className="truncate border-b border-hairline px-4 py-2 font-mono text-xs text-fg-secondary"
         >
           {highlightSegments(input, local.tokens).map((seg, i) =>
@@ -325,16 +326,16 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
       <div
         id={listId}
         role="listbox"
-        aria-label="ผลลัพธ์"
+        aria-label={t('results')}
         className="max-h-[min(60vh,440px)] overflow-y-auto p-2"
       >
         {items.length === 0 ? (
           <p className="px-3 py-8 text-center text-sm text-fg-secondary">
             {mode === 'command'
-              ? 'ไม่พบคำสั่งนี้'
+              ? t('noCommand')
               : busy || preview.isPending
-                ? 'กำลังค้นหา…'
-                : 'ไม่พบอะไรเลย — ลองพิมพ์ชื่อรายการ'}
+                ? t('searching')
+                : t('nothing')}
           </p>
         ) : (
           sections.map((section) => (
@@ -368,26 +369,26 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
 
       <p className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-hairline px-4 py-2.5 text-[11px] text-fg-secondary">
         <span>
-          <Kbd>↑</Kbd> <Kbd>↓</Kbd> เลื่อน
+          <Kbd>↑</Kbd> <Kbd>↓</Kbd> {t('hint.move')}
         </span>
         <span>
-          <Kbd>↵</Kbd> เลือก
+          <Kbd>↵</Kbd> {t('hint.select')}
         </span>
         {mode === 'create' ? (
           <>
             <span>
-              <Kbd>⇧↵</Kbd> บันทึกแล้วเปิด
+              <Kbd>⇧↵</Kbd> {t('hint.saveOpen')}
             </span>
             <span>
-              <Kbd>⌘↵</Kbd> บันทึกแล้วสร้างต่อ
+              <Kbd>⌘↵</Kbd> {t('hint.saveNext')}
             </span>
           </>
         ) : null}
         <span>
-          <Kbd>tab</Kbd> สลับหมวด
+          <Kbd>tab</Kbd> {t('hint.switch')}
         </span>
         <span className="ml-auto">
-          <Kbd>esc</Kbd> ปิด
+          <Kbd>esc</Kbd> {t('hint.close')}
         </span>
       </p>
     </div>
@@ -406,6 +407,7 @@ function CreateRow({
   active: boolean;
 }) {
   const theme = MODULE_THEME[parsed.module];
+  const t = useTranslations('palette');
   return (
     <span className="flex items-start gap-3">
       {primary ? (
@@ -424,7 +426,7 @@ function CreateRow({
           <span className={primary ? 'font-medium' : undefined}>{createLabel(parsed)}</span>
           {primary ? (
             <span className="shrink-0 font-mono text-[11px] text-fg-secondary group-aria-selected:text-fg">
-              ความมั่นใจ {Math.round(parsed.confidence * 100)}%
+              {t('confidence', { percent: Math.round(parsed.confidence * 100) })}
             </span>
           ) : null}
         </span>
@@ -433,7 +435,7 @@ function CreateRow({
         </span>
         {primary && active ? (
           <span className="mt-1 flex items-center gap-1 text-[11px] text-fg-secondary group-aria-selected:text-fg">
-            <CornerDownLeft size={11} aria-hidden="true" /> เพื่อบันทึก
+            <CornerDownLeft size={11} aria-hidden="true" /> {t('toSave')}
           </span>
         ) : null}
       </span>
@@ -465,7 +467,10 @@ function SearchRow({ entry, timeZone }: { entry: EntryDto; timeZone: string }) {
       <span className="shrink-0 text-xs text-fg-secondary group-aria-selected:text-fg">
         {[
           typeof amountMinor === 'number'
-            ? formatMoney(amountMinor, currency ?? 'THB', { decimals: false })
+            ? formatMoney(amountMinor, currency ?? 'THB', {
+                decimals: false,
+                locale: currentIntlLocale(),
+              })
             : null,
           when,
         ]

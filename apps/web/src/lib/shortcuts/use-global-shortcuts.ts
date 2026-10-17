@@ -3,10 +3,11 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
-import { ApiError } from '@/lib/api-client';
 import { useUIStore } from '@/lib/stores/ui-store';
 import { createKeyReader, isTypingTarget, type GlobalAction } from './keymap';
 import { useUndoStore } from './undo-store';
+import { errorText } from '@/i18n/errors';
+import { tr } from '@/i18n/current';
 
 /** element ที่มองเห็นอยู่ตัวแรก — ช่องเดียวกันมักมีสองชุด (มือถือ/desktop) ที่ซ่อนตาม breakpoint */
 function firstVisible(selector: string): HTMLElement | null {
@@ -69,15 +70,15 @@ export function useGlobalShortcuts() {
         case 'undo': {
           const item = useUndoStore.getState().pop();
           if (!item) {
-            toast('ไม่มีอะไรให้ย้อนกลับ');
+            toast(tr('undo.nothing'));
             break;
           }
           item
             .run()
-            .then(() => toast.success(`ย้อนกลับแล้ว: ${item.label}`))
+            .then(() => toast.success(tr('undo.done', { label: item.label })))
             .catch((error: unknown) =>
-              toast.error('ย้อนกลับไม่สำเร็จ', {
-                description: error instanceof ApiError ? error.message : undefined,
+              toast.error(tr('undo.failed'), {
+                description: errorText(error),
               }),
             );
           break;

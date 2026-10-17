@@ -10,9 +10,10 @@ import { FieldError, Input, Label, Select } from '@/components/ui/input';
 import { defaultDraft, toRuleInput, validateDraft } from '@/features/recurrence/builder';
 import { RecurrenceBuilder } from '@/features/recurrence/recurrence-builder';
 import { useCreateRule } from '@/features/recurrence/use-recurrence';
-import { ApiError } from '@/lib/api-client';
 import { DEFAULT_TIME_ZONE } from '@/lib/format';
 import { CATEGORY, PAYMENT_LABEL } from './categories';
+import { errorText } from '@/i18n/errors';
+import { tr } from '@/i18n/current';
 
 type PaymentMethod = keyof typeof PAYMENT_LABEL;
 
@@ -21,10 +22,10 @@ type PaymentMethod = keyof typeof PAYMENT_LABEL;
  * จึงตั้งเป็น 09:00 ของวันนั้นให้ชัดเจน: offset = จำนวนวันก่อน × −1440 + 540
  */
 const REMIND_OPTIONS = [
-  { value: 'none', label: 'ไม่เตือน', offset: null },
-  { value: 'due', label: 'เช้าวันครบกำหนด (09:00)', offset: 540 },
-  { value: '1d', label: 'ล่วงหน้า 1 วัน (09:00)', offset: -1440 + 540 },
-  { value: '3d', label: 'ล่วงหน้า 3 วัน (09:00)', offset: -3 * 1440 + 540 },
+  { value: 'none', offset: null },
+  { value: 'due', offset: 540 },
+  { value: '1d', offset: -1440 + 540 },
+  { value: '3d', offset: -3 * 1440 + 540 },
 ] as const;
 type RemindOption = (typeof REMIND_OPTIONS)[number]['value'];
 
@@ -61,9 +62,9 @@ export function NewBillDialog({ open, onClose }: { open: boolean; onClose: () =>
     >
       <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-hairline bg-surface px-5 py-4">
         <h2 id="new-bill-title" className="text-base font-semibold">
-          เพิ่มรอบบิลใหม่
+          {tr('newBill.title')}
         </h2>
-        <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="ปิด">
+        <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label={tr('newBill.close')}>
           <X size={16} aria-hidden="true" />
         </Button>
       </div>
@@ -86,8 +87,8 @@ function NewBillForm({ onDone }: { onDone: () => void }) {
 
   const amountMinor = parseAmountToMinor(amount.replace(/[฿\s]/g, ''));
   const errors = {
-    title: title.trim() ? undefined : 'ใส่ชื่อบิล',
-    amount: amountMinor && amountMinor > 0 ? undefined : 'ใส่จำนวนเงิน เช่น 799 หรือ 1,250.50',
+    title: title.trim() ? undefined : tr('newBill.needTitle'),
+    amount: amountMinor && amountMinor > 0 ? undefined : tr('newBill.needAmount'),
   };
   const ruleInvalid = Object.keys(validateDraft(draft)).length > 0;
 
@@ -117,12 +118,12 @@ function NewBillForm({ onDone }: { onDone: () => void }) {
       },
       {
         onSuccess: () => {
-          toast.success('ตั้งรอบบิลแล้ว', { description: title.trim() });
+          toast.success(tr('newBill.created'), { description: title.trim() });
           onDone();
         },
         onError: (error) =>
-          toast.error('ตั้งรอบบิลไม่สำเร็จ', {
-            description: error instanceof ApiError ? error.message : undefined,
+          toast.error(tr('newBill.failed'), {
+            description: errorText(error),
           }),
       },
     );
@@ -132,12 +133,12 @@ function NewBillForm({ onDone }: { onDone: () => void }) {
     <form onSubmit={submit} noValidate className="space-y-5 p-5">
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
-          <Label htmlFor={`${id}-title`}>ชื่อบิล</Label>
+          <Label htmlFor={`${id}-title`}>{tr('newBill.name')}</Label>
           <Input
             id={`${id}-title`}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="เช่น ค่าเน็ต AIS Fibre"
+            placeholder={tr('newBill.namePlaceholder')}
             maxLength={200}
             aria-invalid={touched && !!errors.title}
             data-autofocus
@@ -145,7 +146,7 @@ function NewBillForm({ onDone }: { onDone: () => void }) {
           <FieldError>{touched ? errors.title : undefined}</FieldError>
         </div>
         <div>
-          <Label htmlFor={`${id}-amount`}>จำนวนเงิน (บาท)</Label>
+          <Label htmlFor={`${id}-amount`}>{tr('newBill.amount')}</Label>
           <Input
             id={`${id}-amount`}
             value={amount}
@@ -159,7 +160,7 @@ function NewBillForm({ onDone }: { onDone: () => void }) {
         </div>
         <div className="flex gap-3">
           <div className="min-w-0 flex-1">
-            <Label htmlFor={`${id}-category`}>หมวด</Label>
+            <Label htmlFor={`${id}-category`}>{tr('newBill.category')}</Label>
             <Select
               id={`${id}-category`}
               value={category}
@@ -174,7 +175,7 @@ function NewBillForm({ onDone }: { onDone: () => void }) {
             </Select>
           </div>
           <div className="min-w-0 flex-1">
-            <Label htmlFor={`${id}-payment`}>จ่ายด้วย</Label>
+            <Label htmlFor={`${id}-payment`}>{tr('newBill.payWith')}</Label>
             <Select
               id={`${id}-payment`}
               value={paymentMethod}
@@ -196,7 +197,7 @@ function NewBillForm({ onDone }: { onDone: () => void }) {
       </div>
 
       <div className="border-t border-hairline pt-5">
-        <Label htmlFor={`${id}-remind`}>เตือนทุกรอบ</Label>
+        <Label htmlFor={`${id}-remind`}>{tr('newBill.remindLabel')}</Label>
         <Select
           id={`${id}-remind`}
           value={remind}
@@ -205,22 +206,21 @@ function NewBillForm({ onDone }: { onDone: () => void }) {
         >
           {REMIND_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
-              {o.label}
+              {tr(`newBill.remind.${o.value}`)}
             </option>
           ))}
         </Select>
         <p id={`${id}-remind-hint`} className="mt-1.5 text-xs text-fg-secondary">
-          แจ้งเตือนเด้งบนเครื่องที่เปิดการแจ้งเตือนไว้ในหน้าตั้งค่า · กด “จ่ายแล้ว”
-          จากการแจ้งเตือนได้เลย
+          {tr('newBill.remindHint')}
         </p>
       </div>
 
       <div className="flex justify-end gap-2">
         <Button variant="secondary" onClick={onDone}>
-          ยกเลิก
+          {tr('newBill.cancel')}
         </Button>
         <Button type="submit" disabled={create.isPending}>
-          {create.isPending ? 'กำลังบันทึก…' : 'ตั้งรอบบิล'}
+          {create.isPending ? tr('newBill.saving') : tr('newBill.save')}
         </Button>
       </div>
     </form>

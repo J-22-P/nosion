@@ -20,7 +20,7 @@ import {
   type CreateBudgetInput,
   type UpdateBudgetInput,
 } from '@nosion/contracts';
-import { CurrentUser } from '../../common/decorators';
+import { CurrentUser, PublicApi } from '../../common/decorators';
 import { zodBody, zodQuery } from '../../common/zod-validation.pipe';
 import { BudgetsService } from './budgets.service';
 import { ExpenseStatsService } from './expense-stats.service';
@@ -28,6 +28,7 @@ import { ExpenseStatsService } from './expense-stats.service';
 /** งบประมาณรายเดือน (สเปก 7.3) */
 @ApiTags('budgets')
 @Controller('budgets')
+@PublicApi()
 export class BudgetsController {
   constructor(
     private readonly budgets: BudgetsService,

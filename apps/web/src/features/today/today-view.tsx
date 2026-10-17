@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Kbd } from '@/components/ui/kbd';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusPill } from '@/components/ui/status-pill';
-import { greetingFor } from '@nosion/core/time';
+import { dayPart } from '@nosion/core/time';
 import { useSession } from '@/features/auth/use-session';
 import { todayIn } from '@/features/calendar/grid';
 import { useMaterialize } from '@/features/recurrence/use-recurrence';
@@ -23,14 +23,15 @@ import { desktopSpan, isTypingTarget } from './layout';
 import { StandupSheet } from './standup-sheet';
 import { copyText, useToday } from './use-today';
 import { WidgetCard } from './widgets';
+import { useTranslations } from 'next-intl';
+import { dateFormat, moduleLabel } from '@/i18n/current';
+import { OnboardingCard } from './onboarding-card';
 
 const SPAN = { 5: 'lg:col-span-5', 7: 'lg:col-span-7', 12: 'lg:col-span-12' } as const;
 
 /** "วันพฤหัสบดีที่ 1 ตุลาคม 2569" — date เป็นวันที่ตามปฏิทินของผู้ใช้ จึงจัดรูปแบบใน UTC ไม่ให้เลื่อนวัน */
 function longDate(ymd: string): string {
-  return new Intl.DateTimeFormat('th-TH', { dateStyle: 'full', timeZone: 'UTC' }).format(
-    new Date(`${ymd}T12:00:00Z`),
-  );
+  return dateFormat({ dateStyle: 'full', timeZone: 'UTC' }).format(new Date(`${ymd}T12:00:00Z`));
 }
 
 /** "Asia/Bangkok (UTC+7)" */
@@ -53,6 +54,7 @@ export function TodayView() {
   const pathname = usePathname();
   const params = useSearchParams();
   const standupOpen = params.get('standup') === '1';
+  const t = useTranslations('today');
 
   // เปิด/ปิด sheet ผ่าน URL → ปุ่มในการ์ดงาน (/today?standup=1) และปุ่ม back ของเบราว์เซอร์ใช้ได้เหมือนกัน
   const setStandup = useCallback(
@@ -74,10 +76,10 @@ export function TodayView() {
   async function copyStandup() {
     try {
       const { markdown } = await todayApi.standup();
-      if (await copyText(markdown)) toast.success('คัดลอก Standup Markdown แล้ว');
+      if (await copyText(markdown)) toast.success(t('copiedStandup'));
       else setStandup(true); // คัดลอกไม่ได้ → เปิด sheet ให้เลือกข้อความเอง
     } catch {
-      toast.error('สร้าง Standup ไม่สำเร็จ');
+      toast.error(t('standupFailed'));
     }
   }
 
@@ -86,8 +88,10 @@ export function TodayView() {
   // รอแล้วคำทักทายยาวขึ้นบรรทัดใหม่ ดันการ์ดทั้งแถวลง 74px (CLS 0.39 desktop · Phase 8)
   const { user, settings } = useSession();
   const timeZone = data?.timezone ?? settings?.timezone ?? DEFAULT_TIME_ZONE;
-  const greeting =
-    data?.greeting ?? (user ? greetingFor(new Date(), timeZone, user.displayName) : null);
+  // คำนวณฝั่งเว็บเสมอ (ไม่ใช้ data.greeting) — ได้ภาษาตามที่ผู้ใช้เลือก
+  const greeting = user
+    ? t(`greeting.${dayPart(new Date(), timeZone)}`, { name: user.displayName }).trim()
+    : null;
   const date = data?.date ?? todayIn(timeZone);
 
   return (
@@ -103,7 +107,7 @@ export function TodayView() {
             status={connection.status}
             label={
               connection.status === 'online'
-                ? `ระบบเชื่อมต่อสมบูรณ์${ago ? ` · Sync ล่าสุด ${ago}` : ''}`
+                ? `${t('online')}${ago ? t('lastSync', { ago }) : ''}`
                 : connection.label
             }
           />
@@ -113,7 +117,7 @@ export function TodayView() {
               'inline-flex h-7 items-center rounded-chip border border-hairline bg-wash px-3 font-mono text-xs',
               connection.pending ? 'text-accent' : 'text-fg-secondary',
             )}
-            aria-label={`รอซิงก์ ${connection.pending} รายการ`}
+            aria-label={t('pendingLabel', { count: connection.pending })}
           >
             MUT: {connection.pending}
           </span>
@@ -126,12 +130,12 @@ export function TodayView() {
                   {greeting}
                 </h1>
                 <p className="text-sm text-fg-secondary md:text-base">
-                  {longDate(date)} · สรุปสถานะการทำงาน กิจวัตร และแผนวันนี้
+                  {t('subtitle', { date: longDate(date) })}
                 </p>
               </>
             ) : (
               <>
-                <h1 className="sr-only">วันนี้</h1>
+                <h1 className="sr-only">{t('title')}</h1>
                 {/* skeleton อยู่ในบรรทัดที่ใช้ตัวอักษรชุดเดียวกับของจริง → สูงเท่ากันพอดี
                     (เดิม h-11 + h-4 เตี้ยกว่าข้อความจริง 38px → การ์ดทั้งแถวกระโดด · CLS 0.39 · Phase 8) */}
                 <div aria-hidden="true" className="text-[32px] leading-[1.15] md:text-[44px]">
@@ -149,14 +153,16 @@ export function TodayView() {
               lang="en"
             >
               <span className="font-mono uppercase tracking-wider">Quick keys</span>
-              <Kbd>⌘K</Kbd> ค้นหา <Kbd>s</Kbd> standup
+              <Kbd>⌘K</Kbd> {t('quickSearch')} <Kbd>s</Kbd> standup
             </p>
             <Button shape="pill" size="lg" className="gap-2" onClick={() => setStandup(true)}>
-              <Sparkles size={16} aria-hidden="true" /> สร้าง Standup
+              <Sparkles size={16} aria-hidden="true" /> {t('createStandup')}
             </Button>
           </div>
         </div>
       </Card>
+
+      <OnboardingCard />
 
       {/* การ์ดของแต่ละโมดูล — ลำดับและจำนวนมาจาก API (registry) */}
       {query.isPending ? (
@@ -174,7 +180,7 @@ export function TodayView() {
         </div>
       ) : !data ? (
         <Card>
-          <ErrorState message="โหลดสรุปวันนี้ไม่สำเร็จ" onRetry={() => void query.refetch()} />
+          <ErrorState message={t('loadFailed')} onRetry={() => void query.refetch()} />
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-12">
@@ -192,7 +198,7 @@ export function TodayView() {
             <Card key={m} className="lg:col-span-12">
               <CardContent className="pt-5 md:pt-6">
                 <p role="alert" className="text-sm text-fg-secondary">
-                  การ์ดของโมดูล “{m}” โหลดไม่สำเร็จ — ส่วนอื่นของหน้ายังใช้ได้ตามปกติ
+                  {t('moduleFailed', { module: moduleLabel(m) })}
                 </p>
               </CardContent>
             </Card>
@@ -205,11 +211,13 @@ export function TodayView() {
         <CardHeader
           title={
             <span id="quick-actions" className="text-lg">
-              คำสั่งด่วนและทางลัด{' '}
-              <span className="text-fg-secondary">(Developer Quick Actions)</span>
+              {t('quickActions')}{' '}
+              <span className="text-fg-secondary" lang="en">
+                (Developer Quick Actions)
+              </span>
             </span>
           }
-          description="เครื่องมือช่วยงานแบบ Local-First และการสรุป Standup"
+          description={t('quickActionsHint')}
           aside={
             <span className="hidden items-center gap-2 font-mono text-xs text-fg-secondary sm:inline-flex">
               <span aria-hidden="true" className="size-1.5 rounded-full bg-track-fill" />
@@ -221,14 +229,14 @@ export function TodayView() {
           <div role="group" aria-labelledby="quick-actions" className="grid gap-3 md:grid-cols-3">
             <QuickAction
               icon={<Copy size={18} />}
-              title="คัดลอก Standup Markdown"
-              description="จัดกลุ่ม Done, Doing, Blocked"
+              title={t('copyStandup')}
+              description={t('copyStandupHint')}
               onClick={copyStandup}
             />
             <QuickAction
               icon={<RefreshCw size={18} className={cn(materialize.isPending && 'animate-spin')} />}
               title="Materialize Recurrence"
-              description="สร้างรอบที่เกิดซ้ำล่วงหน้า 7 วันทันที"
+              description={t('materializeHint')}
               onClick={() => materialize.mutate()}
               disabled={materialize.isPending}
             />

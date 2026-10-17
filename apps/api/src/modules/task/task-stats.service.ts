@@ -131,6 +131,7 @@ export class TaskStatsService {
       todayStart: r.todayStart,
       todayEnd: r.todayEnd,
       tasks,
+      lang: ctx.locale,
     });
   }
 }

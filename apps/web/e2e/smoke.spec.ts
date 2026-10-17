@@ -130,3 +130,33 @@ test('DoD Phase 7: ออฟไลน์ → รีเฟรช → สร้า
   const { data } = (await res.json()) as { data: { title: string }[] };
   expect(data.map((e) => e.title).sort()).toEqual(titles);
 });
+
+/**
+ * DoD Phase 8: คนที่ไม่ใช่ dev ใช้เองได้ — สมัครใหม่ (ไม่มีข้อมูล) แล้วการ์ด "เริ่มต้นใช้งาน" พาไปทำขั้นแรกได้เอง
+ * ใช้ API + DB จริง: นับขั้นจากข้อมูลจริง (GET /me/onboarding) — สร้างงานแล้วการ์ดขยับเป็น 1/4 เอง
+ */
+test('ผู้ใช้ใหม่: สมัคร → การ์ดเริ่มต้นใช้งาน → เพิ่มงานแรกจากลิงก์ในการ์ด → ความคืบหน้าขยับ', async ({
+  page,
+}) => {
+  await page.goto('/register');
+  await page.getByLabel('ชื่อที่ใช้แสดง').fill('เพื่อนทดสอบ');
+  await page.getByLabel('อีเมล').fill(`friend-${Date.now()}@example.com`);
+  await page.getByLabel('รหัสผ่าน').fill('correct-horse-battery-staple-2026');
+  await page.getByRole('button', { name: 'สมัครสมาชิก' }).click();
+  await page.waitForURL('**/tasks');
+
+  await page.goto('/today');
+  const card = page.getByRole('region', { name: 'เริ่มต้นใช้งาน' });
+  await expect(card).toContainText('ทำแล้ว 0 จาก', { timeout: 15_000 });
+
+  await card.getByRole('link', { name: 'เพิ่มงานแรก' }).click();
+  const input = page.getByLabel('ชื่องานใหม่');
+  await expect(input).toBeFocused();
+  await input.fill('ซื้อของเข้าบ้าน พรุ่งนี้');
+  await input.press('Enter');
+  await expect(page.getByText('ซื้อของเข้าบ้าน').first()).toBeVisible();
+
+  await page.goto('/today');
+  await expect(card).toContainText('ทำแล้ว 1 จาก', { timeout: 15_000 });
+  await expect(card.getByRole('link', { name: 'เพิ่มงานแรก · ทำแล้ว' })).toBeVisible();
+});

@@ -275,9 +275,9 @@ test.describe('Calendar (Phase 5)', () => {
     await expect.poll(() => completed).toEqual([expect.stringContaining('/entries/t_c4/complete')]);
 
     // เลือกวันที่ 5 ต.ค. → panel แสดงบิล TrueMove + ปุ่ม "จ่ายแล้ว" มาจาก actions ของโมดูล
-    await page.getByRole('button', { name: /^วันจันทร์ 5 ตุลาคม 2026/ }).click();
+    await page.getByRole('button', { name: /^วันจันทร์ที่ 5 ตุลาคม 2569/ }).click();
     await expect(page).toHaveURL(/date=2026-10-05/);
-    await expect(page.getByRole('heading', { name: 'วันจันทร์ 5 ตุลาคม 2026' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'วันจันทร์ที่ 5 ตุลาคม 2569' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'จ่ายแล้ว' })).toBeVisible();
 
     // กรองเฉพาะงาน → บิลหายจากปฏิทิน · chip ยังบอกจำนวนของการเงิน (grid 28 ก.ย.–8 พ.ย. รวมรอบ projected)
@@ -334,7 +334,7 @@ test.describe('Calendar · ลากเปลี่ยนวัน (Phase 5 ข�
     const item = page.getByText('Update API docs').filter({ visible: true }).first();
     await expect(item).toBeVisible({ timeout: 15_000 });
 
-    await item.dragTo(cell(page, /^วันศุกร์ 2 ตุลาคม 2026/));
+    await item.dragTo(cell(page, /^วันศุกร์ที่ 2 ตุลาคม 2569/));
     await expect
       .poll(() => body)
       .toEqual({
@@ -342,8 +342,8 @@ test.describe('Calendar · ลากเปลี่ยนวัน (Phase 5 ข�
         isAllDay: false,
         version: 3,
       });
-    await expect(cell(page, /^วันศุกร์ 2 ตุลาคม 2026 · 1 รายการ/)).toBeVisible();
-    await expect(cell(page, /^วันพุธ 30 กันยายน 2026 · 3 รายการ/)).toBeVisible();
+    await expect(cell(page, /^วันศุกร์ที่ 2 ตุลาคม 2569 · 1 รายการ/)).toBeVisible();
+    await expect(cell(page, /^วันพุธที่ 30 กันยายน 2569 · 3 รายการ/)).toBeVisible();
     release();
     await expect(page.getByText('ย้ายวันแล้ว')).toBeVisible();
   });
@@ -360,10 +360,10 @@ test.describe('Calendar · ลากเปลี่ยนวัน (Phase 5 ข�
     const item = page.getByText('Update API docs').filter({ visible: true }).first();
     await expect(item).toBeVisible({ timeout: 15_000 });
 
-    await item.dragTo(cell(page, /^วันศุกร์ 2 ตุลาคม 2026/));
+    await item.dragTo(cell(page, /^วันศุกร์ที่ 2 ตุลาคม 2569/));
     await expect(page.getByText('รายการนี้ถูกแก้จากที่อื่น', { exact: false })).toBeVisible();
-    await expect(cell(page, /^วันศุกร์ 2 ตุลาคม 2026 · ไม่มีรายการ/)).toBeVisible();
-    await expect(cell(page, /^วันพุธ 30 กันยายน 2026 · 4 รายการ/)).toBeVisible();
+    await expect(cell(page, /^วันศุกร์ที่ 2 ตุลาคม 2569 · ไม่มีรายการ/)).toBeVisible();
+    await expect(cell(page, /^วันพุธที่ 30 กันยายน 2569 · 4 รายการ/)).toBeVisible();
   });
 
   test('ทางเลือกของคีย์บอร์ด: เลือกวันใหม่ใน day panel · บิลทั้งวันส่งวันที่ล้วน', async ({
@@ -1009,5 +1009,333 @@ test.describe('ออฟไลน์ (Phase 7)', () => {
       installabilityErrors: { errorId: string }[];
     };
     expect(installabilityErrors.map((e) => e.errorId)).toEqual([]);
+  });
+});
+
+test.describe('Settings · API key (Phase 8 ขั้น 4)', () => {
+  test('สร้าง key → เห็น key เต็มครั้งเดียวพร้อมปุ่มคัดลอก · เพิกถอนต้องกดยืนยัน', async ({
+    page,
+  }) => {
+    let created: Record<string, unknown> | null = null;
+    let revoked: string | null = null;
+    await page.route('**/api/v1/me/api-keys**', async (route) => {
+      const req = route.request();
+      if (req.method() === 'POST') {
+        created = req.postDataJSON() as Record<string, unknown>;
+        return route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            id: 'key-new',
+            name: created.name,
+            keyPrefix: 'nos_Zz99Yy88',
+            scopes: created.scopes,
+            lastUsedAt: null,
+            expiresAt: null,
+            createdAt: '2026-10-17T02:00:00.000Z',
+            key: 'nos_Zz99Yy88-full-secret-shown-once',
+          }),
+        });
+      }
+      if (req.method() === 'DELETE') {
+        revoked = new URL(req.url()).pathname.split('/').pop() ?? null;
+        return route.fulfill({ status: 204 });
+      }
+      return route.fallback();
+    });
+
+    await page.goto('/settings');
+    await expect(page.getByText('สคริปต์สรุปรายจ่าย')).toBeVisible({ timeout: 15_000 });
+
+    await page.getByLabel('ชื่อ key').fill('Zapier');
+    await page.getByRole('checkbox', { name: 'เขียน (สร้าง/แก้/ลบ)' }).click();
+    await page.getByRole('button', { name: 'สร้าง API key' }).click();
+
+    await expect(page.getByLabel('API key ใหม่')).toHaveValue(
+      'nos_Zz99Yy88-full-secret-shown-once',
+    );
+    expect(created).toEqual({ name: 'Zapier', scopes: ['read', 'write'], expiresInDays: null });
+
+    const results = await new AxeBuilder({ page }).include('form').analyze();
+    expect(
+      results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical'),
+    ).toEqual([]);
+
+    await page.getByRole('button', { name: 'เพิกถอน สคริปต์สรุปรายจ่าย' }).click();
+    expect(revoked).toBeNull();
+    await page.getByRole('button', { name: 'ยืนยันเพิกถอน สคริปต์สรุปรายจ่าย' }).click();
+    await expect.poll(() => revoked).toBe('key-1');
+  });
+});
+
+test.describe('OAuth · Google / GitHub (Phase 8 ขั้น 4b)', () => {
+  test('หน้า login มีปุ่มทั้งสองเป็นลิงก์ไป API พร้อมโซนเวลา · กลับมาพร้อม oauth_error → แจ้งเป็นภาษาคน', async ({
+    page,
+  }) => {
+    await page.goto('/login?oauth_error=email_conflict');
+    // Next มี route announcer เป็น role=alert อีกตัว — หาจากข้อความแทน
+    await expect(
+      page.getByText('อีเมลนี้มีบัญชีที่ยังไม่ได้ยืนยันอยู่แล้ว', { exact: false }),
+    ).toBeVisible({
+      timeout: 15_000,
+    });
+    const google = page.getByRole('link', { name: 'ดำเนินการต่อด้วย Google' });
+    await expect(google).toBeVisible();
+    await expect(page.getByRole('link', { name: 'ดำเนินการต่อด้วย GitHub' })).toBeVisible();
+
+    // กดแล้ว href ถูกเติมโซนเวลาก่อนเปิดหน้า — ดักการเปิดหน้าไว้ไม่ให้ออกไปข้างนอกจริง
+    await page.route('**/api/v1/auth/oauth/google**', (route) =>
+      route.fulfill({ status: 200, body: 'redirected' }),
+    );
+    await google.click();
+    await expect(page).toHaveURL(/\/api\/v1\/auth\/oauth\/google\?tz=Asia%2FBangkok/);
+  });
+
+  test('ตั้งค่า: เห็นบัญชีที่เชื่อม · GitHub ยังไม่เชื่อม → เลือกรวม repo ส่วนตัวแล้วเชื่อม', async ({
+    page,
+  }) => {
+    let linkBody: unknown = null;
+    await page.route('**/api/v1/auth/oauth/github/link', async (route) => {
+      linkBody = route.request().postDataJSON();
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ url: 'http://localhost:3000/settings?connected=github' }),
+      });
+    });
+    await page.goto('/settings');
+    await expect(page.getByText('jay@example.com')).toBeVisible({ timeout: 15_000 });
+    await page.getByRole('checkbox', { name: 'รวม repo ส่วนตัว' }).click();
+    await page.getByRole('button', { name: 'เชื่อม GitHub', exact: true }).first().click();
+    await expect.poll(() => linkBody).toEqual({ includePrivateRepos: true });
+    // กลับมาจาก GitHub → แจ้งผลแล้วล้าง query
+    await expect(page.getByText('เชื่อม GitHub แล้ว')).toBeVisible();
+    await expect(page).toHaveURL(/\/settings$/);
+  });
+});
+
+test.describe('GitHub → งานและปฏิทิน (Phase 8 ขั้น 5)', () => {
+  test('เชื่อมแล้ว: ดึงงานตอนนี้ · เปิด webhook เห็น URL + secret ครั้งเดียว · axe ผ่าน', async ({
+    page,
+  }) => {
+    let synced = false;
+    await page.route('**/api/v1/integrations/github**', async (route) => {
+      const req = route.request();
+      const path = new URL(req.url()).pathname;
+      const json = (body: unknown, status = 200) =>
+        route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+      if (req.method() === 'GET') {
+        return json({
+          connected: true,
+          login: 'octocat',
+          privateRepos: false,
+          lastSyncAt: synced ? '2026-10-17T05:00:00.000Z' : null,
+          lastSyncCount: synced ? 3 : null,
+          lastSyncError: null,
+          webhook: { url: null, configured: false, lastDeliveryAt: null },
+        });
+      }
+      if (path.endsWith('/sync')) {
+        synced = true;
+        return json({ created: 2, updated: 1, completed: 0, unchanged: 4 });
+      }
+      if (path.endsWith('/webhook')) {
+        return json(
+          { url: 'https://nosion.dev/api/v1/webhooks/github/abc123', secret: 'whsec-shown-once' },
+          201,
+        );
+      }
+      return route.fallback();
+    });
+
+    await page.goto('/settings');
+    await expect(page.getByText('octocat')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('ยังไม่เคยดึง')).toBeVisible();
+
+    await page.getByRole('button', { name: 'ดึงงานตอนนี้' }).click();
+    await expect(page.getByText('ดึงจาก GitHub แล้ว 3 รายการ')).toBeVisible();
+
+    await page.getByRole('button', { name: 'เปิด webhook' }).click();
+    await expect(page.getByLabel('Payload URL', { exact: true })).toHaveValue(
+      'https://nosion.dev/api/v1/webhooks/github/abc123',
+    );
+    await expect(page.getByLabel('Secret (แสดงครั้งเดียว)', { exact: true })).toHaveValue(
+      'whsec-shown-once',
+    );
+
+    const results = await new AxeBuilder({ page })
+      .include('section[aria-labelledby="gh-webhook-title"]')
+      .analyze();
+    expect(
+      results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical'),
+    ).toEqual([]);
+  });
+
+  test('งานที่ดึงจาก GitHub: ป้าย repo#เลข เป็นลิงก์ไป GitHub', async ({ page }) => {
+    const [first, ...rest] = ACTIVE_TASKS;
+    const fromGitHub = {
+      ...first!,
+      payload: {
+        ...first!.payload,
+        github: {
+          repo: 'jay/nosion',
+          issueNumber: 42,
+          prNumber: null,
+          autoCloseOnMerge: true,
+          url: 'https://github.com/jay/nosion/issues/42',
+          milestoneDueOn: null,
+          state: 'open',
+        },
+      },
+    };
+    await page.route('**/api/v1/entries?**', async (route) => {
+      const url = new URL(route.request().url());
+      if (
+        url.searchParams.get('status') === 'done' ||
+        url.searchParams.get('module') === 'expense'
+      ) {
+        return route.fallback();
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: [fromGitHub, ...rest],
+          pageInfo: { hasMore: false, nextCursor: null },
+        }),
+      });
+    });
+    await page.goto('/tasks');
+    const link = page.getByRole('link', { name: 'เปิด issue jay/nosion#42 บน GitHub' });
+    await expect(link).toBeVisible({ timeout: 15_000 });
+    await expect(link).toHaveAttribute('href', 'https://github.com/jay/nosion/issues/42');
+  });
+});
+
+test.describe('i18n · English (Phase 8 ขั้น 6)', () => {
+  test('หน้า login: กด English → คุกกี้ภาษา + หน้าเป็นภาษาอังกฤษ (URL เดิม ไม่มี /en)', async ({
+    page,
+  }) => {
+    await page.goto('/login');
+    await expect(page.getByRole('heading', { name: 'เข้าสู่ระบบ' })).toBeVisible({
+      timeout: 15_000,
+    });
+    await page.getByRole('button', { name: 'English' }).click();
+    await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible({ timeout: 15_000 });
+    await expect(page).toHaveURL(/\/login$/);
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    const cookies = await page.context().cookies();
+    expect(cookies.find((c) => c.name === 'NOSION_LOCALE')?.value).toBe('en');
+    await expect(page.getByRole('link', { name: 'Continue with Google' })).toBeVisible();
+  });
+
+  const EN_PAGES = [
+    { path: '/today', ready: 'Good afternoon, Jay' },
+    { path: '/tasks', ready: 'All tasks' },
+    { path: '/expenses', ready: 'Spent this month' },
+    { path: '/calendar', ready: 'Quick Snapshot' },
+    { path: '/habits', ready: 'Habits' },
+    { path: '/review', ready: 'Weekly review' },
+    { path: '/settings', ready: 'Language & dates' },
+  ] as const;
+
+  for (const { path, ready } of EN_PAGES) {
+    test(`${path} เป็นภาษาอังกฤษ · axe ผ่าน`, async ({ page, context, baseURL }) => {
+      await context.addCookies([{ name: 'NOSION_LOCALE', value: 'en', url: baseURL! }]);
+      await page.goto(path);
+      await expect(page.getByText(ready).first()).toBeVisible({ timeout: 15_000 });
+      await settle(page);
+      await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+      // เมนูหลักไม่มีชื่อไทยในวงเล็บ/ภาษาไทยหลงเหลือ (ข้อมูลของผู้ใช้ใน mock เป็นไทยได้ — ตรวจเฉพาะ nav)
+      const nav = page.getByRole('navigation', { name: 'Main menu' });
+      if (await nav.isVisible()) await expect(nav).not.toContainText(/[฀-๿]/);
+      const results = await new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+        .analyze();
+      expect(
+        results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical'),
+      ).toEqual([]);
+    });
+  }
+});
+
+test.describe('ใช้เองได้โดยไม่ต้องมีคนอธิบาย (Phase 8 ขั้น 8)', () => {
+  test('บัญชีใหม่: การ์ดเริ่มต้นใช้งานบอกขั้นถัดไป · ลิงก์พาไปช่องพิมพ์ที่โฟกัสแล้ว · ซ่อนแล้วไม่กลับมา', async ({
+    page,
+  }) => {
+    await page.route('**/api/v1/me/onboarding', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ task: true, expense: false, habit: false, push: false }),
+      }),
+    );
+    await page.goto('/today');
+    const card = page.getByRole('region', { name: 'เริ่มต้นใช้งาน' });
+    await expect(card).toBeVisible({ timeout: 15_000 });
+    await expect(card).toContainText('ทำแล้ว 1 จาก 4');
+    await expect(card.getByRole('link', { name: 'เพิ่มงานแรก · ทำแล้ว' })).toBeVisible();
+
+    const axe = await new AxeBuilder({ page })
+      .include('[aria-labelledby="onboarding-title"]')
+      .analyze();
+    expect(axe.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')).toEqual(
+      [],
+    );
+
+    // ขั้นถัดไป → หน้า Expenses ที่เคอร์เซอร์อยู่ในช่องบันทึกด่วนแล้ว
+    await card.getByRole('link', { name: 'จดรายจ่าย' }).click();
+    await expect(page).toHaveURL(/\/expenses\?new=1$/);
+    await expect(page.getByLabel('บันทึกรายจ่ายด้วยข้อความ')).toBeFocused();
+
+    await page.goto('/today');
+    await page.getByRole('button', { name: 'ซ่อนการ์ดนี้' }).click();
+    await expect(page.getByRole('region', { name: 'เริ่มต้นใช้งาน' })).toHaveCount(0);
+    await page.reload();
+    await expect(page.getByText('สวัสดีตอนบ่าย Jay')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('region', { name: 'เริ่มต้นใช้งาน' })).toHaveCount(0);
+  });
+
+  test('/tasks?new=1 → โฟกัสช่องเพิ่มงานทันที', async ({ page }) => {
+    await page.goto('/tasks?new=1');
+    await expect(page.getByLabel('ชื่องานใหม่')).toBeFocused({ timeout: 15_000 });
+  });
+
+  test('บัญชีทดลอง: แถบบอกว่าข้อมูลจะหาย + ลิงก์ไปสมัคร · ไม่มีการ์ดเริ่มต้นใช้งาน', async ({
+    page,
+  }) => {
+    await page.route('**/api/v1/me', async (route) => {
+      const res = await route.fetch().catch(() => null);
+      const body = res ? await res.json() : null;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ...(body ?? {}),
+          user: { ...(body?.user ?? {}), isDemo: true },
+        }),
+      });
+    });
+    await page.goto('/today');
+    await expect(page.getByRole('note')).toContainText('บัญชีทดลอง', { timeout: 15_000 });
+    await expect(page.getByRole('link', { name: 'สมัครฟรีเพื่อเก็บข้อมูลของคุณ' })).toHaveAttribute(
+      'href',
+      '/register',
+    );
+    await expect(page.getByRole('region', { name: 'เริ่มต้นใช้งาน' })).toHaveCount(0);
+  });
+
+  test('หน้าแรก: บอกว่าทำอะไรได้ด้วยภาษาคนทั่วไป · axe ผ่าน', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: 'ทำอะไรได้บ้าง' })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByText('จดได้เร็วเหมือนพิมพ์แชต')).toBeVisible();
+    const axe = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+      .analyze();
+    expect(axe.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')).toEqual(
+      [],
+    );
   });
 });

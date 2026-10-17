@@ -1,3 +1,4 @@
+import { text, type Lang } from './text';
 /**
  * ฟังก์ชันเวลาแบบบริสุทธิ์ — ไม่มี side effect, ไม่อ่านนาฬิกาเอง
  * ทุกที่ที่ต้องรู้ "ตอนนี้" ให้รับ Date เข้ามาเป็นพารามิเตอร์ เพื่อให้ test ควบคุมเวลาได้
@@ -149,8 +150,14 @@ export function localHour(now: Date, timeZone: string): number {
  * อยู่ใน core เพราะใช้สองฝั่ง: API ส่งใน GET /today · เว็บแสดงได้ทันทีจาก session โดยไม่รอ API
  * (รอแล้วข้อความยาวขึ้นบรรทัดใหม่ดันการ์ดทั้งแถวลง — CLS 0.39 · Phase 8)
  */
-export function greetingFor(now: Date, timeZone: string, name: string): string {
+export function greetingFor(now: Date, timeZone: string, name: string, lang: Lang = 'th'): string {
+  return text(lang, `greeting.${dayPart(now, timeZone)}`, { name })
+    .trim()
+    .replace(/,$/, '');
+}
+
+/** ช่วงของวันตามโซนผู้ใช้ — เว็บใช้เลือกคำทักทายตามภาษา (messages/*.json) */
+export function dayPart(now: Date, timeZone: string): 'morning' | 'afternoon' | 'evening' {
   const h = localHour(now, timeZone);
-  const part = h < 12 ? 'ตอนเช้า' : h < 18 ? 'ตอนบ่าย' : 'ตอนเย็น';
-  return `สวัสดี${part} ${name}`.trim();
+  return h < 12 ? 'morning' : h < 18 ? 'afternoon' : 'evening';
 }

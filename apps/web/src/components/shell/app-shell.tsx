@@ -10,19 +10,25 @@ import { MobileTabBar } from './mobile-tab-bar';
 import { ShortcutsDialog } from './shortcuts-dialog';
 import { Sidebar } from './sidebar';
 import { MobileHeader, TopBar } from './top-bar';
+import { useTranslations } from 'next-intl';
+import { useLocaleSync } from '@/i18n/use-locale-sync';
+import { DemoBanner } from './demo-banner';
 
 /**
  * โครงหน้าแอปหลัก (สเปก 8.2 v1.1)
  * desktop: sidebar 260px + top bar glass · tablet: icon rail 72px · mobile: header + bottom tab bar
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { isLoading, isAuthenticated, user } = useSession();
+  const t = useTranslations('shell');
+  const { isLoading, isAuthenticated, user, settings } = useSession();
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) router.replace('/login');
   }, [isLoading, isAuthenticated, router]);
+
+  useLocaleSync(settings);
 
   // ปุ่มลัดทั้งระบบ (8.4): ⌘K n / g… j k ? [ ⌘Z
   useGlobalShortcuts();
@@ -38,10 +44,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         href="#main"
         className="sr-only z-50 rounded-control bg-primary px-4 py-2 text-primary-fg focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
       >
-        ข้ามไปเนื้อหาหลัก
+        {t('skipToContent')}
       </a>
       <Sidebar pathname={pathname} />
       <div className="flex min-w-0 flex-1 flex-col">
+        {user?.isDemo ? <DemoBanner /> : null}
         <TopBar displayName={displayName} isDemo={user?.isDemo ?? false} />
         <MobileHeader pathname={pathname} displayName={displayName} />
         <main
@@ -60,8 +67,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 }
 
 function ShellSkeleton() {
+  const t = useTranslations('shell');
   return (
-    <div className="flex min-h-dvh bg-canvas" aria-busy="true" aria-label="กำลังโหลด">
+    <div className="flex min-h-dvh bg-canvas" aria-busy="true" aria-label={t('loading')}>
       <div className="hidden w-[72px] shrink-0 border-r border-hairline p-3 md:block lg:w-[260px]">
         <Skeleton className="mb-8 mt-2 size-8 rounded-control" />
         {Array.from({ length: 7 }).map((_, i) => (

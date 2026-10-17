@@ -11,10 +11,11 @@ import {
   type TrackableModule,
   type UserContext,
   type WeeklySection,
+  intlLocaleOf,
+  text,
 } from '@nosion/core';
 import { RegisterModule } from '../../core/registry/register-module.decorator';
 import { ExpenseStatsService } from './expense-stats.service';
-import { CATEGORY_LABEL_TH } from './expense-labels';
 import { interpretExpense } from './expense-text';
 import { buildExpenseTodayWidget } from './expense-today';
 import { isSpent, sumSpent } from './spend-rules';
@@ -63,6 +64,8 @@ export class ExpenseTrackableModule implements TrackableModule<ExpensePayload> {
       status: entry.status,
       meta: {
         badge: paid ? 'จ่ายแล้ว' : 'ครบกำหนด',
+        // เว็บแปลจาก key นี้ตามภาษาของผู้ใช้ (toCalendarEvent ไม่รู้ภาษา) · badge คงไว้ให้ client รุ่นเก่า
+        badgeKey: paid ? 'paid' : 'due',
         deepLink: `/expenses?entry=${entry.id}`,
         // Quick Snapshot ของปฏิทินรวมยอดบิลที่ครบกำหนดในสัปดาห์
         amountMinor: p.amountMinor,
@@ -85,7 +88,14 @@ export class ExpenseTrackableModule implements TrackableModule<ExpensePayload> {
       this.stats.budgetStatus(ctx.userId, undefined, now),
       this.stats.billsUpcoming(ctx.userId, 2, now),
     ]);
-    return buildExpenseTodayWidget({ entries, status, bills, timeZone: ctx.timezone, now });
+    return buildExpenseTodayWidget({
+      entries,
+      status,
+      bills,
+      timeZone: ctx.timezone,
+      now,
+      lang: ctx.locale,
+    });
   }
 
   summarizeWeek(entries: Entry[], ctx: UserContext): WeeklySection {
@@ -103,21 +113,29 @@ export class ExpenseTrackableModule implements TrackableModule<ExpensePayload> {
     }
     const top = [...byCategory].sort((a, b) => b[1] - a[1]).at(0);
 
-    const money = (minor: number) => formatMoney(minor, ctx.currency, { decimals: false });
+    const lang = ctx.locale;
+    const money = (minor: number) =>
+      formatMoney(minor, ctx.currency, { decimals: false, locale: intlLocaleOf(lang) });
     const highlights: string[] = [];
     if (top && spent > 0) {
       const pct = Math.round((top[1] / spent) * 100);
-      highlights.push(`ใช้กับ${CATEGORY_LABEL_TH[top[0]]}มากที่สุด ${money(top[1])} (${pct}%)`);
+      highlights.push(
+        text(lang, 'expense.week.topCategory', {
+          category: text(lang, `category.${top[0]}`),
+          amount: money(top[1]),
+          pct,
+        }),
+      );
     }
 
     return {
       module: this.key,
-      title: 'การเงิน',
+      title: text(lang, 'expense.week.title'),
       order: 20,
       stats: [
-        { label: 'รายจ่าย', value: money(spent) },
-        { label: 'รายรับ', value: money(income) },
-        { label: 'จำนวนรายการ', value: String(entries.length) },
+        { label: text(lang, 'expense.week.spent'), value: money(spent) },
+        { label: text(lang, 'expense.week.income'), value: money(income) },
+        { label: text(lang, 'expense.week.count'), value: String(entries.length) },
       ],
       highlights,
     };

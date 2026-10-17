@@ -8,14 +8,35 @@ import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useTaskSidebar } from './use-task-queries';
 import type { SmartList } from './use-task-view';
+import { useTranslations } from 'next-intl';
+import { tr } from '@/i18n/current';
 
 type SmartKey = keyof Pick<TaskSidebarDto['smartLists'], 'all' | 'inbox' | 'today' | 'week'>;
 
-const SMART_LISTS: { value: SmartKey; label: string; icon: LucideIcon }[] = [
-  { value: 'all', label: 'ทั้งหมด', icon: Layers },
+/** ชื่อเป็น getter — อ่านตามภาษาปัจจุบันตอนใช้ */
+const SMART_LISTS: { value: SmartKey; readonly label: string; icon: LucideIcon }[] = [
+  {
+    value: 'all',
+    get label() {
+      return tr('taskSidebar.all');
+    },
+    icon: Layers,
+  },
   { value: 'inbox', label: 'Inbox', icon: Inbox },
-  { value: 'today', label: 'วันนี้', icon: CalendarDays },
-  { value: 'week', label: '7 วันข้างหน้า', icon: CalendarRange },
+  {
+    value: 'today',
+    get label() {
+      return tr('taskSidebar.today');
+    },
+    icon: CalendarDays,
+  },
+  {
+    value: 'week',
+    get label() {
+      return tr('taskSidebar.week');
+    },
+    icon: CalendarRange,
+  },
 ];
 
 /**
@@ -30,11 +51,12 @@ export function TaskSidebar({
 }) {
   const sidebar = useTaskSidebar();
   const data = sidebar.data;
+  const t = useTranslations('taskSidebar');
 
   return (
     <Card className="p-3">
-      <nav aria-label="รายการงาน">
-        <SectionLabel>มุมมองหลัก</SectionLabel>
+      <nav aria-label={t('nav')}>
+        <SectionLabel>{t('views')}</SectionLabel>
         <ul className="space-y-0.5">
           {SMART_LISTS.map((item) => (
             <li key={item.value}>
@@ -52,7 +74,7 @@ export function TaskSidebar({
 
         {data && data.projects.length > 0 ? (
           <>
-            <SectionLabel>โปรเจกต์</SectionLabel>
+            <SectionLabel>{t('projects')}</SectionLabel>
             <ul className="space-y-0.5">
               {data.projects.map((project) => (
                 <li key={project.id}>
@@ -71,7 +93,7 @@ export function TaskSidebar({
 
         {data && data.topTags.length > 0 ? (
           <>
-            <SectionLabel>แท็กยอดนิยม</SectionLabel>
+            <SectionLabel>{t('tags')}</SectionLabel>
             <div className="flex flex-wrap gap-1.5 px-2 pb-1">
               {data.topTags.map((tag) => {
                 const key = `tag:${tag.id}` as const;
@@ -82,7 +104,7 @@ export function TaskSidebar({
                     selected={selected}
                     onClick={() => onChange(selected ? 'all' : key)}
                     className="h-6 px-2.5 font-mono text-[11px]"
-                    aria-label={`แท็ก ${tag.name} (${tag.count} งาน)`}
+                    aria-label={t('tagLabel', { name: tag.name, count: tag.count })}
                   >
                     #{tag.name}
                   </Chip>
@@ -98,13 +120,13 @@ export function TaskSidebar({
             role="status"
             className="mt-2 flex items-center justify-between gap-2 px-2 text-xs text-fg-secondary"
           >
-            โหลดโปรเจกต์และตัวเลขไม่สำเร็จ
+            {t('loadFailed')}
             <button
               type="button"
               onClick={() => void sidebar.refetch()}
               className="rounded-[4px] font-medium text-accent hover:underline focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
             >
-              ลองใหม่
+              {t('retry')}
             </button>
           </p>
         ) : null}
@@ -122,10 +144,11 @@ export function TaskSmartListBar({
   onChange: (value: SmartList) => void;
 }) {
   const sidebar = useTaskSidebar();
+  const t = useTranslations('taskSidebar');
   return (
     <div
       role="group"
-      aria-label="รายการงาน"
+      aria-label={t('nav')}
       className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] lg:hidden"
     >
       {SMART_LISTS.map((item) => {

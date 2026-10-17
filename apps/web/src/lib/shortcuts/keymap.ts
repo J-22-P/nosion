@@ -9,32 +9,29 @@
 
 export interface ShortcutDef {
   keys: string[];
+  /** ข้อความ `shortcuts.<label>` ตามภาษา */
   label: string;
-  group: 'ทั่วไป' | 'ไปที่' | 'รายการ (เลือกด้วย j / k)';
+  group: 'general' | 'goto' | 'items';
 }
 
 export const SHORTCUTS: readonly ShortcutDef[] = [
-  { keys: ['⌘', 'K'], label: 'เปิด command palette (Ctrl+K บน Windows/Linux)', group: 'ทั่วไป' },
-  { keys: ['n'], label: 'สร้างรายการใหม่ (ตามหน้าที่อยู่)', group: 'ทั่วไป' },
-  { keys: ['/'], label: 'โฟกัสช่องค้นหา', group: 'ทั่วไป' },
-  { keys: ['⌘', 'Z'], label: 'ย้อนการกระทำล่าสุด', group: 'ทั่วไป' },
-  { keys: ['['], label: 'ยุบ/ขยาย sidebar', group: 'ทั่วไป' },
-  { keys: ['s'], label: 'สร้าง Standup (หน้าวันนี้)', group: 'ทั่วไป' },
-  { keys: ['?'], label: 'แสดงปุ่มลัดทั้งหมด', group: 'ทั่วไป' },
-  { keys: ['g', 't'], label: 'ไปหน้าวันนี้', group: 'ไปที่' },
-  { keys: ['g', 'k'], label: 'ไปหน้างาน', group: 'ไปที่' },
-  { keys: ['g', 'm'], label: 'ไปหน้าการเงิน', group: 'ไปที่' },
-  { keys: ['g', 'c'], label: 'ไปหน้าปฏิทิน', group: 'ไปที่' },
-  { keys: ['j'], label: 'รายการถัดไป', group: 'รายการ (เลือกด้วย j / k)' },
-  { keys: ['k'], label: 'รายการก่อนหน้า', group: 'รายการ (เลือกด้วย j / k)' },
-  { keys: ['e'], label: 'ทำเครื่องหมายเสร็จ', group: 'รายการ (เลือกด้วย j / k)' },
-  { keys: ['t'], label: 'เลื่อนไปพรุ่งนี้', group: 'รายการ (เลือกด้วย j / k)' },
-  {
-    keys: ['x'],
-    label: 'เลือก / ยกเลิกเลือก (สำหรับทำหลายรายการพร้อมกัน)',
-    group: 'รายการ (เลือกด้วย j / k)',
-  },
-  { keys: ['1', '–', '4'], label: 'ตั้งความสำคัญ ต่ำ → ด่วน', group: 'รายการ (เลือกด้วย j / k)' },
+  { keys: ['⌘', 'K'], label: 'palette', group: 'general' },
+  { keys: ['n'], label: 'new', group: 'general' },
+  { keys: ['/'], label: 'search', group: 'general' },
+  { keys: ['⌘', 'Z'], label: 'undo', group: 'general' },
+  { keys: ['['], label: 'sidebar', group: 'general' },
+  { keys: ['s'], label: 'standup', group: 'general' },
+  { keys: ['?'], label: 'help', group: 'general' },
+  { keys: ['g', 't'], label: 'goToday', group: 'goto' },
+  { keys: ['g', 'k'], label: 'goTasks', group: 'goto' },
+  { keys: ['g', 'm'], label: 'goMoney', group: 'goto' },
+  { keys: ['g', 'c'], label: 'goCalendar', group: 'goto' },
+  { keys: ['j'], label: 'next', group: 'items' },
+  { keys: ['k'], label: 'prev', group: 'items' },
+  { keys: ['e'], label: 'complete', group: 'items' },
+  { keys: ['t'], label: 'defer', group: 'items' },
+  { keys: ['x'], label: 'select', group: 'items' },
+  { keys: ['1', '–', '4'], label: 'priority', group: 'items' },
 ];
 
 export type GlobalAction =

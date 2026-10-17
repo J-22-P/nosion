@@ -20,10 +20,11 @@ import { buildChips, rawFor, replaceSpan } from '@/features/capture/nl-chips';
 import { ParsedChips } from '@/features/capture/parsed-chips';
 import { parseApi } from '@/features/command-palette/api';
 import { useEnabledModules } from '@/features/settings/use-modules';
-import { ApiError } from '@/lib/api-client';
 import { DEFAULT_TIME_ZONE } from '@/lib/format';
 import { HabitControl, SevenDays } from './habit-control';
 import { useCreateHabit, useHabitProgress, useHabitRule, useHabits } from './use-habits';
+import { errorText } from '@/i18n/errors';
+import { currentLocale, tr } from '@/i18n/current';
 
 /**
  * หน้านิสัย (สเปก 8.1 `/habits` · Phase 6) — ยังไม่มี mockup: ประกอบจาก token + component ใน 8.7
@@ -42,8 +43,8 @@ export function HabitsView() {
         <Card>
           <CardHeader
             icon={<Repeat />}
-            title="ยังไม่ได้เปิดโมดูลนิสัย"
-            description="เปิดแล้วนิสัยจะขึ้นในหน้าวันนี้ ปฏิทิน สรุปสัปดาห์ และพิมพ์สร้างจาก ⌘K ได้ทันที"
+            title={tr('habits.moduleOff')}
+            description={tr('habits.moduleOffHint')}
             aside={
               <Button
                 size="sm"
@@ -51,7 +52,7 @@ export function HabitsView() {
                 disabled={modules.pending}
                 onClick={() => modules.setEnabled('habit', true)}
               >
-                เปิดใช้นิสัย
+                {tr('habits.enable')}
               </Button>
             }
           />
@@ -68,10 +69,12 @@ export function HabitsView() {
   return (
     <div className="space-y-6">
       <Header
-        summary={habits.data ? `วันนี้ทำแล้ว ${doneToday} จาก ${withToday}` : undefined}
+        summary={
+          habits.data ? tr('habits.summary', { done: doneToday, total: withToday }) : undefined
+        }
         action={
           <Button shape="pill" size="sm" className="gap-1.5" onClick={() => setFormOpen(true)}>
-            <Plus size={14} aria-hidden="true" /> สร้างนิสัยแบบละเอียด
+            <Plus size={14} aria-hidden="true" /> {tr('habits.detailed')}
           </Button>
         }
       />
@@ -84,17 +87,11 @@ export function HabitsView() {
         </div>
       ) : habits.isError ? (
         <Card>
-          <ErrorState
-            message="โหลดนิสัยไม่สำเร็จ ลองใหม่อีกครั้ง"
-            onRetry={() => void habits.refetch()}
-          />
+          <ErrorState message={tr('habits.loadFailed')} onRetry={() => void habits.refetch()} />
         </Card>
       ) : list.length === 0 ? (
         <Card>
-          <EmptyState
-            title="ยังไม่มีนิสัย"
-            description='พิมพ์ด้านบน เช่น "ดื่มน้ำ 8 แก้ว ทุกวัน" หรือ "วิ่ง 3 ครั้งต่อสัปดาห์"'
-          />
+          <EmptyState title={tr('habits.empty')} description={tr('habits.emptyHint')} />
         </Card>
       ) : (
         <ul className="grid gap-4 md:grid-cols-2">
@@ -114,10 +111,15 @@ function Header({ summary, action }: { summary?: string; action?: React.ReactNod
     <header className="flex flex-wrap items-end justify-between gap-3">
       <div>
         <h1 className="text-[28px] font-semibold leading-tight md:text-[34px]">
-          นิสัย{' '}
-          <span className="font-normal text-fg-secondary" lang="en">
-            (Habits)
-          </span>
+          {tr('habits.title')}
+          {currentLocale() === 'th' ? (
+            <>
+              {' '}
+              <span className="font-normal text-fg-secondary" lang="en">
+                (Habits)
+              </span>
+            </>
+          ) : null}
         </h1>
         {summary ? <p className="mt-1 text-sm text-fg-secondary">{summary}</p> : null}
       </div>
@@ -142,10 +144,10 @@ function HabitCard({ habit }: { habit: HabitDto }) {
             [
               habit.subtitle,
               habit.cadence === 'weekly'
-                ? `${habit.weeklyTarget} ครั้งต่อสัปดาห์`
+                ? tr('habits.perWeek', { count: habit.weeklyTarget ?? 0 })
                 : habit.kind === 'count'
-                  ? `วันละ ${habit.targetValue} ${habit.unit}`
-                  : 'ทุกวัน',
+                  ? tr('habits.perDay', { target: habit.targetValue, unit: habit.unit })
+                  : tr('habits.daily'),
             ]
               .filter(Boolean)
               .join(' · ') || undefined
@@ -155,23 +157,26 @@ function HabitCard({ habit }: { habit: HabitDto }) {
               {habit.streak.current > 0 ? (
                 <Badge
                   tone="neutral"
-                  aria-label={`ต่อเนื่อง ${habit.streak.current} ${habit.streak.unit === 'week' ? 'สัปดาห์' : 'วัน'}`}
+                  aria-label={tr('habits.streak', {
+                    count: habit.streak.current,
+                    unit: tr(`habits.unit.${habit.streak.unit === 'week' ? 'week' : 'day'}`),
+                  })}
                 >
                   <Flame aria-hidden="true" /> {habit.streak.current}
                 </Badge>
               ) : null}
               <Menu
-                label={`ตัวเลือกของ ${habit.title}`}
+                label={tr('habits.options', { title: habit.title })}
                 trigger={<MoreHorizontal size={18} aria-hidden="true" />}
                 items={[
                   {
-                    label: habit.isPaused ? 'ทำต่อ' : 'หยุดไว้ก่อน',
+                    label: habit.isPaused ? tr('habits.resume') : tr('habits.pause'),
                     icon: habit.isPaused ? <Play /> : <Pause />,
                     onSelect: () =>
                       rule.pause.mutate({ ruleId: habit.ruleId, paused: !habit.isPaused }),
                   },
                   {
-                    label: 'ลบนิสัย',
+                    label: tr('habits.delete'),
                     icon: <Trash2 />,
                     tone: 'danger',
                     onSelect: () => rule.remove.mutate(habit.ruleId),
@@ -183,7 +188,7 @@ function HabitCard({ habit }: { habit: HabitDto }) {
         />
         <CardContent className="space-y-4">
           {habit.isPaused ? (
-            <p className="text-sm text-fg-secondary">หยุดไว้ — ไม่มีรอบใหม่จนกว่าจะกดทำต่อ</p>
+            <p className="text-sm text-fg-secondary">{tr('habits.paused')}</p>
           ) : today ? (
             <HabitControl
               title={habit.title}
@@ -199,15 +204,21 @@ function HabitCard({ habit }: { habit: HabitDto }) {
               }
             />
           ) : (
-            <p className="text-sm text-fg-secondary">วันนี้ไม่มีรอบของนิสัยนี้</p>
+            <p className="text-sm text-fg-secondary">{tr('habits.noneToday')}</p>
           )}
           <div className="flex flex-wrap items-center justify-between gap-2">
             <SevenDays days={habit.last7} />
             <p className="text-xs text-fg-secondary">
               {habit.weekProgress
-                ? `สัปดาห์นี้ ${habit.weekProgress.done}/${habit.weekProgress.target} · `
+                ? tr('habits.thisWeek', {
+                    done: habit.weekProgress.done,
+                    target: habit.weekProgress.target,
+                  })
                 : ''}
-              ยาวสุด {habit.streak.longest} {habit.streak.unit === 'week' ? 'สัปดาห์' : 'วัน'}
+              {tr('habits.longest', {
+                count: habit.streak.longest,
+                unit: habit.streak.unit === 'week' ? 'week' : 'day',
+              })}
             </p>
           </div>
         </CardContent>
@@ -228,13 +239,13 @@ function HabitCapture() {
   const create = useMutation({
     mutationFn: () => parseApi.commit({ text: text.trim(), module: 'habit' }),
     onSuccess: ({ entry }) => {
-      toast.success('สร้างนิสัยแล้ว', { description: entry.title });
+      toast.success(tr('habits.created'), { description: entry.title });
       setText('');
       void queryClient.invalidateQueries({ queryKey: ['entries'] });
     },
     onError: (error) =>
-      toast.error('สร้างนิสัยไม่สำเร็จ', {
-        description: error instanceof ApiError ? error.message : undefined,
+      toast.error(tr('habits.createFailed'), {
+        description: errorText(error),
       }),
   });
 
@@ -255,13 +266,13 @@ function HabitCapture() {
             if (e.key === 'Escape') setText('');
           }}
           data-shortcut="new"
-          aria-label="สร้างนิสัยใหม่ด้วยข้อความ"
-          placeholder="เช่น ดื่มน้ำ 8 แก้ว ทุกวัน · นอนก่อน 23:45 ทุกวัน · วิ่ง 3 ครั้งต่อสัปดาห์"
+          aria-label={tr('habits.quickLabel')}
+          placeholder={tr('habits.quickPlaceholder')}
           maxLength={200}
           className="h-11 min-w-0 flex-1 bg-transparent text-[15px] text-fg outline-none placeholder:text-fg-tertiary"
         />
         <Button type="submit" disabled={!text.trim() || create.isPending} className="shrink-0">
-          สร้าง
+          {tr('habits.create')}
         </Button>
       </div>
       <ParsedChips
@@ -274,11 +285,7 @@ function HabitCapture() {
   );
 }
 
-const KIND_OPTIONS: { value: HabitKind; label: string }[] = [
-  { value: 'check', label: 'ทำ / ไม่ทำ (ติ๊กครั้งเดียว)' },
-  { value: 'count', label: 'นับจำนวน (มีปุ่ม −1 / +1)' },
-  { value: 'before_time', label: 'ต้องทำก่อนเวลา' },
-];
+const KINDS: HabitKind[] = ['check', 'count', 'before_time'];
 
 /** ฟอร์มละเอียด — สร้างกฎการเกิดซ้ำ (POST /recurrence-rules) ที่ template เป็นนิสัย */
 function HabitFormDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -304,9 +311,9 @@ function HabitFormDialog({ open, onClose }: { open: boolean; onClose: () => void
     >
       <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-hairline bg-surface px-5 py-4">
         <h2 id="habit-form-title" className="text-base font-semibold">
-          สร้างนิสัย
+          {tr('habits.formTitle')}
         </h2>
-        <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="ปิด">
+        <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label={tr('habits.close')}>
           <X size={16} aria-hidden="true" />
         </Button>
       </div>
@@ -323,7 +330,7 @@ function HabitForm({ onDone }: { onDone: () => void }) {
   const [subtitle, setSubtitle] = useState('');
   const [kind, setKind] = useState<HabitKind>('check');
   const [target, setTarget] = useState('8');
-  const [unit, setUnit] = useState('แก้ว');
+  const [unit, setUnit] = useState(() => tr('habits.defaultUnit'));
   const [deadline, setDeadline] = useState('23:00');
   const [cadence, setCadence] = useState<'daily' | 'weekly'>('daily');
   const [weekly, setWeekly] = useState('3');
@@ -332,16 +339,16 @@ function HabitForm({ onDone }: { onDone: () => void }) {
   const targetValue = Number(target);
   const weeklyTarget = Number(weekly);
   const errors = {
-    title: title.trim() ? undefined : 'ใส่ชื่อนิสัย',
+    title: title.trim() ? undefined : tr('habits.needTitle'),
     target:
       kind !== 'count' || (targetValue > 0 && Number.isFinite(targetValue))
         ? undefined
-        : 'เป้าต้องมากกว่า 0',
+        : tr('habits.needTarget'),
     weekly:
       cadence === 'daily' ||
       (Number.isInteger(weeklyTarget) && weeklyTarget >= 1 && weeklyTarget <= 7)
         ? undefined
-        : '1–7 ครั้ง',
+        : tr('habits.weeklyRange'),
   };
 
   function submit(event: React.FormEvent) {
@@ -359,7 +366,7 @@ function HabitForm({ onDone }: { onDone: () => void }) {
           payload: {
             kind,
             targetValue: kind === 'count' ? targetValue : 1,
-            unit: kind === 'count' ? unit.trim() || 'ครั้ง' : 'ครั้ง',
+            unit: kind === 'count' ? unit.trim() || tr('habits.timesUnit') : tr('habits.timesUnit'),
             deadlineLocalTime: kind === 'before_time' ? deadline : null,
             subtitle: subtitle.trim() || null,
             cadence,
@@ -374,20 +381,20 @@ function HabitForm({ onDone }: { onDone: () => void }) {
   return (
     <form onSubmit={submit} noValidate className="space-y-4 p-5">
       <div>
-        <Label htmlFor={`${id}-title`}>ชื่อนิสัย</Label>
+        <Label htmlFor={`${id}-title`}>{tr('habits.name')}</Label>
         <Input
           id={`${id}-title`}
           data-autofocus
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="เช่น ดื่มน้ำ"
+          placeholder={tr('habits.namePlaceholder')}
           maxLength={200}
           aria-invalid={touched && !!errors.title}
         />
         <FieldError>{touched ? errors.title : undefined}</FieldError>
       </div>
       <div>
-        <Label htmlFor={`${id}-subtitle`}>คำอธิบายสั้น (ไม่บังคับ)</Label>
+        <Label htmlFor={`${id}-subtitle`}>{tr('habits.subtitle')}</Label>
         <Input
           id={`${id}-subtitle`}
           value={subtitle}
@@ -396,16 +403,16 @@ function HabitForm({ onDone }: { onDone: () => void }) {
         />
       </div>
       <div>
-        <Label htmlFor={`${id}-kind`}>แบบ</Label>
+        <Label htmlFor={`${id}-kind`}>{tr('habits.kindLabel')}</Label>
         <Select
           id={`${id}-kind`}
           value={kind}
           onChange={(e) => setKind(e.target.value as HabitKind)}
           className="w-full"
         >
-          {KIND_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
+          {KINDS.map((k) => (
+            <option key={k} value={k}>
+              {tr(`habits.kind.${k}`)}
             </option>
           ))}
         </Select>
@@ -413,7 +420,7 @@ function HabitForm({ onDone }: { onDone: () => void }) {
       {kind === 'count' ? (
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <Label htmlFor={`${id}-target`}>เป้าต่อวัน</Label>
+            <Label htmlFor={`${id}-target`}>{tr('habits.dailyTarget')}</Label>
             <Input
               id={`${id}-target`}
               inputMode="decimal"
@@ -425,7 +432,7 @@ function HabitForm({ onDone }: { onDone: () => void }) {
             <FieldError>{touched ? errors.target : undefined}</FieldError>
           </div>
           <div>
-            <Label htmlFor={`${id}-unit`}>หน่วย</Label>
+            <Label htmlFor={`${id}-unit`}>{tr('habits.unitLabel')}</Label>
             <Input
               id={`${id}-unit`}
               value={unit}
@@ -437,7 +444,7 @@ function HabitForm({ onDone }: { onDone: () => void }) {
       ) : null}
       {kind === 'before_time' ? (
         <div>
-          <Label htmlFor={`${id}-deadline`}>ต้องทำก่อน</Label>
+          <Label htmlFor={`${id}-deadline`}>{tr('habits.deadline')}</Label>
           <Input
             id={`${id}-deadline`}
             type="time"
@@ -449,20 +456,20 @@ function HabitForm({ onDone }: { onDone: () => void }) {
       ) : null}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <Label htmlFor={`${id}-cadence`}>ความถี่</Label>
+          <Label htmlFor={`${id}-cadence`}>{tr('habits.cadence')}</Label>
           <Select
             id={`${id}-cadence`}
             value={cadence}
             onChange={(e) => setCadence(e.target.value as 'daily' | 'weekly')}
             className="w-full"
           >
-            <option value="daily">ทุกวัน</option>
-            <option value="weekly">กี่ครั้งต่อสัปดาห์</option>
+            <option value="daily">{tr('habits.cadenceDaily')}</option>
+            <option value="weekly">{tr('habits.cadenceWeekly')}</option>
           </Select>
         </div>
         {cadence === 'weekly' ? (
           <div>
-            <Label htmlFor={`${id}-weekly`}>ครั้งต่อสัปดาห์</Label>
+            <Label htmlFor={`${id}-weekly`}>{tr('habits.timesPerWeek')}</Label>
             <Input
               id={`${id}-weekly`}
               inputMode="numeric"
@@ -477,10 +484,10 @@ function HabitForm({ onDone }: { onDone: () => void }) {
       </div>
       <div className="flex justify-end gap-2 border-t border-hairline pt-4">
         <Button type="button" variant="ghost" onClick={onDone}>
-          ยกเลิก
+          {tr('habits.cancel')}
         </Button>
         <Button type="submit" disabled={create.isPending}>
-          สร้างนิสัย
+          {tr('habits.formTitle')}
         </Button>
       </div>
     </form>

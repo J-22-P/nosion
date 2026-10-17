@@ -4,7 +4,8 @@ import type { CalendarEventDto, ModuleKey } from '@nosion/contracts';
 import { cn, MODULE_THEME } from '@nosion/ui';
 import { CircleCheck, Dumbbell, Repeat, Wallet, type LucideIcon } from 'lucide-react';
 import * as React from 'react';
-import { canMove, longDayLabel, sameMonth, TH_WEEKDAYS_SHORT, timeOf, weekdayOf } from './grid';
+import { canMove, longDayLabel, sameMonth, weekdayShort, timeOf, weekdayOf } from './grid';
+import { tr } from '@/i18n/current';
 
 export const MODULE_ICON: Record<ModuleKey, LucideIcon> = {
   task: CircleCheck,
@@ -110,7 +111,7 @@ export function MonthGrid(props: MonthGridProps) {
     <div>
       <div className="grid grid-cols-7 border-b border-hairline pb-2 text-center text-xs text-fg-secondary">
         {days.slice(0, 7).map((d) => (
-          <span key={d}>{TH_WEEKDAYS_SHORT[weekdayOf(d)]}</span>
+          <span key={d}>{weekdayShort(weekdayOf(d))}</span>
         ))}
       </div>
       <div className="grid grid-cols-7 gap-1 pt-2">
@@ -156,7 +157,7 @@ function MonthCell({
         type="button"
         onClick={() => onSelect(day)}
         aria-pressed={day === selected}
-        aria-label={`${longDayLabel(day)} · ${items.length ? `${items.length} รายการ` : 'ไม่มีรายการ'}${reminderDays.has(day) ? ' · มีการเตือน' : ''}`}
+        aria-label={`${longDayLabel(day)} · ${items.length ? tr('calendar.dayItems', { count: items.length }) : tr('calendar.noItems')}${reminderDays.has(day) ? tr('calendar.withReminder') : ''}`}
         className="absolute inset-0 rounded-row focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
       />
       <span
@@ -238,7 +239,7 @@ export function WeekGrid({
               day === selected && 'bg-wash text-fg',
             )}
           >
-            <span>{TH_WEEKDAYS_SHORT[weekdayOf(day)]}</span>
+            <span>{weekdayShort(weekdayOf(day))}</span>
             <span
               className={cn(
                 'flex size-7 items-center justify-center rounded-full font-mono text-sm text-fg',
@@ -251,7 +252,9 @@ export function WeekGrid({
         ))}
 
         {/* แถวทั้งวัน */}
-        <span className="pr-2 pt-2 text-right font-mono text-[10px] text-fg-tertiary">ทั้งวัน</span>
+        <span className="pr-2 pt-2 text-right font-mono text-[10px] text-fg-tertiary">
+          {tr('calendar.allDay')}
+        </span>
         {days.map((day) => (
           <WeekAllDay
             key={day}
@@ -383,14 +386,14 @@ export function WeekStrip({
             type="button"
             onClick={() => onSelect(day)}
             aria-pressed={day === selected}
-            aria-label={`${longDayLabel(day)} · ${count} รายการ`}
+            aria-label={`${longDayLabel(day)} · ${tr('calendar.dayItems', { count })}`}
             className={cn(
               'flex min-w-11 flex-1 flex-col items-center gap-1 rounded-row py-2 text-xs',
               'focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]',
               day === selected ? 'bg-primary text-primary-fg' : 'bg-sunken text-fg-secondary',
             )}
           >
-            <span>{TH_WEEKDAYS_SHORT[weekdayOf(day)]}</span>
+            <span>{weekdayShort(weekdayOf(day))}</span>
             <span className={cn('font-mono text-sm', day === today && 'font-semibold underline')}>
               {Number(day.slice(8, 10))}
             </span>
@@ -421,7 +424,9 @@ export function AgendaList({
 }) {
   const withEvents = days.filter((d) => byDate.get(d)?.length);
   if (withEvents.length === 0) {
-    return <p className="py-12 text-center text-sm text-fg-secondary">ไม่มีรายการในช่วงนี้</p>;
+    return (
+      <p className="py-12 text-center text-sm text-fg-secondary">{tr('calendar.emptyRange')}</p>
+    );
   }
   return (
     <ol className="space-y-4">
@@ -433,7 +438,7 @@ export function AgendaList({
             className="mb-1.5 text-xs font-medium text-fg-secondary hover:text-fg focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
           >
             {longDayLabel(day)}
-            {day === today ? ' · วันนี้' : ''}
+            {day === today ? tr('calendar.todaySuffix') : ''}
           </button>
           <ul className="space-y-1">
             {byDate.get(day)!.map((e) => (

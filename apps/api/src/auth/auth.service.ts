@@ -72,11 +72,11 @@ export class AuthService {
         email: input.email,
         passwordHash,
         displayName: input.displayName,
-        settings: { create: { timezone: input.timezone } },
+        settings: { create: { timezone: input.timezone, locale: input.locale } },
       },
     });
 
-    await this.sendVerificationEmail(user);
+    await this.sendVerificationEmail(user, input.locale);
     const issued = await this.issueSession(user, meta);
     return { ...issued, user: toAuthUser(user) };
   }
@@ -133,6 +133,12 @@ export class AuthService {
     await seedDemo(this.prisma, userId, buildDemoDataset(new Date(), settings.timezone));
   }
 
+  /** ออก session ให้ผู้ใช้ที่ยืนยันตัวตนด้วยวิธีอื่นแล้ว (OAuth) */
+  async startSession(user: User, meta: RequestMeta): Promise<IssuedTokens & { user: AuthUserDto }> {
+    const issued = await this.issueSession(user, meta);
+    return { ...issued, user: toAuthUser(user) };
+  }
+
   // ── Refresh rotation + reuse detection (สเปกหัวข้อ 9.2) ──
 
   async refresh(rawToken: string, meta: RequestMeta, now = new Date()): Promise<IssuedTokens> {
@@ -172,7 +178,7 @@ export class AuthService {
         this.logger.warn(
           `ตรวจพบการใช้ refresh token ซ้ำ — เพิกถอนทั้ง family ${session.familyId} ของผู้ใช้ ${session.userId}`,
         );
-        void this.mail.sendSuspiciousActivity(session.user.email);
+        void this.notifySuspicious(session.userId, session.user.email);
         throw new UnauthorizedException({
           type: ProblemType.tokenReuse,
           title: 'Token reuse detected',
@@ -246,7 +252,10 @@ export class AuthService {
 
   /** ตอบ 202 เสมอ ไม่ว่าอีเมลจะมีจริงหรือไม่ — ไม่เปิดเผยว่าใครเป็นสมาชิก */
   async forgotPassword(email: string): Promise<void> {
-    const user = await this.prisma.user.findFirst({ where: { email, deletedAt: null } });
+    const user = await this.prisma.user.findFirst({
+      where: { email, deletedAt: null },
+      include: { settings: { select: { locale: true } } },
+    });
     if (!user || user.isDemo) return;
 
     const { token, hash } = TokenService.createOneTimeToken();
@@ -258,7 +267,7 @@ export class AuthService {
         expiresAt: new Date(Date.now() + PASSWORD_RESET_TTL_MS),
       },
     });
-    await this.mail.sendPasswordReset(user.email, token);
+    await this.mail.sendPasswordReset(user.email, token, langOf(user.settings?.locale));
   }
 
   async resetPassword(rawToken: string, newPassword: string): Promise<void> {
@@ -312,6 +321,18 @@ export class AuthService {
     };
   }
 
+  /** อีเมลแจ้งเตือนความปลอดภัยตามโซน/ภาษาของผู้ใช้ — ไม่รอ ไม่ให้ทำให้การเพิกถอนล้ม */
+  private async notifySuspicious(userId: string, email: string): Promise<void> {
+    const settings = await this.prisma.userSettings
+      .findUnique({ where: { userId }, select: { timezone: true, locale: true } })
+      .catch(() => null);
+    await this.mail.sendSuspiciousActivity(
+      email,
+      settings?.timezone ?? 'Asia/Bangkok',
+      langOf(settings?.locale),
+    );
+  }
+
   private async revokeFamily(familyId: string, reason: string): Promise<void> {
     await this.prisma.session.updateMany({
       where: { familyId, revokedAt: null },
@@ -319,7 +340,7 @@ export class AuthService {
     });
   }
 
-  private async sendVerificationEmail(user: User): Promise<void> {
+  private async sendVerificationEmail(user: User, lang: 'th' | 'en'): Promise<void> {
     const { token, hash } = TokenService.createOneTimeToken();
     await this.prisma.verificationToken.create({
       data: {
@@ -329,7 +350,7 @@ export class AuthService {
         expiresAt: new Date(Date.now() + EMAIL_VERIFY_TTL_MS),
       },
     });
-    await this.mail.sendVerifyEmail(user.email, token);
+    await this.mail.sendVerifyEmail(user.email, token, lang);
   }
 
   /** token ใช้ได้ครั้งเดียว — mark usedAt ใน transaction เดียวกับการตรวจ */
@@ -366,3 +387,5 @@ export function toAuthUser(
     isDemo: user.isDemo,
   };
 }
+
+const langOf = (locale: string | null | undefined): 'th' | 'en' => (locale === 'en' ? 'en' : 'th');

@@ -2,6 +2,7 @@
 
 import { cn } from '@nosion/ui';
 import { useId, useState } from 'react';
+import { tr } from '@/i18n/current';
 
 /**
  * กราฟ SVG เขียนเอง (สเปก 8.11.3: ไม่โหลด chart lib เพื่อ LCP)
@@ -145,7 +146,7 @@ export function ColumnChart({
         viewBox={`0 0 ${W} ${H}`}
         className="h-auto w-full"
         role="img"
-        aria-label={`${title} — รายละเอียดในตารางถัดไป`}
+        aria-label={tr('charts.detailsBelow', { title })}
         aria-describedby={tableId}
       >
         {ticks.map((t) => (
@@ -219,8 +220,8 @@ export function ColumnChart({
         <caption>{title}</caption>
         <thead>
           <tr>
-            <th scope="col">เดือน</th>
-            <th scope="col">ยอด</th>
+            <th scope="col">{tr('charts.month')}</th>
+            <th scope="col">{tr('charts.amount')}</th>
           </tr>
         </thead>
         <tbody>
@@ -228,7 +229,7 @@ export function ColumnChart({
             <tr key={c.key}>
               <th scope="row">
                 {c.label}
-                {c.partial ? ' (ยังไม่จบเดือน)' : ''}
+                {c.partial ? tr('charts.partialSuffix') : ''}
               </th>
               <td>{format(c.value)}</td>
             </tr>
@@ -237,7 +238,7 @@ export function ColumnChart({
       </table>
       {columns.some((c) => c.partial) ? (
         <figcaption className="mt-1 text-xs text-fg-secondary">
-          แท่งสีจาง = เดือนนี้ (ยังไม่จบเดือน)
+          {tr('charts.partialNote')}
         </figcaption>
       ) : null}
     </figure>

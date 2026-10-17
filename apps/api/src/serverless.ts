@@ -6,6 +6,7 @@ import { AppModule } from './app.module';
 import { configureApp } from './app.setup';
 import { createLogger, PinoLoggerService } from './common/logger';
 import { loadConfig } from './infra/config/env';
+import { setupOpenApi } from './openapi';
 
 /**
  * ทางเข้าสำหรับ Vercel Function (staging) — ไม่มี app.listen
@@ -22,8 +23,11 @@ async function createHandler(): Promise<Handler> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger,
     bufferLogs: true,
+    // webhook ของ GitHub ตรวจลายเซ็นจากไบต์ดิบ (integrations/github/signature.ts)
+    rawBody: true,
   });
   configureApp(app, config);
+  setupOpenApi(app);
   await app.init();
   return app.getHttpAdapter().getInstance() as Handler;
 }

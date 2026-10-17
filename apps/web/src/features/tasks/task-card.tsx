@@ -1,11 +1,13 @@
 'use client';
 
-import { taskPayloadSchema, type EntryDto, type TaskPayload } from '@nosion/contracts';
+import { nosionRef, taskPayloadSchema, type EntryDto, type TaskPayload } from '@nosion/contracts';
 import {
   AlertTriangle,
   CalendarClock,
   CalendarPlus,
+  CircleDot,
   GitBranch,
+  Link2,
   GitPullRequest,
   History,
   MoreHorizontal,
@@ -16,14 +18,17 @@ import {
   Zap,
 } from 'lucide-react';
 import { memo } from 'react';
+import { toast } from 'sonner';
 import { cn } from '@nosion/ui';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Menu } from '@/components/ui/menu';
 import { Progress } from '@/components/ui/progress';
+import { copyText } from '@/features/today/use-today';
 import { formatDueDate, isOverdueDate, PRIORITY_TONE } from '@/lib/format';
 import { PRIORITY_BY_DIGIT } from '@/lib/shortcuts/keymap';
+import { useTranslations } from 'next-intl';
 
 /** ป้าย priority บน card เป็นอังกฤษตัวใหญ่ตาม mockup — low/none ไม่แสดง (8.11.2) */
 const PRIORITY_CHIP: Partial<Record<EntryDto['priority'], string>> = {
@@ -79,6 +84,7 @@ export const TaskCard = memo(function TaskCard({
   onPriority,
   pending = false,
 }: TaskCardProps) {
+  const t = useTranslations('taskCard');
   const done = entry.status === 'done';
   const overdue = isOverdueDate(entry.occurredAt, entry.status, entry.isAllDay);
   const due = formatDueDate(entry.occurredAt);
@@ -109,7 +115,7 @@ export const TaskCard = memo(function TaskCard({
       data-shortcut-item
       tabIndex={0}
       onKeyDown={onKeyDown}
-      aria-label={`${entry.title}${selected ? ' (เลือกอยู่)' : ''}${pending ? ' (รอซิงก์)' : ''}`}
+      aria-label={`${entry.title}${selected ? t('selected') : ''}${pending ? t('pending') : ''}`}
       className={cn(
         'group relative flex gap-3 rounded-row bg-sunken p-4 transition-colors duration-[180ms] hover:bg-wash-active',
         'focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] focus-visible:ring-2 focus-visible:ring-accent',
@@ -119,7 +125,7 @@ export const TaskCard = memo(function TaskCard({
     >
       {pending ? (
         <span
-          title="รอซิงก์"
+          title={t('pendingTitle')}
           data-testid="pending-dot"
           aria-hidden="true"
           className="absolute left-1.5 top-1.5 size-1.5 rounded-full bg-fg-tertiary"
@@ -128,7 +134,9 @@ export const TaskCard = memo(function TaskCard({
       <Checkbox
         checked={done}
         onCheckedChange={onToggle}
-        aria-label={done ? `ยกเลิกเสร็จ: ${entry.title}` : `ทำเครื่องหมายว่าเสร็จ: ${entry.title}`}
+        aria-label={
+          done ? t('uncomplete', { title: entry.title }) : t('complete', { title: entry.title })
+        }
         className="mt-0.5"
       />
 
@@ -170,7 +178,7 @@ export const TaskCard = memo(function TaskCard({
                 ({checklistDone}/{checklist.length})
               </span>
             </span>
-            <Progress value={checklistDone} max={checklist.length} label="ความคืบหน้างานย่อย" />
+            <Progress value={checklistDone} max={checklist.length} label={t('checklist')} />
           </div>
         ) : null}
 
@@ -178,7 +186,7 @@ export const TaskCard = memo(function TaskCard({
           {due ? (
             <Badge
               tone={overdue ? 'danger' : 'outline'}
-              aria-label={overdue ? `เลยกำหนด ${due}` : `กำหนดส่ง ${due}`}
+              aria-label={overdue ? t('overdue', { due }) : t('due', { due })}
             >
               {overdue ? (
                 <AlertTriangle aria-hidden="true" />
@@ -194,12 +202,7 @@ export const TaskCard = memo(function TaskCard({
               {payload.branchName}
             </Badge>
           ) : null}
-          {payload?.github?.prNumber ? (
-            <Badge tone="outline" mono>
-              <GitPullRequest aria-hidden="true" />
-              PR #{payload.github.prNumber}
-            </Badge>
-          ) : null}
+          {payload?.github ? <GitHubBadge github={payload.github} /> : null}
           {payload?.github?.autoCloseOnMerge ? (
             <Badge tone="outline" lang="en">
               <Zap aria-hidden="true" />
@@ -209,7 +212,7 @@ export const TaskCard = memo(function TaskCard({
           {deferCount >= 1 ? (
             <Badge tone={deferCount >= 3 ? 'warning' : 'outline'}>
               <History aria-hidden="true" />
-              เลื่อนแล้ว {deferCount} ครั้ง
+              {t('deferred', { count: deferCount })}
             </Badge>
           ) : null}
           {entry.tags.map((tag) => (
@@ -229,9 +232,9 @@ export const TaskCard = memo(function TaskCard({
             variant="ghost"
             size="sm"
             onClick={onToggle}
-            aria-label={`ย้อนกลับ: ${entry.title}`}
+            aria-label={t('reopenLabel', { title: entry.title })}
           >
-            <Undo2 size={14} aria-hidden="true" /> ย้อนกลับ
+            <Undo2 size={14} aria-hidden="true" /> {t('reopen')}
           </Button>
         ) : (
           <>
@@ -242,7 +245,9 @@ export const TaskCard = memo(function TaskCard({
                 onClick={onToggleTimer}
                 aria-pressed={timerRunning}
                 aria-label={
-                  timerRunning ? `หยุดจับเวลา ${entry.title}` : `เริ่มจับเวลา ${entry.title}`
+                  timerRunning
+                    ? t('stopTimerLabel', { title: entry.title })
+                    : t('startTimerLabel', { title: entry.title })
                 }
               >
                 {timerRunning ? (
@@ -250,37 +255,90 @@ export const TaskCard = memo(function TaskCard({
                 ) : (
                   <Play size={12} fill="currentColor" aria-hidden="true" />
                 )}
-                {timerRunning ? 'กำลังจับเวลา' : 'เริ่มจับเวลา'}
+                {timerRunning ? t('timing') : t('startTimer')}
               </Button>
             ) : null}
             <Button
               variant="secondary"
               size="sm"
               onClick={() => onDefer('tomorrow')}
-              aria-label={`เลื่อน ${entry.title} ไปพรุ่งนี้`}
+              aria-label={t('deferLabel', { title: entry.title })}
             >
               <CalendarPlus size={14} aria-hidden="true" />
-              +1 วัน
+              {t('plusOneDay')}
             </Button>
           </>
         )}
         <Menu
-          label={`ตัวเลือกของ ${entry.title}`}
+          label={t('options', { title: entry.title })}
           trigger={<MoreHorizontal size={18} aria-hidden="true" />}
           items={[
             ...(done
               ? []
               : [
                   {
-                    label: 'เลื่อนไปสัปดาห์หน้า',
+                    label: t('deferWeek'),
                     icon: <CalendarClock />,
                     onSelect: () => onDefer('next-week'),
                   },
                 ]),
-            { label: 'ลบงาน', icon: <Trash2 />, tone: 'danger' as const, onSelect: onDelete },
+            {
+              // ใส่ในชื่อ/คำอธิบาย PR → PR merged แล้วงานนี้ปิดเอง (Phase 8 ขั้น 5)
+              label: t('copyRef'),
+              icon: <Link2 />,
+              onSelect: () => {
+                void copyText(nosionRef(entry.id)).then((ok) =>
+                  ok
+                    ? toast.success(t('copied'), {
+                        description: t('copiedHint', { ref: nosionRef(entry.id) }),
+                      })
+                    : toast.error(t('copyFailed')),
+                );
+              },
+            },
+            { label: t('delete'), icon: <Trash2 />, tone: 'danger' as const, onSelect: onDelete },
           ]}
         />
       </div>
     </li>
   );
 });
+
+/**
+ * ป้าย issue/PR ของ GitHub — งานที่ดึงมาจาก GitHub มีลิงก์ (Phase 8 ขั้น 5) กดแล้วเปิดหน้า GitHub
+ * งานเก่าที่ใส่แค่เลข PR เอง (ไม่มีลิงก์) แสดงเป็นป้ายธรรมดาเหมือนเดิม
+ */
+function GitHubBadge({ github }: { github: NonNullable<TaskPayload['github']> }) {
+  const t = useTranslations('taskCard');
+  const number = github.prNumber ?? github.issueNumber;
+  if (!number) return null;
+  const Icon = github.prNumber ? GitPullRequest : CircleDot;
+  const text = github.url
+    ? `${github.repo}#${number}`
+    : github.prNumber
+      ? `PR #${number}`
+      : `#${number}`;
+  const content = (
+    <>
+      <Icon aria-hidden="true" />
+      {text}
+    </>
+  );
+  return github.url ? (
+    <a
+      href={github.url}
+      target="_blank"
+      rel="noreferrer"
+      className="rounded-chip focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
+      aria-label={t('openOnGitHub', { kind: github.prNumber ? 'PR' : 'issue', ref: text })}
+    >
+      <Badge tone="outline" mono className="hover:bg-wash">
+        {content}
+      </Badge>
+    </a>
+  ) : (
+    <Badge tone="outline" mono>
+      {content}
+    </Badge>
+  );
+}

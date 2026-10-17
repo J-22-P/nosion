@@ -24,16 +24,20 @@ import { usePendingView } from '@/features/sync/use-sync';
 import { pushUndo } from '@/lib/shortcuts/undo-store';
 import { isLocalId } from '@/lib/sync';
 import { ApiError } from '@/lib/api-client';
-import { PRIORITY_LABEL } from '@/lib/format';
+import { priorityLabel } from '@/lib/format';
 import { TaskCard } from './task-card';
 import { useFocusToday, useStartTimer, useStopTimer } from './use-task-queries';
 import { DONE_TASKS_FILTERS, type TaskView } from './use-task-view';
+import { errorText } from '@/i18n/errors';
+import { useLocale, useTranslations } from 'next-intl';
+import { tr } from '@/i18n/current';
 
-const VIEW_TITLE: Record<TaskView, { th: string; en: string }> = {
-  list: { th: 'กำลังดำเนินการ', en: 'Active Tasks' },
-  project: { th: 'แยกตามโปรเจกต์', en: 'By Project' },
-  overdue: { th: 'เกินกำหนด', en: 'Overdue' },
-  priority: { th: 'เรียงตามความสำคัญ', en: 'By Priority' },
+/** ชื่ออังกฤษในวงเล็บต่อท้ายหัวการ์ดตาม mockup (เฉพาะภาษาไทย) */
+const VIEW_TITLE_EN: Record<TaskView, string> = {
+  list: 'Active Tasks',
+  project: 'By Project',
+  overdue: 'Overdue',
+  priority: 'By Priority',
 };
 
 const PRIORITY_ORDER: Priority[] = ['urgent', 'high', 'medium', 'low', 'none'];
@@ -59,7 +63,7 @@ function groupEntries(
     return [...groups.entries()]
       .map(([key, items]) => ({
         key: key || 'none',
-        label: key ? (projectNames.get(key) ?? 'โปรเจกต์') : 'ไม่มีโปรเจกต์',
+        label: key ? (projectNames.get(key) ?? tr('tasks.project')) : tr('tasks.noProject'),
         entries: items,
       }))
       .sort((a, b) => (a.key === 'none' ? 1 : b.key === 'none' ? -1 : 0));
@@ -67,7 +71,10 @@ function groupEntries(
   if (view === 'priority') {
     return PRIORITY_ORDER.map((p) => ({
       key: p,
-      label: p === 'none' ? 'ไม่ระบุความสำคัญ' : `ความสำคัญ${PRIORITY_LABEL[p]}`,
+      label:
+        p === 'none'
+          ? tr('tasks.noPriority')
+          : tr('tasks.priorityGroup', { level: priorityLabel(p) }),
       entries: entries.filter((e) => e.priority === p),
     })).filter((g) => g.entries.length > 0);
   }
@@ -75,6 +82,8 @@ function groupEntries(
 }
 
 export function TaskBoard({ filters, view }: { filters: EntryFilters; view: TaskView }) {
+  const t = useTranslations('tasks');
+  const locale = useLocale();
   const query = useEntries(filters);
   const doneQuery = useEntries(DONE_TASKS_FILTERS);
   const projects = useProjects();
@@ -123,13 +132,13 @@ export function TaskBoard({ filters, view }: { filters: EntryFilters; view: Task
     complete.mutate(entry.id, {
       onSuccess: (updated) => {
         pushUndo({
-          label: `เสร็จ: ${entry.title}`,
+          label: t('undoComplete', { title: entry.title }),
           run: () => reopen.mutateAsync(updated as EntryDto),
         });
-        toast.success('เสร็จแล้ว', {
+        toast.success(t('done'), {
           description: entry.title,
           action: {
-            label: 'เลิกทำ',
+            label: t('undo'),
             onClick: () => reopen.mutate(updated as EntryDto),
           },
         });
@@ -144,7 +153,7 @@ export function TaskBoard({ filters, view }: { filters: EntryFilters; view: Task
       {
         onSuccess: (moved) =>
           pushUndo({
-            label: `เลื่อน: ${entry.title}`,
+            label: t('undoDefer', { title: entry.title }),
             run: () =>
               entriesApi
                 .update(entry.id, {
@@ -162,7 +171,7 @@ export function TaskBoard({ filters, view }: { filters: EntryFilters; view: Task
     remove.mutate(entry.id, {
       onSuccess: () =>
         pushUndo({
-          label: `ลบ: ${entry.title}`,
+          label: t('undoDelete', { title: entry.title }),
           run: () =>
             entriesApi
               .restore(entry.id)
@@ -177,9 +186,11 @@ export function TaskBoard({ filters, view }: { filters: EntryFilters; view: Task
       { id: entry.id, input: { priority, version: entry.version } },
       {
         onSuccess: (changed) => {
-          toast.success(`ความสำคัญ${PRIORITY_LABEL[priority]}`, { description: entry.title });
+          toast.success(t('priorityChanged', { level: priorityLabel(priority) }), {
+            description: entry.title,
+          });
           pushUndo({
-            label: `ความสำคัญ: ${entry.title}`,
+            label: t('undoPriority', { title: entry.title }),
             run: () =>
               entriesApi
                 .update(entry.id, {
@@ -210,12 +221,11 @@ export function TaskBoard({ filters, view }: { filters: EntryFilters; view: Task
         action,
         ...(action === 'defer' ? { to: 'tomorrow' } : {}),
       });
-      const verb = { complete: 'ทำเสร็จ', defer: 'เลื่อนไปพรุ่งนี้', delete: 'ลบ' }[action];
-      toast.success(`${verb} ${affected} รายการ`);
+      toast.success(t(`bulkDone.${action}`, { count: affected }));
       setSelected(new Set());
     } catch (error) {
-      toast.error('ทำรายการไม่สำเร็จ', {
-        description: error instanceof ApiError ? error.message : undefined,
+      toast.error(t('bulkFailed'), {
+        description: errorText(error),
       });
     } finally {
       void queryClient.invalidateQueries({ queryKey: ['entries'] });
@@ -240,7 +250,7 @@ export function TaskBoard({ filters, view }: { filters: EntryFilters; view: Task
     };
   }
 
-  const title = VIEW_TITLE[view];
+  const titleEn = VIEW_TITLE_EN[view];
   const hasStaleData = query.isError && query.data !== undefined;
   const countLabel = query.data?.pageInfo.hasMore ? `${entries.length}+` : `${entries.length}`;
 
@@ -248,20 +258,13 @@ export function TaskBoard({ filters, view }: { filters: EntryFilters; view: Task
   if (query.isPending) {
     body = <TaskListSkeleton />;
   } else if (query.isError && !hasStaleData) {
-    const message =
-      query.error instanceof ApiError
-        ? query.error.message
-        : 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจว่า API ทำงานอยู่';
+    const message = query.error instanceof ApiError ? (errorText(query.error) ?? '') : t('offline');
     body = <ErrorState message={message} onRetry={() => void query.refetch()} />;
   } else if (entries.length === 0) {
     body = (
       <EmptyState
-        title={view === 'overdue' ? 'ไม่มีงานเกินกำหนด' : 'ยังไม่มีงานในมุมมองนี้'}
-        description={
-          view === 'overdue'
-            ? 'ทุกอย่างอยู่ในกำหนด ดีมาก'
-            : 'พิมพ์ในช่องด้านบนแล้วกด Enter เพื่อเพิ่มงานแรก'
-        }
+        title={view === 'overdue' ? t('emptyOverdue') : t('emptyView')}
+        description={view === 'overdue' ? t('emptyOverdueHint') : t('emptyViewHint')}
       />
     );
   } else {
@@ -310,10 +313,15 @@ export function TaskBoard({ filters, view }: { filters: EntryFilters; view: Task
           icon={<ListTodo />}
           title={
             <>
-              {title.th}{' '}
-              <span className="font-normal text-fg-secondary" lang="en">
-                ({title.en})
-              </span>
+              {t(`view.${view}`)}
+              {locale === 'th' ? (
+                <>
+                  {' '}
+                  <span className="font-normal text-fg-secondary" lang="en">
+                    ({titleEn})
+                  </span>
+                </>
+              ) : null}
             </>
           }
           aside={
@@ -328,18 +336,20 @@ export function TaskBoard({ filters, view }: { filters: EntryFilters; view: Task
           {selected.size > 0 ? (
             <div
               role="toolbar"
-              aria-label="ทำกับรายการที่เลือก"
+              aria-label={t('bulkToolbar')}
               className="sticky top-16 z-10 mb-3 flex flex-wrap items-center gap-2 rounded-row bg-primary px-4 py-2.5 text-sm text-primary-fg"
             >
-              <span className="mr-auto font-medium">เลือก {selected.size} รายการ</span>
+              <span className="mr-auto font-medium">
+                {t('selectedCount', { count: selected.size })}
+              </span>
               <Button size="sm" variant="secondary" onClick={() => void bulk('complete')}>
-                ทำเสร็จ
+                {t('complete')}
               </Button>
               <Button size="sm" variant="secondary" onClick={() => void bulk('defer')}>
-                เลื่อนไปพรุ่งนี้
+                {t('deferTomorrow')}
               </Button>
               <Button size="sm" variant="danger" onClick={() => void bulk('delete')}>
-                ลบ
+                {t('delete')}
               </Button>
               <Button
                 size="sm"
@@ -347,7 +357,7 @@ export function TaskBoard({ filters, view }: { filters: EntryFilters; view: Task
                 className="text-primary-fg hover:text-primary-fg"
                 onClick={() => setSelected(new Set())}
               >
-                ยกเลิกเลือก
+                {t('clearSelection')}
               </Button>
             </div>
           ) : null}
@@ -357,11 +367,7 @@ export function TaskBoard({ filters, view }: { filters: EntryFilters; view: Task
 
       {doneEntries.length > 0 ? (
         <Card>
-          <CardHeader
-            icon={<CheckCheck />}
-            title="เสร็จสิ้นแล้ว"
-            description="ล่าสุด 5 รายการ · กดย้อนกลับได้ถ้าติ๊กพลาด"
-          />
+          <CardHeader icon={<CheckCheck />} title={t('doneTitle')} description={t('doneHint')} />
           <CardContent>
             <ul className="space-y-2">
               {doneEntries.map((entry) => (

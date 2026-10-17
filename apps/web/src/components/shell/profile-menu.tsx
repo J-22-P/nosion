@@ -9,6 +9,7 @@ import { ThemeSwitcher } from '@/components/shared/theme-switcher';
 import { Badge } from '@/components/ui/badge';
 import { authApi } from '@/features/auth/api';
 import { useAuthStore } from '@/features/auth/auth-store';
+import { useTranslations } from 'next-intl';
 
 export function useLogout() {
   const router = useRouter();
@@ -44,6 +45,7 @@ export function ProfileMenu({ displayName, isDemo }: { displayName: string; isDe
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const logout = useLogout();
+  const t = useTranslations('shell');
 
   useEffect(() => {
     if (!open) return;
@@ -71,7 +73,7 @@ export function ProfileMenu({ displayName, isDemo }: { displayName: string; isDe
         type="button"
         aria-expanded={open}
         aria-controls={panelId}
-        aria-label={`บัญชีของ ${displayName}`}
+        aria-label={t('accountOf', { name: displayName })}
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-2 rounded-chip py-1 pl-1 pr-1 transition-colors hover:bg-wash focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] lg:pr-3"
       >
@@ -92,13 +94,13 @@ export function ProfileMenu({ displayName, isDemo }: { displayName: string; isDe
               <p className="truncate text-sm font-medium">{displayName}</p>
               {isDemo ? (
                 <Badge tone="accent" className="mt-1">
-                  บัญชีทดลอง
+                  {t('demoAccount')}
                 </Badge>
               ) : null}
             </div>
           </div>
           <div className="my-2 flex items-center justify-between gap-2 px-2">
-            <span className="text-[13px] text-fg-secondary">ธีม</span>
+            <span className="text-[13px] text-fg-secondary">{t('theme')}</span>
             <ThemeSwitcher compact />
           </div>
           <div className="border-t border-hairline pt-1">
@@ -107,14 +109,14 @@ export function ProfileMenu({ displayName, isDemo }: { displayName: string; isDe
               onClick={() => setOpen(false)}
               className="flex h-9 items-center gap-2 rounded-control px-2 text-sm hover:bg-wash"
             >
-              <Settings size={16} aria-hidden="true" /> ตั้งค่า
+              <Settings size={16} aria-hidden="true" /> {t('settings')}
             </Link>
             <button
               type="button"
               onClick={() => void logout()}
               className="flex h-9 w-full items-center gap-2 rounded-control px-2 text-sm text-danger hover:bg-danger-soft"
             >
-              <LogOut size={16} aria-hidden="true" /> ออกจากระบบ
+              <LogOut size={16} aria-hidden="true" /> {t('logout')}
             </button>
           </div>
         </div>

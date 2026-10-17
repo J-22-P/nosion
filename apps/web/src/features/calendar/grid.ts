@@ -1,5 +1,6 @@
 import type { CalendarEventDto } from '@nosion/contracts';
 import { zonedTimeToUtc } from '@nosion/core/time';
+import { dateFormat, tr } from '@/i18n/current';
 
 /**
  * คำนวณของหน้าปฏิทิน (สเปก 8.11.4) — pure ทั้งไฟล์ ทำงานกับ 'YYYY-MM-DD' ล้วน
@@ -9,23 +10,8 @@ import { zonedTimeToUtc } from '@nosion/core/time';
 export const CALENDAR_VIEWS = ['month', 'week', 'agenda'] as const;
 export type CalendarView = (typeof CALENDAR_VIEWS)[number];
 
-const TH_MONTHS = [
-  'มกราคม',
-  'กุมภาพันธ์',
-  'มีนาคม',
-  'เมษายน',
-  'พฤษภาคม',
-  'มิถุนายน',
-  'กรกฎาคม',
-  'สิงหาคม',
-  'กันยายน',
-  'ตุลาคม',
-  'พฤศจิกายน',
-  'ธันวาคม',
-];
-/** อา–ส ตาม getUTCDay() */
-export const TH_WEEKDAYS_SHORT = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
-const TH_WEEKDAYS_LONG = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
+/** ชื่อย่อวันตาม getUTCDay() (อา–ส · Sun–Sat) */
+export const weekdayShort = (day: number) => tr(`calendar.weekdayShort.${day}`);
 
 const asDate = (ymd: string) => new Date(`${ymd}T00:00:00Z`);
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -87,9 +73,9 @@ export function shiftAnchor(view: CalendarView, anchor: string, direction: 1 | -
 
 export const sameMonth = (a: string, b: string) => a.slice(0, 7) === b.slice(0, 7);
 
-/** "ตุลาคม 2026" */
+/** "ตุลาคม 2569" · "October 2026" (ตามภาษา/ปฏิทินที่ผู้ใช้เลือก) */
 export function monthTitle(ymd: string): string {
-  return `${TH_MONTHS[Number(ymd.slice(5, 7)) - 1]} ${ymd.slice(0, 4)}`;
+  return dateFormat({ month: 'long', year: 'numeric', timeZone: 'UTC' }).format(asDate(ymd));
 }
 
 /** "W40 – W44" ของช่วงที่แสดง */
@@ -99,9 +85,15 @@ export function weekRangeLabel(days: string[]): string {
   return first === last ? `W${first}` : `W${first} – W${last}`;
 }
 
-/** "วันพุธ 21 ตุลาคม 2026" */
+/** "วันพุธที่ 21 ตุลาคม 2569" · "Wednesday, October 21, 2026" */
 export function longDayLabel(ymd: string): string {
-  return `วัน${TH_WEEKDAYS_LONG[weekdayOf(ymd)]} ${Number(ymd.slice(8, 10))} ${monthTitle(ymd)}`;
+  return dateFormat({
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(asDate(ymd));
 }
 
 /** 'HH:mm' ของ event ตามโซนผู้ใช้ */

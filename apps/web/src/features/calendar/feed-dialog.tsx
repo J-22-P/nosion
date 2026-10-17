@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { copyText } from '@/features/today/use-today';
 import { useCalendarFeed, useRotateFeed } from './use-calendar';
+import { tr } from '@/i18n/current';
 
 /**
  * "Subscribe iCal" (สเปก 8.11.4) — คัดลอกลิงก์ไปใส่ Google / Apple Calendar + ปุ่มสร้างลิงก์ใหม่
@@ -32,9 +33,9 @@ export function FeedDialog({ open, onClose }: { open: boolean; onClose: () => vo
     >
       <div className="flex items-center justify-between gap-3 border-b border-hairline px-5 py-4">
         <h2 id="feed-title" className="text-base font-semibold">
-          Subscribe ปฏิทิน (iCal)
+          {tr('feed.title')}
         </h2>
-        <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="ปิด">
+        <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label={tr('feed.close')}>
           <X size={16} aria-hidden="true" />
         </Button>
       </div>
@@ -49,16 +50,13 @@ function FeedBody() {
   const [confirming, setConfirming] = useState(false);
 
   async function copy(url: string) {
-    if (await copyText(url)) toast.success('คัดลอกลิงก์แล้ว');
-    else toast.error('คัดลอกไม่ได้ — เลือกข้อความในช่องแล้วคัดลอกเอง');
+    if (await copyText(url)) toast.success(tr('feed.copied'));
+    else toast.error(tr('feed.copyFailed'));
   }
 
   return (
     <div className="space-y-4 p-5 text-sm">
-      <p className="text-fg-secondary">
-        ใส่ลิงก์นี้ใน Google Calendar (เพิ่มปฏิทิน → จาก URL) หรือ Apple Calendar
-        เพื่อเห็นงานและบิลของ NOSION ข้างนัดหมายอื่น · ปฏิทินภายนอกดึงข้อมูลใหม่เองทุกไม่กี่ชั่วโมง
-      </p>
+      <p className="text-fg-secondary">{tr('feed.intro')}</p>
 
       {feed.data ? (
         <>
@@ -66,30 +64,28 @@ function FeedBody() {
             <Input
               readOnly
               value={feed.data.url}
-              aria-label="ลิงก์ iCal"
+              aria-label={tr('feed.link')}
               className="font-mono text-xs"
               onFocus={(e) => e.currentTarget.select()}
             />
             <Button variant="secondary" onClick={() => copy(feed.data.url)} className="gap-1.5">
-              <Copy size={14} aria-hidden="true" /> คัดลอก
+              <Copy size={14} aria-hidden="true" /> {tr('feed.copy')}
             </Button>
           </div>
           <a href={feed.data.webcalUrl} className="inline-block text-accent hover:underline">
-            เปิดใน Apple Calendar
+            {tr('feed.openApple')}
           </a>
         </>
       ) : feed.isError ? (
         <p role="alert" className="text-danger">
-          โหลดลิงก์ไม่สำเร็จ
+          {tr('feed.loadFailed')}
         </p>
       ) : (
         <Skeleton className="h-10 w-full" />
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-hairline pt-4">
-        <p className="max-w-xs text-xs text-fg-secondary">
-          ใครมีลิงก์นี้อ่านปฏิทินของคุณได้ — ถ้าเผลอแชร์ให้สร้างลิงก์ใหม่ ลิงก์เดิมจะใช้ไม่ได้ทันที
-        </p>
+        <p className="max-w-xs text-xs text-fg-secondary">{tr('feed.warning')}</p>
         <Button
           variant={confirming ? 'danger' : 'secondary'}
           size="sm"
@@ -101,7 +97,7 @@ function FeedBody() {
           }}
         >
           <RefreshCw size={14} aria-hidden="true" />
-          {confirming ? 'ยืนยัน: ยกเลิกลิงก์เดิม' : 'สร้างลิงก์ใหม่'}
+          {confirming ? tr('feed.confirmRotate') : tr('feed.rotate')}
         </Button>
       </div>
     </div>

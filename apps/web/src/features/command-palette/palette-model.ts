@@ -3,6 +3,7 @@ import { formatMoney } from '@nosion/core/money';
 import type { NlToken } from '@nosion/core/nl';
 import { CATEGORY } from '@/features/expenses/categories';
 import { PRIMARY_NAV, SETTINGS_NAV } from '@/components/shell/nav';
+import { currentIntlLocale, dateFormat, tr } from '@/i18n/current';
 
 /**
  * ส่วนคำนวณของ Command Palette (สเปก 8.3) — pure ทั้งไฟล์ ทดสอบได้โดยไม่ต้อง render
@@ -35,47 +36,54 @@ export interface PaletteCommand {
   action: CommandAction;
 }
 
-export const COMMANDS: readonly PaletteCommand[] = [
+/** รายการคำสั่ง — สร้างตอนเรียก (ชื่อตามภาษาปัจจุบัน) */
+export const commands = (): PaletteCommand[] => [
   ...[...PRIMARY_NAV, SETTINGS_NAV]
     .filter((n) => n.ready)
     .map((n) => ({
       id: `go:${n.href}`,
-      label: `ไปหน้า${n.label}`,
+      label: tr('palette.goTo', { page: tr(`nav.${n.key}`) }),
       keywords: `${n.en} go ${n.href}`,
       action: { kind: 'navigate', href: n.href } as const,
     })),
   {
     id: 'standup',
-    label: 'สร้าง Standup',
+    label: tr('palette.standup'),
     keywords: 'standup daily report',
     action: { kind: 'navigate', href: '/today?standup=1' },
   },
   {
     id: 'theme:light',
-    label: 'ธีมสว่าง',
+    label: tr('palette.themeLight'),
     keywords: 'theme light สลับธีม',
     action: { kind: 'theme', theme: 'light' },
   },
   {
     id: 'theme:dark',
-    label: 'ธีมมืด',
+    label: tr('palette.themeDark'),
     keywords: 'theme dark สลับธีม',
     action: { kind: 'theme', theme: 'dark' },
   },
   {
     id: 'theme:system',
-    label: 'ธีมตามระบบ',
+    label: tr('palette.themeSystem'),
     keywords: 'theme system auto สลับธีม',
     action: { kind: 'theme', theme: 'system' },
   },
-  { id: 'logout', label: 'ออกจากระบบ', keywords: 'logout sign out', action: { kind: 'logout' } },
+  {
+    id: 'logout',
+    label: tr('palette.logout'),
+    keywords: 'logout sign out ออกจากระบบ',
+    action: { kind: 'logout' },
+  },
 ];
 
 /** กรองคำสั่งด้วยคำหลัง ">" — ทุกคำต้องเจอ (ไม่สนตัวพิมพ์) ใน label หรือ keywords */
 export function filterCommands(input: string): PaletteCommand[] {
   const words = input.replace(/^\s*>/, '').trim().toLowerCase().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return [...COMMANDS];
-  return COMMANDS.filter((c) => {
+  const all = commands();
+  if (words.length === 0) return all;
+  return all.filter((c) => {
     const hay = `${c.label} ${c.keywords}`.toLowerCase();
     return words.every((w) => hay.includes(w));
   });
@@ -83,43 +91,34 @@ export function filterCommands(input: string): PaletteCommand[] {
 
 // ── โหมดสร้าง ──────────────────────────────────────
 
-const MODULE_NOUN: Record<ModuleKey, string> = {
-  task: 'งาน',
-  expense: 'รายจ่าย',
-  workout: 'การออกกำลังกาย',
-  habit: 'นิสัย',
-};
-
-const TH_DAYS: Record<string, string> = {
-  SU: 'อาทิตย์',
-  MO: 'จันทร์',
-  TU: 'อังคาร',
-  WE: 'พุธ',
-  TH: 'พฤหัส',
-  FR: 'ศุกร์',
-  SA: 'เสาร์',
+const RRULE_DAYS = new Set(['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA']);
+const FREQ_KEY: Record<string, string> = {
+  DAILY: 'daily',
+  WEEKLY: 'weekly',
+  MONTHLY: 'monthly',
+  YEARLY: 'yearly',
 };
 
 /** RRULE ที่ parser สร้าง → ภาษาคน: "ทุกเดือน วันที่ 5" · "ทุกจันทร์, พุธ" · "ทุก 2 สัปดาห์" */
 export function describeRrule(rrule: string): string {
   const parts = Object.fromEntries(rrule.split(';').map((p) => p.split('=') as [string, string]));
   const n = Number(parts.INTERVAL ?? 1);
-  const unit =
-    { DAILY: 'วัน', WEEKLY: 'สัปดาห์', MONTHLY: 'เดือน', YEARLY: 'ปี' }[parts.FREQ ?? ''] ?? '';
   if (parts.BYDAY) {
     const days = parts.BYDAY.split(',');
-    if (days.join() === 'MO,TU,WE,TH,FR') return 'ทุกวันธรรมดา';
-    if (days.join() === 'SA,SU') return 'ทุกเสาร์-อาทิตย์';
-    return `ทุก${days.map((d) => TH_DAYS[d] ?? d).join(', ')}`;
+    if (days.join() === 'MO,TU,WE,TH,FR') return tr('rrule.weekdays');
+    if (days.join() === 'SA,SU') return tr('rrule.weekends');
+    const names = days.map((d) => (RRULE_DAYS.has(d) ? tr(`rrule.day.${d}`) : d));
+    return tr('rrule.onDays', { days: names.join(tr('rrule.daySeparator')) });
   }
-  const base = n > 1 ? `ทุก ${n} ${unit}` : `ทุก${unit}`;
-  return parts.BYMONTHDAY ? `${base} วันที่ ${parts.BYMONTHDAY}` : base;
+  const freq = FREQ_KEY[parts.FREQ ?? ''];
+  const base = freq ? tr(`rrule.${freq}`, { n }) : '';
+  return parts.BYMONTHDAY ? tr('rrule.onMonthDay', { base, day: parts.BYMONTHDAY }) : base;
 }
 
 /** "กาแฟ" → "สร้างรายจ่าย" / มีการเกิดซ้ำ → "สร้างรายจ่ายประจำ" (สเปก 8.3) */
 export function createLabel(p: ParsedEntryDto): string {
-  if (p.rrule && p.payload.isBill === true) return 'สร้างบิลประจำ';
-  return `สร้าง${MODULE_NOUN[p.module]}${p.rrule ? 'ประจำ' : ''}`;
+  if (p.rrule && p.payload.isBill === true) return tr('palette.createBill');
+  return tr(`palette.${p.rrule ? 'createRecurring' : 'create'}.${p.module satisfies ModuleKey}`);
 }
 
 /** วันเวลาแบบสั้นตามโซนผู้ใช้: "วันนี้" · "พรุ่งนี้ 17:00" · "5 พ.ย." */
@@ -135,14 +134,12 @@ export function whenLabel(
   const diff = Math.round((Date.parse(day) - Date.parse(ymd(now))) / 86_400_000);
   const dayText =
     diff === 0
-      ? 'วันนี้'
+      ? tr('format.today')
       : diff === 1
-        ? 'พรุ่งนี้'
+        ? tr('format.tomorrow')
         : diff === -1
-          ? 'เมื่อวาน'
-          : new Intl.DateTimeFormat('th-TH', { timeZone, day: 'numeric', month: 'short' }).format(
-              new Date(iso),
-            );
+          ? tr('format.yesterday')
+          : dateFormat({ timeZone, day: 'numeric', month: 'short' }).format(new Date(iso));
   if (isAllDay) return dayText;
   const time = new Intl.DateTimeFormat('en-GB', {
     timeZone,
@@ -164,7 +161,7 @@ export function describeParsed(p: ParsedEntryDto, timeZone: string, now = new Da
   };
   if (typeof amountMinor === 'number') {
     bits.push(
-      `${direction === 'income' ? '+' : ''}${formatMoney(amountMinor, currency ?? 'THB', { decimals: false })}`,
+      `${direction === 'income' ? '+' : ''}${formatMoney(amountMinor, currency ?? 'THB', { decimals: false, locale: currentIntlLocale() })}`,
     );
   }
   if (category && category !== 'other' && CATEGORY[category]) bits.push(CATEGORY[category].label);
@@ -172,7 +169,7 @@ export function describeParsed(p: ParsedEntryDto, timeZone: string, now = new Da
   const when = p.rrule ? null : whenLabel(p.occurredAt, p.isAllDay, timeZone, now);
   if (when) bits.push(when);
   if (p.rrule) bits.push(`↻ ${describeRrule(p.rrule)}`);
-  if (p.reminders.length) bits.push(`🔔 เตือน ${p.reminders.length}`);
+  if (p.reminders.length) bits.push(tr('palette.reminders', { count: p.reminders.length }));
   return bits.join(' · ');
 }
 

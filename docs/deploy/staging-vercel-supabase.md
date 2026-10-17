@@ -114,6 +114,7 @@ Vercel Cron แผน Hobby รันได้วันละครั้ง —
 | ---------- | ---------------------------------------------------------------------- | ----------- |
 | การเตือน   | `https://nosion-staging-web.vercel.app/api/v1/internal/cron/reminders` | ทุก 1 นาที  |
 | สรุปรายวัน | `https://nosion-staging-web.vercel.app/api/v1/internal/cron/digest`    | ทุก 15 นาที |
+| ดึง GitHub | `https://nosion-staging-web.vercel.app/api/v1/internal/cron/github`    | ทุก 1 ชม.   |
 
 ตั้งค่าด้วย `bash scripts/vercel-cron-setup.sh` (env ของ project API: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`,
 `NOTIFICATION_ACTION_SECRET`, `MAIL_DRIVER`, `APP_URL` = `API_URL` = โดเมนของเว็บ) · ทดสอบ: `/settings` → เปิดการแจ้งเตือน → "ส่งทดสอบ"
@@ -150,6 +151,33 @@ wizard ทำ 10 ขั้น: ติดตั้ง/ล็อกอิน flyct
 
 ตรวจสุขภาพ: `flyctl checks list -a nosion-staging-worker` (ready = DB + Redis ต่อติด) · `flyctl logs -a nosion-staging-worker`
 · metrics ดูใน Grafana ของ Fly (fly-metrics.net) · กฎ alert อยู่ที่ `ops/prometheus/alerts.yml`
+
+## 7. เข้าสู่ระบบด้วย Google / GitHub (Phase 8 ขั้น 4b)
+
+ตั้งเมื่อไรปุ่มขึ้นเมื่อนั้น — ไม่ตั้ง = ซ่อนปุ่ม (`GET /api/v1/auth/oauth/providers`) · redirect URI ใช้ `API_URL` ซึ่งบน staging คือ **โดเมนของเว็บ**
+(คำขอวิ่งผ่าน proxy `/api/v1` คุกกี้จึงเป็น first-party)
+
+**Google** — [console.cloud.google.com](https://console.cloud.google.com) → APIs & Services
+
+1. **OAuth consent screen** → External · ชื่อแอป NOSION · scope: `openid` `email` `profile` (ไม่ต้องผ่าน verification — เป็น scope พื้นฐาน)
+   · ระหว่างสถานะ Testing ต้องเพิ่มอีเมลผู้ทดสอบเอง · กด **Publish app** เมื่อจะให้คนอื่นใช้
+2. **Credentials → Create credentials → OAuth client ID** → Web application
+   - Authorized redirect URI: `https://nosion-staging-web.vercel.app/api/v1/auth/oauth/google/callback`
+   - (เครื่อง dev) `http://localhost:3001/api/v1/auth/oauth/google/callback`
+
+**GitHub** — github.com → Settings → Developer settings → **OAuth Apps → New OAuth App**
+
+- Homepage URL: `https://nosion-staging-web.vercel.app`
+- Authorization callback URL: `https://nosion-staging-web.vercel.app/api/v1/auth/oauth/github/callback`
+- OAuth App หนึ่งตัวมี callback ได้ URL เดียว → สร้างแยกอีกตัวสำหรับเครื่อง dev (`http://localhost:3001/...`)
+
+**ใส่ค่า** — Vercel project **nosion-staging-api** → Environment Variables (Sensitive):
+`GOOGLE_CLIENT_ID` · `GOOGLE_CLIENT_SECRET` · `GITHUB_CLIENT_ID` · `GITHUB_CLIENT_SECRET` → Redeploy
+
+- `ENCRYPTION_KEY` **ต้องตั้งแล้ว** (หัวข้อ 3) — ใช้เข้ารหัสคุกกี้ state และ token ของ GitHub · เปลี่ยนค่า = token ที่เก็บไว้ถอดไม่ได้ (ผู้ใช้กดเชื่อม GitHub ใหม่)
+- ทดสอบ: เปิด `/login` → "ดำเนินการต่อด้วย Google" → กลับมาที่ `/today` ล็อกอินแล้ว
+- **GitHub → ปฏิทิน (ขั้น 5):** เชื่อมแล้วดึงรอบแรกทันที · ดึงซ้ำทุกชั่วโมงด้วยงาน `internal/cron/github` บน cron-job.org (หัวข้อ 5b) ·
+  webhook ต่อ repo (ไม่บังคับ) ผู้ใช้เปิดเองที่ ตั้งค่า → GitHub → เปิด webhook
 
 ## ปัญหาที่น่าจะเจอ
 

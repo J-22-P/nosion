@@ -1,4 +1,5 @@
 import { Text } from '@react-email/components';
+import { copyFor, type EmailLang } from '../copy';
 import { Heading, Layout, Paragraph, PrimaryButton, Row, color } from '../layout';
 
 /**
@@ -9,6 +10,8 @@ import { Heading, Layout, Paragraph, PrimaryButton, Row, color } from '../layout
 
 interface Common {
   settingsUrl: string;
+  /** ภาษาของผู้รับ (settings.locale) · ไม่ส่ง = ไทย */
+  lang?: EmailLang;
 }
 
 // ── 1. ยืนยันอีเมล ─────────────────────────────────────
@@ -16,15 +19,18 @@ export interface VerifyEmailProps extends Common {
   link: string;
 }
 export const verifyEmail = {
-  subject: () => 'ยืนยันอีเมลของคุณ · NOSION',
-  Component: ({ link, settingsUrl }: VerifyEmailProps) => (
-    <Layout preview="กดยืนยันอีเมลเพื่อเริ่มใช้ NOSION" settingsUrl={settingsUrl}>
-      <Heading>ยืนยันอีเมลของคุณ</Heading>
-      <Paragraph>กดปุ่มด้านล่างเพื่อยืนยันว่าอีเมลนี้เป็นของคุณ</Paragraph>
-      <PrimaryButton href={link}>ยืนยันอีเมล</PrimaryButton>
-      <Paragraph muted>ถ้าคุณไม่ได้สมัคร NOSION ไม่ต้องทำอะไร — บัญชีจะไม่ถูกเปิดใช้</Paragraph>
-    </Layout>
-  ),
+  subject: (p: Pick<VerifyEmailProps, 'lang'>) => copyFor(p.lang).verifySubject,
+  Component: ({ link, settingsUrl, lang }: VerifyEmailProps) => {
+    const c = copyFor(lang);
+    return (
+      <Layout preview={c.verifyPreview} settingsUrl={settingsUrl} lang={lang}>
+        <Heading>{c.verifyHeading}</Heading>
+        <Paragraph>{c.verifyBody}</Paragraph>
+        <PrimaryButton href={link}>{c.verifyButton}</PrimaryButton>
+        <Paragraph muted>{c.verifyIgnore}</Paragraph>
+      </Layout>
+    );
+  },
 };
 
 // ── 2. ตั้งรหัสผ่านใหม่ ────────────────────────────────
@@ -33,20 +39,18 @@ export interface ResetPasswordProps extends Common {
   expiresMinutes: number;
 }
 export const resetPassword = {
-  subject: () => 'ตั้งรหัสผ่านใหม่ · NOSION',
-  Component: ({ link, expiresMinutes, settingsUrl }: ResetPasswordProps) => (
-    <Layout
-      preview={`ลิงก์ตั้งรหัสผ่านใหม่ ใช้ได้ ${expiresMinutes} นาที`}
-      settingsUrl={settingsUrl}
-    >
-      <Heading>ตั้งรหัสผ่านใหม่</Heading>
-      <Paragraph>
-        มีคำขอตั้งรหัสผ่านใหม่สำหรับบัญชีนี้ ลิงก์ใช้ได้ {expiresMinutes} นาทีและใช้ได้ครั้งเดียว
-      </Paragraph>
-      <PrimaryButton href={link}>ตั้งรหัสผ่านใหม่</PrimaryButton>
-      <Paragraph muted>ถ้าคุณไม่ได้ขอ ไม่ต้องทำอะไร — รหัสผ่านเดิมยังใช้ได้ตามปกติ</Paragraph>
-    </Layout>
-  ),
+  subject: (p: Pick<ResetPasswordProps, 'lang'>) => copyFor(p.lang).resetSubject,
+  Component: ({ link, expiresMinutes, settingsUrl, lang }: ResetPasswordProps) => {
+    const c = copyFor(lang);
+    return (
+      <Layout preview={c.resetPreview(expiresMinutes)} settingsUrl={settingsUrl} lang={lang}>
+        <Heading>{c.resetHeading}</Heading>
+        <Paragraph>{c.resetBody(expiresMinutes)}</Paragraph>
+        <PrimaryButton href={link}>{c.resetButton}</PrimaryButton>
+        <Paragraph muted>{c.resetIgnore}</Paragraph>
+      </Layout>
+    );
+  },
 };
 
 // ── 3. แจ้งเตือนความปลอดภัย ────────────────────────────
@@ -57,17 +61,18 @@ export interface SecurityAlertProps extends Common {
   when: string;
 }
 export const securityAlert = {
-  subject: () => 'ตรวจพบการใช้งานที่น่าสงสัย · NOSION',
-  Component: ({ reason, when, settingsUrl }: SecurityAlertProps) => (
-    <Layout preview="เราออกจากระบบทุกอุปกรณ์เพื่อความปลอดภัย" settingsUrl={settingsUrl}>
-      <Heading>ตรวจพบการใช้งานที่น่าสงสัย</Heading>
-      <Paragraph>
-        {reason} เมื่อ {when} เราจึงออกจากระบบทุกอุปกรณ์ของบัญชีนี้เพื่อความปลอดภัย
-      </Paragraph>
-      <Paragraph>ถ้าไม่ใช่คุณ แนะนำให้ตั้งรหัสผ่านใหม่ทันที</Paragraph>
-      <PrimaryButton href={settingsUrl}>ไปที่การตั้งค่าบัญชี</PrimaryButton>
-    </Layout>
-  ),
+  subject: (p: Pick<SecurityAlertProps, 'lang'>) => copyFor(p.lang).securitySubject,
+  Component: ({ reason, when, settingsUrl, lang }: SecurityAlertProps) => {
+    const c = copyFor(lang);
+    return (
+      <Layout preview={c.securityPreview} settingsUrl={settingsUrl} lang={lang}>
+        <Heading>{c.securityHeading}</Heading>
+        <Paragraph>{c.securityBody(reason, when)}</Paragraph>
+        <Paragraph>{c.securityAdvice}</Paragraph>
+        <PrimaryButton href={settingsUrl}>{c.securityButton}</PrimaryButton>
+      </Layout>
+    );
+  },
 };
 
 // ── 4. สรุปรายวัน ──────────────────────────────────────
@@ -87,29 +92,25 @@ export interface DailyDigestProps extends Common {
   unsubscribeUrl: string;
 }
 export const dailyDigest = {
-  subject: (p: Pick<DailyDigestProps, 'overdue' | 'today' | 'bills'>) => {
-    const count = p.overdue.length + p.today.length + p.bills.length;
-    return count ? `วันนี้มี ${count} เรื่องรอคุณ · NOSION` : 'วันนี้ว่าง — ไม่มีอะไรค้าง · NOSION';
-  },
+  subject: (p: Pick<DailyDigestProps, 'overdue' | 'today' | 'bills' | 'lang'>) =>
+    copyFor(p.lang).digestSubject(p.overdue.length + p.today.length + p.bills.length),
   Component: (p: DailyDigestProps) => {
+    const c = copyFor(p.lang);
     const empty = !p.overdue.length && !p.today.length && !p.bills.length;
     return (
       <Layout
-        preview={
-          empty
-            ? 'ไม่มีงานหรือบิลค้างสำหรับวันนี้'
-            : `${p.today.length} งานวันนี้ · ${p.bills.length} บิลใกล้ครบกำหนด`
-        }
+        preview={empty ? c.digestPreviewEmpty : c.digestPreview(p.today.length, p.bills.length)}
         settingsUrl={p.settingsUrl}
         unsubscribeUrl={p.unsubscribeUrl}
+        lang={p.lang}
       >
-        <Heading>อรุณสวัสดิ์ {p.name}</Heading>
+        <Heading>{c.digestHeading(p.name)}</Heading>
         <Paragraph muted>{p.dateLabel}</Paragraph>
-        {empty ? <Paragraph>วันนี้ไม่มีงานหรือบิลที่ต้องจัดการ</Paragraph> : null}
-        <Group title="เลยกำหนด" items={p.overdue} tone="danger" />
-        <Group title="วันนี้" items={p.today} />
-        <Group title="บิลใกล้ครบกำหนด" items={p.bills} />
-        <PrimaryButton href={p.appUrl}>เปิดหน้าวันนี้</PrimaryButton>
+        {empty ? <Paragraph>{c.digestEmpty}</Paragraph> : null}
+        <Group title={c.digestOverdue} items={p.overdue} tone="danger" />
+        <Group title={c.digestToday} items={p.today} />
+        <Group title={c.digestBills} items={p.bills} />
+        <PrimaryButton href={p.appUrl}>{c.digestButton}</PrimaryButton>
       </Layout>
     );
   },
@@ -151,22 +152,27 @@ export interface WeeklyReviewProps extends Common {
   unsubscribeUrl: string;
 }
 export const weeklyReview = {
-  subject: (p: Pick<WeeklyReviewProps, 'rangeLabel'>) => `สรุปสัปดาห์ ${p.rangeLabel} · NOSION`,
-  Component: (p: WeeklyReviewProps) => (
-    <Layout
-      preview={`ทำเสร็จ ${p.completed} งาน · ใช้จ่าย ${p.spent}`}
-      settingsUrl={p.settingsUrl}
-      unsubscribeUrl={p.unsubscribeUrl}
-    >
-      <Heading>สรุปสัปดาห์ของ {p.name}</Heading>
-      <Paragraph muted>{p.rangeLabel}</Paragraph>
-      <Row label="งานที่ทำเสร็จ" value={`${p.completed} งาน`} />
-      <Row label="งานที่เพิ่มใหม่" value={`${p.created} งาน`} />
-      <Row label="ใช้จ่ายรวม" value={p.spent} />
-      {p.topCategory ? <Row label="หมวดที่ใช้มากที่สุด" value={p.topCategory} /> : null}
-      <PrimaryButton href={p.appUrl}>ดูรายละเอียด</PrimaryButton>
-    </Layout>
-  ),
+  subject: (p: Pick<WeeklyReviewProps, 'rangeLabel' | 'lang'>) =>
+    copyFor(p.lang).weeklySubject(p.rangeLabel),
+  Component: (p: WeeklyReviewProps) => {
+    const c = copyFor(p.lang);
+    return (
+      <Layout
+        preview={c.weeklyPreview(p.completed, p.spent)}
+        settingsUrl={p.settingsUrl}
+        unsubscribeUrl={p.unsubscribeUrl}
+        lang={p.lang}
+      >
+        <Heading>{c.weeklyHeading(p.name)}</Heading>
+        <Paragraph muted>{p.rangeLabel}</Paragraph>
+        <Row label={c.weeklyCompleted} value={c.weeklyTasks(p.completed)} />
+        <Row label={c.weeklyCreated} value={c.weeklyTasks(p.created)} />
+        <Row label={c.weeklySpent} value={p.spent} />
+        {p.topCategory ? <Row label={c.weeklyTopCategory} value={p.topCategory} /> : null}
+        <PrimaryButton href={p.appUrl}>{c.weeklyButton}</PrimaryButton>
+      </Layout>
+    );
+  },
 };
 
 // ── 6. งบใกล้เกิน / เกินแล้ว ───────────────────────────
@@ -181,23 +187,23 @@ export interface BudgetAlertProps extends Common {
   unsubscribeUrl: string;
 }
 export const budgetAlert = {
-  subject: (p: Pick<BudgetAlertProps, 'category' | 'percent'>) =>
-    p.percent >= 100
-      ? `งบ${p.category}เกินแล้ว (${p.percent}%) · NOSION`
-      : `งบ${p.category}ใช้ไป ${p.percent}% แล้ว · NOSION`,
-  Component: (p: BudgetAlertProps) => (
-    <Layout
-      preview={`ใช้ไป ${p.spent} จาก ${p.budget}`}
-      settingsUrl={p.settingsUrl}
-      unsubscribeUrl={p.unsubscribeUrl}
-    >
-      <Heading>{p.percent >= 100 ? `งบ${p.category}เกินแล้ว` : `งบ${p.category}ใกล้เต็ม`}</Heading>
-      <Paragraph>
-        {p.name} ใช้ไป {p.spent} จากงบ {p.budget} ({p.percent}%)
-      </Paragraph>
-      <PrimaryButton href={p.appUrl}>ดูหน้าการเงิน</PrimaryButton>
-    </Layout>
-  ),
+  subject: (p: Pick<BudgetAlertProps, 'category' | 'percent' | 'lang'>) =>
+    copyFor(p.lang).budgetSubject(p.category, p.percent),
+  Component: (p: BudgetAlertProps) => {
+    const c = copyFor(p.lang);
+    return (
+      <Layout
+        preview={c.budgetPreview(p.spent, p.budget)}
+        settingsUrl={p.settingsUrl}
+        unsubscribeUrl={p.unsubscribeUrl}
+        lang={p.lang}
+      >
+        <Heading>{c.budgetHeading(p.category, p.percent >= 100)}</Heading>
+        <Paragraph>{c.budgetBody(p.name, p.spent, p.budget, p.percent)}</Paragraph>
+        <PrimaryButton href={p.appUrl}>{c.budgetButton}</PrimaryButton>
+      </Layout>
+    );
+  },
 };
 
 // ── 7. การเตือน (ช่องทาง email) ───────────────────────
@@ -209,14 +215,15 @@ export interface ReminderEmailProps extends Common {
 }
 export const reminderEmail = {
   subject: (p: Pick<ReminderEmailProps, 'title' | 'body'>) => `${p.title} — ${p.body}`,
-  Component: (p: ReminderEmailProps) => (
-    <Layout preview={p.body} settingsUrl={p.settingsUrl}>
-      <Heading>{p.title}</Heading>
-      <Paragraph>{p.body}</Paragraph>
-      <PrimaryButton href={p.openUrl}>เปิดใน NOSION</PrimaryButton>
-      <Paragraph muted>
-        คุณได้รับอีเมลนี้เพราะตั้งเตือนรายการนี้ทางอีเมลไว้ — ยกเลิกการเตือนได้ในแอป
-      </Paragraph>
-    </Layout>
-  ),
+  Component: (p: ReminderEmailProps) => {
+    const c = copyFor(p.lang);
+    return (
+      <Layout preview={p.body} settingsUrl={p.settingsUrl} lang={p.lang}>
+        <Heading>{p.title}</Heading>
+        <Paragraph>{p.body}</Paragraph>
+        <PrimaryButton href={p.openUrl}>{c.reminderButton}</PrimaryButton>
+        <Paragraph muted>{c.reminderFooter}</Paragraph>
+      </Layout>
+    );
+  },
 };

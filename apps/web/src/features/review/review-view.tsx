@@ -11,13 +11,15 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MODULE_ICON } from '@/features/calendar/views';
 import { apiFetch, toQuery } from '@/lib/api-client';
+import { moduleLabel } from '@/i18n/current';
+import { currentLocale, dateFormat, tr } from '@/i18n/current';
 
-const TH_MONTH = new Intl.DateTimeFormat('th-TH', {
-  timeZone: 'UTC',
-  day: 'numeric',
-  month: 'short',
-});
-const label = (ymd: string) => TH_MONTH.format(new Date(`${ymd}T00:00:00Z`));
+const label = (ymd: string) =>
+  dateFormat({
+    timeZone: 'UTC',
+    day: 'numeric',
+    month: 'short',
+  }).format(new Date(`${ymd}T00:00:00Z`));
 
 /**
  * หน้าสรุปรายสัปดาห์ (สเปก 8.1 `/review` · Phase 6) — ทุกการ์ดมาจาก `summarizeWeek()` ของโมดูลที่เปิด
@@ -42,10 +44,15 @@ export function ReviewView() {
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-[28px] font-semibold leading-tight md:text-[34px]">
-            สรุปสัปดาห์{' '}
-            <span className="font-normal text-fg-secondary" lang="en">
-              (Review)
-            </span>
+            {tr('review.title')}
+            {currentLocale() === 'th' ? (
+              <>
+                {' '}
+                <span className="font-normal text-fg-secondary" lang="en">
+                  (Review)
+                </span>
+              </>
+            ) : null}
           </h1>
           <p className="mt-1 text-sm text-fg-secondary">
             {data ? (
@@ -54,7 +61,7 @@ export function ReviewView() {
                 {label(data.to)}
               </>
             ) : (
-              'กำลังโหลด…'
+              tr('review.loading')
             )}
           </p>
         </div>
@@ -63,7 +70,7 @@ export function ReviewView() {
             <Button
               variant="ghost"
               size="icon-sm"
-              aria-label="สัปดาห์ก่อน"
+              aria-label={tr('review.prev')}
               onClick={() => go(data.previousWeek)}
             >
               <ChevronLeft size={16} aria-hidden="true" />
@@ -74,12 +81,12 @@ export function ReviewView() {
               shape="pill"
               onClick={() => router.replace(pathname, { scroll: false })}
             >
-              สัปดาห์นี้
+              {tr('review.thisWeek')}
             </Button>
             <Button
               variant="ghost"
               size="icon-sm"
-              aria-label="สัปดาห์ถัดไป"
+              aria-label={tr('review.next')}
               onClick={() => go(data.nextWeek)}
             >
               <ChevronRight size={16} aria-hidden="true" />
@@ -90,7 +97,7 @@ export function ReviewView() {
 
       {query.isError && !data ? (
         <Card>
-          <ErrorState message="โหลดสรุปสัปดาห์ไม่สำเร็จ" onRetry={() => void query.refetch()} />
+          <ErrorState message={tr('review.loadFailed')} onRetry={() => void query.refetch()} />
         </Card>
       ) : !data ? (
         <div className="grid gap-4 md:grid-cols-2">
@@ -124,7 +131,7 @@ export function ReviewView() {
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-sm text-fg-secondary">ไม่มีไฮไลต์ในสัปดาห์นี้</p>
+                    <p className="text-sm text-fg-secondary">{tr('review.noHighlights')}</p>
                   )}
                 </CardContent>
               </Card>
@@ -133,7 +140,9 @@ export function ReviewView() {
           {data.failedModules.length ? (
             <Card>
               <ErrorState
-                message={`สรุปของ ${data.failedModules.map((m) => MODULE_THEME[m].label).join(', ')} ไม่สำเร็จ`}
+                message={tr('review.partialFailed', {
+                  modules: data.failedModules.map((m) => moduleLabel(m)).join(', '),
+                })}
                 onRetry={() => void query.refetch()}
               />
             </Card>

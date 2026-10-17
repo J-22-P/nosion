@@ -4,9 +4,10 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button, type ButtonProps } from '@/components/ui/button';
-import { ApiError } from '@/lib/api-client';
 import { authApi } from './api';
 import { useAuthStore } from './auth-store';
+import { useTranslations } from 'next-intl';
+import { useApiErrorText } from '@/i18n/errors';
 
 /** เข้าใช้ได้ใน 1 คลิกโดยไม่ต้องสมัคร — จุดที่ทำให้คนกดดูจริงแทนที่จะปิดหน้าไป */
 export function DemoButton({
@@ -16,6 +17,8 @@ export function DemoButton({
   const router = useRouter();
   const setSession = useAuthStore((s) => s.setSession);
   const [pending, setPending] = useState(false);
+  const t = useTranslations('auth');
+  const apiErrorText = useApiErrorText();
 
   async function start() {
     setPending(true);
@@ -24,8 +27,8 @@ export function DemoButton({
       setSession(res.accessToken, res.user);
       router.push('/tasks');
     } catch (error) {
-      toast.error('เริ่มบัญชีทดลองไม่สำเร็จ', {
-        description: error instanceof ApiError ? error.message : 'ลองใหม่อีกครั้งในอีกสักครู่',
+      toast.error(t('demoFailed'), {
+        description: apiErrorText(error) ?? t('demoRetryLater'),
       });
     } finally {
       setPending(false);
@@ -34,7 +37,7 @@ export function DemoButton({
 
   return (
     <Button size="lg" variant={variant} className={className} onClick={start} disabled={pending}>
-      {pending ? 'กำลังเตรียมข้อมูล…' : 'ลองใช้ทันที ไม่ต้องสมัคร'}
+      {pending ? t('demoPreparing') : t('demoStart')}
     </Button>
   );
 }

@@ -103,6 +103,7 @@ model User {
   verificationTokens VerificationToken[]
   focusSessions      FocusSession[]
   syncOps            SyncOp[]
+  githubIntegration  GitHubIntegration?
 
   @@index([email])
   @@index([isDemo, expiresAt])
@@ -116,6 +117,8 @@ model UserSettings {
 
   timezone     String @default("Asia/Bangkok")
   locale       String @default("th")
+  /// แสดงปีเป็นพุทธศักราช (สเปก 8.9 `th-u-ca-buddhist`) — มีผลเฉพาะภาษาไทย · ค่าเริ่มต้นเหมือน Intl `th-TH`
+  buddhistEra  Boolean @default(true)
   currency     String @default("THB")
   weekStartsOn Int    @default(1)
   theme        String @default("system")
@@ -191,15 +194,25 @@ model VerificationToken {
   @@map("verification_tokens")
 }
 
+/// บัญชีภายนอกที่ผูกไว้ (Google · GitHub) — ใช้เข้าสู่ระบบ และ (GitHub) ดึง issue ลงปฏิทิน
 model OAuthAccount {
   id             String   @id @default(cuid(2))
   userId         String
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   provider       String
   providerUserId String
+  /// ชื่อที่ผู้ใช้จำได้ (อีเมลของ Google · username ของ GitHub) — แสดงในหน้าตั้งค่า
+  login          String?
+  /// access token ของผู้ให้บริการ เข้ารหัส AES-256-GCM ด้วย ENCRYPTION_KEY — null = ไม่เก็บ (Google ใช้แค่ยืนยันตัวตน)
+  accessTokenEnc String?
+  /// scope ที่ผู้ใช้อนุญาตจริง (คั่นด้วยช่องว่าง) — GitHub บอกใน response ของการแลก token
+  scopes         String?
   createdAt      DateTime @default(now())
+  updatedAt      DateTime @default(now()) @updatedAt
 
   @@unique([provider, providerUserId])
+  /// ผู้ใช้หนึ่งคนผูกผู้ให้บริการเดียวกันได้บัญชีเดียว
+  @@unique([userId, provider])
   @@map("oauth_accounts")
 }
 
@@ -218,6 +231,30 @@ model ApiKey {
 
   @@index([userId])
   @@map("api_keys")
+}
+
+/// สถานะการเชื่อม GitHub ต่อผู้ใช้ (Phase 8 ขั้น 5) — การดึง issue + webhook
+/// token อยู่ที่ OAuthAccount · ตารางนี้เก็บแค่ของที่เป็นของ "การเชื่อม" ไม่ใช่ของ "การล็อกอิน"
+model GitHubIntegration {
+  /// อยู่ใน URL ของ webhook (`/webhooks/github/:id`) — สุ่มเดาไม่ได้ แต่ไม่ใช่ความลับ (ความลับคือ secret ที่ใช้เซ็น)
+  id     String @id @default(cuid(2))
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// secret ของ webhook เข้ารหัส AES-256-GCM — ต้องอ่านกลับได้เพื่อตรวจ HMAC ทุกครั้งที่ GitHub ส่งมา
+  webhookSecretEnc String?
+  lastDeliveryAt   DateTime?
+
+  lastSyncAt    DateTime?
+  lastSyncCount Int?
+  /// ข้อความ error ของการดึงครั้งล่าสุด (token ถูกเพิกถอน ฯลฯ) — null = สำเร็จ
+  lastSyncError String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([lastSyncAt])
+  @@map("github_integrations")
 }
 
 model PushSubscription {

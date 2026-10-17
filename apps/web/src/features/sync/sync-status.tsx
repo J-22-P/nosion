@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { useConflictStore } from './conflict-dialog';
 import { syncedAgo } from './connection';
 import { syncNow, useConnection } from './use-sync';
+import { useTranslations } from 'next-intl';
 
 const DOT = {
   online: 'bg-success',
@@ -26,6 +27,7 @@ export function SyncStatus({ appVersion }: { appVersion: string }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelId = useId();
+  const t = useTranslations('syncUi');
 
   useEffect(() => {
     if (!open) return;
@@ -65,7 +67,7 @@ export function SyncStatus({ appVersion }: { appVersion: string }) {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-controls={panelId}
-        aria-label={`สถานะการซิงก์: ${c.label}`}
+        aria-label={t('statusOf', { label: c.label })}
         className={cn(
           'inline-flex h-7 items-center gap-2 rounded-chip border border-hairline bg-wash px-3 text-xs font-medium transition-colors hover:bg-wash-active focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]',
           c.status === 'offline'
@@ -85,20 +87,20 @@ export function SyncStatus({ appVersion }: { appVersion: string }) {
         <div
           id={panelId}
           role="region"
-          aria-label="สถานะการซิงก์"
+          aria-label={t('statusRegion')}
           className="absolute bottom-full left-0 z-30 mb-2 w-64 space-y-3 rounded-panel border border-hairline bg-surface p-4 text-sm shadow-float"
         >
           <dl className="space-y-1.5 text-xs">
             <div className="flex justify-between gap-3">
-              <dt className="text-fg-secondary">สถานะ</dt>
-              <dd>{c.online ? (c.pending ? c.label : 'เชื่อมต่อแล้ว') : 'ออฟไลน์'}</dd>
+              <dt className="text-fg-secondary">{t('status')}</dt>
+              <dd>{c.online ? (c.pending ? c.label : t('connected')) : t('offline')}</dd>
             </div>
             <div className="flex justify-between gap-3">
-              <dt className="text-fg-secondary">รอซิงก์</dt>
-              <dd className="font-mono">{c.pending} รายการ</dd>
+              <dt className="text-fg-secondary">{t('waiting')}</dt>
+              <dd className="font-mono">{t('waitingCount', { count: c.pending })}</dd>
             </div>
             <div className="flex justify-between gap-3">
-              <dt className="text-fg-secondary">ซิงก์ล่าสุด</dt>
+              <dt className="text-fg-secondary">{t('lastSync')}</dt>
               <dd>{ago ?? '—'}</dd>
             </div>
             {c.lastError ? <p className="text-danger">{c.lastError}</p> : null}
@@ -110,7 +112,7 @@ export function SyncStatus({ appVersion }: { appVersion: string }) {
             disabled={!c.online || busy}
           >
             <RefreshCw size={14} aria-hidden="true" className={cn(busy && 'animate-spin')} />
-            ซิงก์เดี๋ยวนี้
+            {t('syncNow')}
           </Button>
           {conflicts ? (
             <Button
@@ -122,7 +124,7 @@ export function SyncStatus({ appVersion }: { appVersion: string }) {
                 useConflictStore.getState().show();
               }}
             >
-              ดูรายการที่แก้ชน ({conflicts})
+              {t('viewConflicts', { count: conflicts })}
             </Button>
           ) : null}
         </div>

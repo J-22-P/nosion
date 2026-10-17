@@ -133,6 +133,50 @@ export async function mockApi(page: Page, options: { authenticated?: boolean } =
     if (method === 'PATCH' && path === '/me/settings') {
       return json({ ...SETTINGS, ...(route.request().postDataJSON() as object) });
     }
+    // บัญชีใน mock ใช้งานมานานแล้ว — ทำครบทุกขั้น การ์ด "เริ่มต้นใช้งาน" จึงไม่แสดง (ภาพ baseline ของ Today ไม่เปลี่ยน)
+    if (method === 'GET' && path === '/me/onboarding') {
+      return json({ task: true, expense: true, habit: true, push: true });
+    }
+    if (method === 'GET' && path === '/auth/oauth/providers') {
+      return json({ google: true, github: true });
+    }
+    if (method === 'GET' && path === '/me/oauth-accounts') {
+      return json({
+        hasPassword: true,
+        accounts: [
+          {
+            provider: 'google',
+            login: 'jay@example.com',
+            scopes: [],
+            createdAt: '2026-10-01T02:00:00.000Z',
+          },
+        ],
+      });
+    }
+    if (method === 'GET' && path === '/integrations/github') {
+      return json({
+        connected: false,
+        login: null,
+        privateRepos: false,
+        lastSyncAt: null,
+        lastSyncCount: null,
+        lastSyncError: null,
+        webhook: { url: null, configured: false, lastDeliveryAt: null },
+      });
+    }
+    if (method === 'GET' && path === '/me/api-keys') {
+      return json([
+        {
+          id: 'key-1',
+          name: 'สคริปต์สรุปรายจ่าย',
+          keyPrefix: 'nos_Ab12Cd34',
+          scopes: ['read'],
+          lastUsedAt: '2026-10-15T02:00:00.000Z',
+          expiresAt: null,
+          createdAt: '2026-10-01T02:00:00.000Z',
+        },
+      ]);
+    }
     if (method === 'GET' && path === '/push/config')
       return json({ publicKey: 'BTestVapidPublicKey' });
     if (method === 'POST' && path === '/recurrence-rules/materialize') {

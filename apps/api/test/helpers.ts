@@ -20,7 +20,7 @@ export interface TestContext {
 export async function createTestApp(): Promise<TestContext> {
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
 
-  const app = moduleRef.createNestApplication();
+  const app = moduleRef.createNestApplication({ rawBody: true });
   app.setGlobalPrefix('api/v1', { exclude: ['healthz', 'readyz', 'metrics'] });
   app.use(cookieParser());
   app.useGlobalFilters(new ProblemDetailsFilter());

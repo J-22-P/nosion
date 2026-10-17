@@ -4,6 +4,7 @@ import {
   updateProfileSchema,
   updateSettingsSchema,
   type AuthUserDto,
+  type OnboardingDto,
   type UpdateSettingsInput,
 } from '@nosion/contracts';
 import { CurrentUser, DemoForbidden } from '../common/decorators';
@@ -18,6 +19,12 @@ export class UsersController {
   @Get()
   async me(@CurrentUser('userId') userId: string): Promise<MeResponse> {
     return this.users.me(userId);
+  }
+
+  /** การ์ด "เริ่มต้นใช้งาน" ของบัญชีใหม่ — ทำครบแล้วการ์ดหายเอง */
+  @Get('onboarding')
+  async onboarding(@CurrentUser('userId') userId: string): Promise<OnboardingDto> {
+    return this.users.onboarding(userId);
   }
 
   @Patch()

@@ -25,6 +25,8 @@ const clockTime = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'เวลาต
 export const updateSettingsSchema = z.object({
   timezone: z.string().max(64).optional(),
   locale: z.enum(['th', 'en']).optional(),
+  /** ปีพุทธศักราช — มีผลเฉพาะภาษาไทย */
+  buddhistEra: z.boolean().optional(),
   currency: z.string().length(3).optional(),
   weekStartsOn: z.number().int().min(0).max(6).optional(),
   theme: z.enum(['light', 'dark', 'system']).optional(),
@@ -59,4 +61,14 @@ export interface TagDto {
   id: string;
   name: string;
   color: string;
+}
+
+/** ขั้นเริ่มต้นใช้งานของบัญชีใหม่ (Phase 8 ขั้น 8) — การ์ด "เริ่มต้นใช้งาน" ในหน้า Today */
+export interface OnboardingDto {
+  /** มีงานอย่างน้อย 1 ชิ้น (รวมที่ทำเสร็จแล้ว) */
+  task: boolean;
+  expense: boolean;
+  habit: boolean;
+  /** เปิดการแจ้งเตือนบนอุปกรณ์ใดอุปกรณ์หนึ่งแล้ว */
+  push: boolean;
 }

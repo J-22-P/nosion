@@ -51,6 +51,15 @@ export const envSchema = z.object({
     .min(32, 'NOTIFICATION_ACTION_SECRET ต้องยาวอย่างน้อย 32 ตัว')
     .optional(),
 
+  /**
+   * เข้าสู่ระบบด้วย Google / GitHub (Phase 8) — ตั้งทั้ง id และ secret ถึงจะเปิด · ไม่ตั้ง = ซ่อนปุ่มของผู้ให้บริการนั้น
+   * redirect URI ที่ต้องลงทะเบียนกับผู้ให้บริการ: `${API_URL}/api/v1/auth/oauth/<google|github>/callback`
+   */
+  GOOGLE_CLIENT_ID: z.string().min(1).optional(),
+  GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
+  GITHUB_CLIENT_ID: z.string().min(1).optional(),
+  GITHUB_CLIENT_SECRET: z.string().min(1).optional(),
+
   ENABLE_DEMO_ACCOUNT: z
     .string()
     .default('true')

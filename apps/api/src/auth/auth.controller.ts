@@ -184,16 +184,21 @@ export class AuthController {
   }
 
   private cookieOptions(expires: Date): CookieOptions {
-    return {
-      httpOnly: true,
-      secure: this.config.NODE_ENV === 'production',
-      sameSite: 'strict',
-      path: REFRESH_COOKIE_PATH,
-      expires,
-    };
+    return refreshCookieOptions(this.config, expires);
   }
 }
 
-function metaFrom(req: Request) {
+/** คุกกี้ refresh token — ใช้ทั้งการล็อกอินด้วยรหัสผ่านและ OAuth (oauth.controller.ts) */
+export function refreshCookieOptions(config: AppConfig, expires: Date): CookieOptions {
+  return {
+    httpOnly: true,
+    secure: config.NODE_ENV === 'production',
+    sameSite: 'strict',
+    path: REFRESH_COOKIE_PATH,
+    expires,
+  };
+}
+
+export function metaFrom(req: Request) {
   return { userAgent: req.header('user-agent'), ip: req.ip };
 }
