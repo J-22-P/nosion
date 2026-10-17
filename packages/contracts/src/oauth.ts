@@ -41,9 +41,21 @@ export const OAUTH_ERRORS = [
   'denied',
   'state_mismatch',
   'exchange_failed',
+  'provider_misconfigured',
   'email_unverified',
   'email_conflict',
   'already_linked',
   'account_unavailable',
 ] as const;
 export type OAuthErrorCode = (typeof OAUTH_ERRORS)[number];
+
+/**
+ * รหัสจากผู้ให้บริการที่แปลว่า "เซิร์ฟเวอร์ตั้งค่าผิด" ไม่ใช่ปัญหาชั่วคราว — client secret ผิด · callback URL ไม่ตรง
+ * ส่งกลับทาง `?oauth_reason=` ด้วย (เป็นรหัสมาตรฐานของ OAuth ไม่ใช่ความลับ) ให้คนตั้งค่าเห็นว่าต้องแก้อะไร
+ */
+export const OAUTH_MISCONFIGURED_REASONS = [
+  'incorrect_client_credentials',
+  'invalid_client',
+  'unauthorized_client',
+  'redirect_uri_mismatch',
+] as const;

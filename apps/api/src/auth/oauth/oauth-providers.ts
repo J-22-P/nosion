@@ -27,7 +27,11 @@ export interface OAuthProfile {
 }
 
 export class OAuthExchangeError extends Error {
-  constructor(message: string) {
+  constructor(
+    message: string,
+    /** รหัสสั้นสำหรับส่งกลับเว็บ: error ของผู้ให้บริการ (`incorrect_client_credentials`) · `http_403` · `network` */
+    readonly reason: string,
+  ) {
     super(message);
     this.name = 'OAuthExchangeError';
   }
@@ -101,7 +105,12 @@ async function googleProfile(
       redirect_uri: params.redirectUri,
     },
   );
-  if (!token.access_token) throw new OAuthExchangeError(`google token: ${token.error ?? 'ไม่มี'}`);
+  if (!token.access_token) {
+    throw new OAuthExchangeError(
+      `google token: ${token.error ?? 'ไม่มี'}`,
+      token.error ?? 'no_token',
+    );
+  }
 
   const info = await getJson<{
     sub: string;
@@ -139,7 +148,12 @@ async function githubProfile(
     },
   );
   // GitHub ตอบ 200 แม้ code ผิด — error อยู่ใน body
-  if (!token.access_token) throw new OAuthExchangeError(`github token: ${token.error ?? 'ไม่มี'}`);
+  if (!token.access_token) {
+    throw new OAuthExchangeError(
+      `github token: ${token.error ?? 'ไม่มี'}`,
+      token.error ?? 'no_token',
+    );
+  }
 
   const [user, emails] = await Promise.all([
     getJson<{ id: number; login: string; name: string | null; avatar_url: string | null }>(
@@ -184,7 +198,12 @@ async function postForm<T>(url: string, body: Record<string, string>): Promise<T
     signal: AbortSignal.timeout(8_000),
   });
   const json = (await res.json().catch(() => ({}))) as T & { error?: string };
-  if (!res.ok) throw new OAuthExchangeError(`${url} ตอบ ${res.status} ${json.error ?? ''}`);
+  if (!res.ok) {
+    throw new OAuthExchangeError(
+      `${url} ตอบ ${res.status} ${json.error ?? ''}`,
+      json.error ?? `http_${res.status}`,
+    );
+  }
   return json;
 }
 
@@ -197,6 +216,6 @@ async function getJson<T>(url: string, accessToken: string): Promise<T> {
     },
     signal: AbortSignal.timeout(8_000),
   });
-  if (!res.ok) throw new OAuthExchangeError(`${url} ตอบ ${res.status}`);
+  if (!res.ok) throw new OAuthExchangeError(`${url} ตอบ ${res.status}`, `http_${res.status}`);
   return (await res.json()) as T;
 }
