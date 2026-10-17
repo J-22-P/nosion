@@ -149,6 +149,17 @@ export async function mockApi(page: Page, options: { authenticated?: boolean } =
         ],
       });
     }
+    if (method === 'GET' && path === '/integrations/github') {
+      return json({
+        connected: false,
+        login: null,
+        privateRepos: false,
+        lastSyncAt: null,
+        lastSyncCount: null,
+        lastSyncError: null,
+        webhook: { url: null, configured: false, lastDeliveryAt: null },
+      });
+    }
     if (method === 'GET' && path === '/me/api-keys') {
       return json([
         {

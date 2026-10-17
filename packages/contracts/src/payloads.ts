@@ -23,6 +23,12 @@ export const taskPayloadSchema = z.object({
       prNumber: z.number().int().positive().nullable(),
       /** ปิด task อัตโนมัติเมื่อ PR merged */
       autoCloseOnMerge: z.boolean().default(true),
+      /** ลิงก์ไปหน้า issue/PR บน GitHub (มีเมื่อดึงมาจาก GitHub · Phase 8) */
+      url: z.string().url().max(500).nullable().default(null),
+      /** วันกำหนดจาก milestone ที่ซิงก์ครั้งล่าสุด — วันเปลี่ยนบน GitHub ถึงจะเขียนทับวันที่ผู้ใช้ตั้งเอง */
+      milestoneDueOn: z.string().max(40).nullable().default(null),
+      /** สถานะบน GitHub ที่ซิงก์ครั้งล่าสุด — ปิด/เปิดงานตาม "การเปลี่ยน" บน GitHub ไม่ทับที่ผู้ใช้ติ๊กเอง */
+      state: z.enum(['open', 'closed']).nullable().default(null),
     })
     .nullable()
     .default(null),

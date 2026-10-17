@@ -38,6 +38,7 @@ import { TokenService } from './token.service';
   exports: [
     AuthService,
     ApiKeysService,
+    OAuthService,
     TokenService,
     SessionRevocationService,
     JwtAuthGuard,

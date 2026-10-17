@@ -1,11 +1,13 @@
 'use client';
 
-import { taskPayloadSchema, type EntryDto, type TaskPayload } from '@nosion/contracts';
+import { nosionRef, taskPayloadSchema, type EntryDto, type TaskPayload } from '@nosion/contracts';
 import {
   AlertTriangle,
   CalendarClock,
   CalendarPlus,
+  CircleDot,
   GitBranch,
+  Link2,
   GitPullRequest,
   History,
   MoreHorizontal,
@@ -16,12 +18,14 @@ import {
   Zap,
 } from 'lucide-react';
 import { memo } from 'react';
+import { toast } from 'sonner';
 import { cn } from '@nosion/ui';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Menu } from '@/components/ui/menu';
 import { Progress } from '@/components/ui/progress';
+import { copyText } from '@/features/today/use-today';
 import { formatDueDate, isOverdueDate, PRIORITY_TONE } from '@/lib/format';
 import { PRIORITY_BY_DIGIT } from '@/lib/shortcuts/keymap';
 
@@ -194,12 +198,7 @@ export const TaskCard = memo(function TaskCard({
               {payload.branchName}
             </Badge>
           ) : null}
-          {payload?.github?.prNumber ? (
-            <Badge tone="outline" mono>
-              <GitPullRequest aria-hidden="true" />
-              PR #{payload.github.prNumber}
-            </Badge>
-          ) : null}
+          {payload?.github ? <GitHubBadge github={payload.github} /> : null}
           {payload?.github?.autoCloseOnMerge ? (
             <Badge tone="outline" lang="en">
               <Zap aria-hidden="true" />
@@ -277,6 +276,20 @@ export const TaskCard = memo(function TaskCard({
                     onSelect: () => onDefer('next-week'),
                   },
                 ]),
+            {
+              // ใส่ในชื่อ/คำอธิบาย PR → PR merged แล้วงานนี้ปิดเอง (Phase 8 ขั้น 5)
+              label: 'คัดลอกรหัสอ้างอิงสำหรับ PR',
+              icon: <Link2 />,
+              onSelect: () => {
+                void copyText(nosionRef(entry.id)).then((ok) =>
+                  ok
+                    ? toast.success('คัดลอกแล้ว', {
+                        description: `ใส่ ${nosionRef(entry.id)} ใน PR — merge แล้วงานนี้ปิดเอง`,
+                      })
+                    : toast.error('คัดลอกไม่ได้'),
+                );
+              },
+            },
             { label: 'ลบงาน', icon: <Trash2 />, tone: 'danger' as const, onSelect: onDelete },
           ]}
         />
@@ -284,3 +297,41 @@ export const TaskCard = memo(function TaskCard({
     </li>
   );
 });
+
+/**
+ * ป้าย issue/PR ของ GitHub — งานที่ดึงมาจาก GitHub มีลิงก์ (Phase 8 ขั้น 5) กดแล้วเปิดหน้า GitHub
+ * งานเก่าที่ใส่แค่เลข PR เอง (ไม่มีลิงก์) แสดงเป็นป้ายธรรมดาเหมือนเดิม
+ */
+function GitHubBadge({ github }: { github: NonNullable<TaskPayload['github']> }) {
+  const number = github.prNumber ?? github.issueNumber;
+  if (!number) return null;
+  const Icon = github.prNumber ? GitPullRequest : CircleDot;
+  const text = github.url
+    ? `${github.repo}#${number}`
+    : github.prNumber
+      ? `PR #${number}`
+      : `#${number}`;
+  const content = (
+    <>
+      <Icon aria-hidden="true" />
+      {text}
+    </>
+  );
+  return github.url ? (
+    <a
+      href={github.url}
+      target="_blank"
+      rel="noreferrer"
+      className="rounded-chip focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
+      aria-label={`เปิด ${github.prNumber ? 'PR' : 'issue'} ${text} บน GitHub`}
+    >
+      <Badge tone="outline" mono className="hover:bg-wash">
+        {content}
+      </Badge>
+    </a>
+  ) : (
+    <Badge tone="outline" mono>
+      {content}
+    </Badge>
+  );
+}

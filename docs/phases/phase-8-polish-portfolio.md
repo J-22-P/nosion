@@ -28,7 +28,7 @@
 | 3   | Import CSV / Todoist (preview ก่อนนำเข้า · กันซ้ำ)                      | —         | ⏭ เจ้าของสั่งข้าม (17 ต.ค.) |
 | 4   | API key (สร้าง/เพิกถอน · scope) + Public API ใน Swagger                 | `400f307` | ✅                          |
 | 4b  | เข้าสู่ระบบด้วย Google / GitHub (OAuth · ผูกบัญชีเดิม)                  | `1800855` | ✅                          |
-| 5   | GitHub: webhook PR merged → ปิดงาน (ตรวจลายเซ็น) + ดึง issue ลงปฏิทิน   | —         | ⬜                          |
+| 5   | GitHub: webhook PR merged → ปิดงาน (ตรวจลายเซ็น) + ดึง issue ลงปฏิทิน   | —         | ✅                          |
 | 6   | i18n: dictionary ไทย/อังกฤษ · สลับภาษาในตั้งค่า · วันที่/เงินตาม locale | —         | ⬜                          |
 | 7   | `deploy-production.yml` จาก tag + rollback                              | —         | ⬜                          |
 | 8   | ให้คนที่ไม่ใช่ dev ใช้เองได้: onboarding/empty state · README + diagram | —         | ⬜                          |
@@ -252,5 +252,52 @@ schema ของ body ใน Swagger ยังว่าง (validate ด้ว�
 
 - ⚠️ **ยังไม่ได้ลองกับ Google/GitHub ตัวจริง** — ต้องให้เจ้าของสร้าง OAuth app แล้วใส่ค่าบน Vercel (คู่มือหัวข้อ 7)
 - ภาพ baseline ของหน้า `/login` (4 ภาพ) เปลี่ยน → รัน workflow **Update visual baselines** หลัง push ไม่งั้น job visual ใน CI แดง
+
+📚 บท learn 21 (ขั้น 9)
+
+## ขั้น 5 · GitHub: ดึง issue ลงปฏิทิน + webhook ปิดงานเมื่อ PR merged — branch `feature/github-integration`
+
+**เป้าหมาย:** สเปก "GitHub integration (webhook ปิด task เมื่อ PR merged)" + เจ้าของขอเพิ่ม (17 ต.ค.): **ล็อกอินด้วย GitHub แล้วดึงงานจาก GitHub ลงปฏิทิน**
+
+**สิ่งที่เปลี่ยน**
+
+- migration `20261017120000_github_integrations` — ตาราง `github_integrations` (secret ของ webhook เข้ารหัส · สถานะการดึงล่าสุด) ·
+  payload ของ task เพิ่ม `github.url` · `github.milestoneDueOn` · `github.state` (มีค่าเริ่มต้น — payload เก่ายัง parse ได้)
+- 📁 `apps/api/src/integrations/github/issue-plan.ts` — ฟังก์ชันบริสุทธิ์ "issue หนึ่งตัวต้องทำอะไรกับงาน" (สร้าง/แก้/ปิด/ข้าม)
+- 📁 `github.service.ts` — `GET https://api.github.com/issues?filter=assigned` (ครั้งแรก: เปิดอยู่ · ครั้งต่อไป: ทุกสถานะ `since` รอบก่อน − 1 ชม.) ·
+  งานอยู่ในโปรเจกต์ **GitHub** · `clientId = gh:<node_id>` (unique ต่อผู้ใช้ — ดึงกับ webhook มาพร้อมกันก็ไม่ซ้ำ) · ผ่าน `EntriesService` ตัวเดียวกับแอป
+  (event/การเตือน/optimistic concurrency ครบ)
+- `GET /integrations/github` · `POST /integrations/github/sync` · `POST/DELETE /integrations/github/webhook` ·
+  `POST /webhooks/github/:id` (ตรวจ `X-Hub-Signature-256` จาก **body ดิบ** — แอปสร้างด้วย `rawBody: true`) · `GET /internal/cron/github` (รายชั่วโมง)
+- เชื่อม GitHub สำเร็จ → event `oauth.github.connected` → ดึงรอบแรกทันที (รอไม่เกิน 3 วิก่อน redirect)
+- เว็บ: การ์ด **GitHub → งานและปฏิทิน** (สถานะ · ดึงตอนนี้ · เปิด webhook แสดง URL + secret ครั้งเดียว) ·
+  ป้าย `repo#เลข` บนการ์ดงานเป็นลิงก์ไป GitHub · เมนู ⋯ → **คัดลอกรหัสอ้างอิงสำหรับ PR** (`nosion:<id>`)
+
+**การตัดสินใจ**
+
+- **วันในปฏิทินมาจาก milestone** — issue ของ GitHub ไม่มี due date ในตัว · ไม่มี milestone = งานไม่มีกำหนด (ไม่เดาวันให้)
+  (ทางเลือกที่ไม่เอา: Projects v2 date field — ต้อง GraphQL + scope `read:project` เพิ่ม)
+- **GitHub เป็นเจ้าของตาม "การเปลี่ยน" ไม่ใช่ทับทุกครั้ง** — จำ state/milestone ที่ซิงก์ครั้งก่อนไว้ใน payload:
+  ปิด/เปิดงานเมื่อ state บน GitHub เปลี่ยน (ผู้ใช้ติ๊กเสร็จเองไม่ถูกเปิดกลับ) · วันเขียนทับเมื่อ milestone due เปลี่ยน (ผู้ใช้เลื่อนเองไม่ถูกดึงกลับ) ·
+  ผู้ใช้ลบงาน = ไม่สร้างใหม่ · issue ที่ปิดก่อนเคยดึง = ไม่สร้าง
+- **PR merged ปิดงาน 2 ทาง:** `nosion:<id>` ในชื่อ/คำอธิบาย/branch · หรืองานที่ดึงมาจาก PR ตัวนั้นเอง (`autoCloseOnMerge`) ·
+  issue ที่ PR "Closes #n" ปิดผ่าน event `issues.closed` ที่ GitHub ส่งตามมาเอง — ไม่ต้อง parse "Closes" เอง
+- webhook ระดับ repo ส่ง issue ของทุกคน → สนใจเฉพาะที่เคยดึงแล้วหรือ assignee เป็นเจ้าของ webhook ·
+  ลายเซ็นผิด / id มั่ว / ปิด webhook แล้ว = **404 เหมือนกันหมด** (ไม่บอกว่า id ไหนมีจริง) · secret เก็บแบบเข้ารหัส (ต้องอ่านกลับมาคำนวณ HMAC)
+- ไม่เก็บ `X-GitHub-Delivery` กันซ้ำ — ทุกการกระทำ idempotent อยู่แล้ว (ปิดงานที่ปิดแล้ว = ข้าม · upsert ด้วย clientId)
+
+**วิธีตรวจ**
+
+- unit: `issue-plan.spec.ts` (12) · `signature.spec.ts` (2 — รวม test vector จากเอกสาร GitHub) · contracts `github.test.ts` (3)
+- integration `github.int-spec.ts` (9): ดึงครั้งแรก → งานในโปรเจกต์ GitHub + **ขึ้น `GET /calendar` วันที่ 20 ตาม milestone** · ดึงซ้ำไม่ซ้ำ/ปิดตาม/เปลี่ยนชื่อตาม/ใช้ `since` ·
+  ลบแล้วไม่กลับ · webhook: ลายเซ็นผิด 404 · ping · PR merged ปิดงานที่อ้าง **แต่ไม่แตะงานของผู้ใช้อื่น (IDOR)** · PR ที่ดึงมาเองปิด ·
+  issues event สร้าง/ไม่สนของคนอื่น/ปิดตาม · หมุน secret แล้วของเก่าใช้ไม่ได้ · ยังไม่เชื่อม = 409 ·
+  `oauth.int-spec.ts` เพิ่ม: เชื่อม GitHub แล้วดึงรอบแรกทันที
+- API ทั้งชุด: unit 214 · integration 144 · UI (mock API) 60 ผ่าน
+
+**ค้าง**
+
+- ⚠️ ยังไม่ได้ลองกับ GitHub ตัวจริง (ต้องมี OAuth app — ขั้น 4b) · ตั้งงาน `internal/cron/github` รายชั่วโมงบน cron-job.org (คู่มือหัวข้อ 5b)
+- webhook ต้องเปิดทีละ repo — GitHub App (ติดตั้งครั้งเดียวทุก repo + สิทธิ์อ่านอย่างเดียว) ดีกว่าแต่ตั้งค่ายากกว่ามาก · บันทึกไว้ใน ADR (ขั้น 9)
 
 📚 บท learn 21 (ขั้น 9)

@@ -19,6 +19,8 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger,
     bufferLogs: true,
+    // webhook ของ GitHub ตรวจลายเซ็นจากไบต์ดิบ (integrations/github/signature.ts)
+    rawBody: true,
   });
 
   configureApp(app, config);

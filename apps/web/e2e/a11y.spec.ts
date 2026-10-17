@@ -1106,10 +1106,108 @@ test.describe('OAuth · Google / GitHub (Phase 8 ขั้น 4b)', () => {
     await page.goto('/settings');
     await expect(page.getByText('jay@example.com')).toBeVisible({ timeout: 15_000 });
     await page.getByRole('checkbox', { name: 'รวม repo ส่วนตัว' }).click();
-    await page.getByRole('button', { name: 'เชื่อม GitHub' }).click();
+    await page.getByRole('button', { name: 'เชื่อม GitHub', exact: true }).first().click();
     await expect.poll(() => linkBody).toEqual({ includePrivateRepos: true });
     // กลับมาจาก GitHub → แจ้งผลแล้วล้าง query
     await expect(page.getByText('เชื่อม GitHub แล้ว')).toBeVisible();
     await expect(page).toHaveURL(/\/settings$/);
+  });
+});
+
+test.describe('GitHub → งานและปฏิทิน (Phase 8 ขั้น 5)', () => {
+  test('เชื่อมแล้ว: ดึงงานตอนนี้ · เปิด webhook เห็น URL + secret ครั้งเดียว · axe ผ่าน', async ({
+    page,
+  }) => {
+    let synced = false;
+    await page.route('**/api/v1/integrations/github**', async (route) => {
+      const req = route.request();
+      const path = new URL(req.url()).pathname;
+      const json = (body: unknown, status = 200) =>
+        route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+      if (req.method() === 'GET') {
+        return json({
+          connected: true,
+          login: 'octocat',
+          privateRepos: false,
+          lastSyncAt: synced ? '2026-10-17T05:00:00.000Z' : null,
+          lastSyncCount: synced ? 3 : null,
+          lastSyncError: null,
+          webhook: { url: null, configured: false, lastDeliveryAt: null },
+        });
+      }
+      if (path.endsWith('/sync')) {
+        synced = true;
+        return json({ created: 2, updated: 1, completed: 0, unchanged: 4 });
+      }
+      if (path.endsWith('/webhook')) {
+        return json(
+          { url: 'https://nosion.dev/api/v1/webhooks/github/abc123', secret: 'whsec-shown-once' },
+          201,
+        );
+      }
+      return route.fallback();
+    });
+
+    await page.goto('/settings');
+    await expect(page.getByText('octocat')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('ยังไม่เคยดึง')).toBeVisible();
+
+    await page.getByRole('button', { name: 'ดึงงานตอนนี้' }).click();
+    await expect(page.getByText('ดึงจาก GitHub แล้ว 3 รายการ')).toBeVisible();
+
+    await page.getByRole('button', { name: 'เปิด webhook' }).click();
+    await expect(page.getByLabel('Payload URL', { exact: true })).toHaveValue(
+      'https://nosion.dev/api/v1/webhooks/github/abc123',
+    );
+    await expect(page.getByLabel('Secret (แสดงครั้งเดียว)', { exact: true })).toHaveValue(
+      'whsec-shown-once',
+    );
+
+    const results = await new AxeBuilder({ page })
+      .include('section[aria-labelledby="gh-webhook-title"]')
+      .analyze();
+    expect(
+      results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical'),
+    ).toEqual([]);
+  });
+
+  test('งานที่ดึงจาก GitHub: ป้าย repo#เลข เป็นลิงก์ไป GitHub', async ({ page }) => {
+    const [first, ...rest] = ACTIVE_TASKS;
+    const fromGitHub = {
+      ...first!,
+      payload: {
+        ...first!.payload,
+        github: {
+          repo: 'jay/nosion',
+          issueNumber: 42,
+          prNumber: null,
+          autoCloseOnMerge: true,
+          url: 'https://github.com/jay/nosion/issues/42',
+          milestoneDueOn: null,
+          state: 'open',
+        },
+      },
+    };
+    await page.route('**/api/v1/entries?**', async (route) => {
+      const url = new URL(route.request().url());
+      if (
+        url.searchParams.get('status') === 'done' ||
+        url.searchParams.get('module') === 'expense'
+      ) {
+        return route.fallback();
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: [fromGitHub, ...rest],
+          pageInfo: { hasMore: false, nextCursor: null },
+        }),
+      });
+    });
+    await page.goto('/tasks');
+    const link = page.getByRole('link', { name: 'เปิด issue jay/nosion#42 บน GitHub' });
+    await expect(link).toBeVisible({ timeout: 15_000 });
+    await expect(link).toHaveAttribute('href', 'https://github.com/jay/nosion/issues/42');
   });
 });

@@ -27,6 +27,7 @@ interface FakeAccount {
 
 let fake: FakeAccount;
 let lastTokenRequest: URLSearchParams | null = null;
+let issuesFetched = 0;
 const realFetch = globalThis.fetch;
 
 function json(body: unknown, status = 200): Response {
@@ -56,6 +57,10 @@ function fakeFetch(input: string | URL | Request, init?: RequestInit): Promise<R
     return Promise.resolve(
       json({ id: Number(fake.id), login: fake.login ?? 'octo', name: fake.name, avatar_url: null }),
     );
+  }
+  if (url.includes('api.github.com/issues')) {
+    issuesFetched++;
+    return Promise.resolve(json([]));
   }
   if (url.endsWith('api.github.com/user/emails')) {
     return Promise.resolve(
@@ -279,8 +284,11 @@ describe('OAuth: Google / GitHub (Phase 8 ขั้น 4b)', () => {
       login: 'octocat',
       scope: 'read:user,repo,user:email',
     };
+    const fetchedBefore = issuesFetched;
     const res = await callback('github', started);
     expect(res.headers.location).toBe('http://web.test/settings?connected=github');
+    // เชื่อมแล้วดึง issue รอบแรกทันที (integrations/github ฟัง event)
+    expect(issuesFetched).toBe(fetchedBefore + 1);
     // ผูกบัญชีไม่ได้ออก session ใหม่
     expect(refreshCookie(res)).toBeUndefined();
 

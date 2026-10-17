@@ -114,6 +114,7 @@ Vercel Cron แผน Hobby รันได้วันละครั้ง —
 | ---------- | ---------------------------------------------------------------------- | ----------- |
 | การเตือน   | `https://nosion-staging-web.vercel.app/api/v1/internal/cron/reminders` | ทุก 1 นาที  |
 | สรุปรายวัน | `https://nosion-staging-web.vercel.app/api/v1/internal/cron/digest`    | ทุก 15 นาที |
+| ดึง GitHub | `https://nosion-staging-web.vercel.app/api/v1/internal/cron/github`    | ทุก 1 ชม.   |
 
 ตั้งค่าด้วย `bash scripts/vercel-cron-setup.sh` (env ของ project API: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`,
 `NOTIFICATION_ACTION_SECRET`, `MAIL_DRIVER`, `APP_URL` = `API_URL` = โดเมนของเว็บ) · ทดสอบ: `/settings` → เปิดการแจ้งเตือน → "ส่งทดสอบ"
@@ -175,6 +176,8 @@ wizard ทำ 10 ขั้น: ติดตั้ง/ล็อกอิน flyct
 
 - `ENCRYPTION_KEY` **ต้องตั้งแล้ว** (หัวข้อ 3) — ใช้เข้ารหัสคุกกี้ state และ token ของ GitHub · เปลี่ยนค่า = token ที่เก็บไว้ถอดไม่ได้ (ผู้ใช้กดเชื่อม GitHub ใหม่)
 - ทดสอบ: เปิด `/login` → "ดำเนินการต่อด้วย Google" → กลับมาที่ `/today` ล็อกอินแล้ว
+- **GitHub → ปฏิทิน (ขั้น 5):** เชื่อมแล้วดึงรอบแรกทันที · ดึงซ้ำทุกชั่วโมงด้วยงาน `internal/cron/github` บน cron-job.org (หัวข้อ 5b) ·
+  webhook ต่อ repo (ไม่บังคับ) ผู้ใช้เปิดเองที่ ตั้งค่า → GitHub → เปิด webhook
 
 ## ปัญหาที่น่าจะเจอ
 

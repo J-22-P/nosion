@@ -103,6 +103,7 @@ model User {
   verificationTokens VerificationToken[]
   focusSessions      FocusSession[]
   syncOps            SyncOp[]
+  githubIntegration  GitHubIntegration?
 
   @@index([email])
   @@index([isDemo, expiresAt])
@@ -228,6 +229,30 @@ model ApiKey {
 
   @@index([userId])
   @@map("api_keys")
+}
+
+/// สถานะการเชื่อม GitHub ต่อผู้ใช้ (Phase 8 ขั้น 5) — การดึง issue + webhook
+/// token อยู่ที่ OAuthAccount · ตารางนี้เก็บแค่ของที่เป็นของ "การเชื่อม" ไม่ใช่ของ "การล็อกอิน"
+model GitHubIntegration {
+  /// อยู่ใน URL ของ webhook (`/webhooks/github/:id`) — สุ่มเดาไม่ได้ แต่ไม่ใช่ความลับ (ความลับคือ secret ที่ใช้เซ็น)
+  id     String @id @default(cuid(2))
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// secret ของ webhook เข้ารหัส AES-256-GCM — ต้องอ่านกลับได้เพื่อตรวจ HMAC ทุกครั้งที่ GitHub ส่งมา
+  webhookSecretEnc String?
+  lastDeliveryAt   DateTime?
+
+  lastSyncAt    DateTime?
+  lastSyncCount Int?
+  /// ข้อความ error ของการดึงครั้งล่าสุด (token ถูกเพิกถอน ฯลฯ) — null = สำเร็จ
+  lastSyncError String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([lastSyncAt])
+  @@map("github_integrations")
 }
 
 model PushSubscription {
