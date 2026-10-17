@@ -27,7 +27,7 @@
 | 2   | Lighthouse CI ทุกหน้าหลัก ≥ 90 ทุกหมวด + แก้ที่ตก                       | `86b7ecb` | ✅                          |
 | 3   | Import CSV / Todoist (preview ก่อนนำเข้า · กันซ้ำ)                      | —         | ⏭ เจ้าของสั่งข้าม (17 ต.ค.) |
 | 4   | API key (สร้าง/เพิกถอน · scope) + Public API ใน Swagger                 | `400f307` | ✅                          |
-| 4b  | เข้าสู่ระบบด้วย Google / GitHub (OAuth · ผูกบัญชีเดิม)                  | —         | ⬜                          |
+| 4b  | เข้าสู่ระบบด้วย Google / GitHub (OAuth · ผูกบัญชีเดิม)                  | `1800855` | ✅                          |
 | 5   | GitHub: webhook PR merged → ปิดงาน (ตรวจลายเซ็น) + ดึง issue ลงปฏิทิน   | —         | ⬜                          |
 | 6   | i18n: dictionary ไทย/อังกฤษ · สลับภาษาในตั้งค่า · วันที่/เงินตาม locale | —         | ⬜                          |
 | 7   | `deploy-production.yml` จาก tag + rollback                              | —         | ⬜                          |
@@ -207,5 +207,50 @@ perf มือถือบน runner แกว่งระหว่าง run �
 
 **ค้าง:** Swagger UI บน Vercel (staging) **ยังไม่ได้ตรวจ** — ตรวจหลัง deploy ว่า `/api/v1/docs/swagger-ui-bundle.js` ได้ 200 ·
 schema ของ body ใน Swagger ยังว่าง (validate ด้วย Zod ไม่ใช่ class DTO) — เอกสารบอกรูปแบบด้วยคำอธิบาย + `packages/contracts`
+
+📚 บท learn 21 (ขั้น 9)
+
+## ขั้น 4b · เข้าสู่ระบบด้วย Google / GitHub — branch `feature/oauth-login`
+
+**เป้าหมาย (เจ้าของสั่ง 17 ต.ค.):** ล็อกอินด้วยบัญชี Google (Gmail) และ GitHub ได้ · GitHub เป็นทางไปสู่การดึงงานลงปฏิทิน (ขั้น 5)
+
+**สิ่งที่เปลี่ยน**
+
+- migration `20261017090000_oauth_accounts` — `oauth_accounts` เพิ่ม `login` · `accessTokenEnc` · `scopes` · `updatedAt` + unique `(userId, provider)`
+  (ตารางมีอยู่แล้วตั้งแต่ Phase 0 แต่ยังไม่เคยใช้ · เพิ่มแบบ nullable ทั้งหมด = backward-compatible)
+- 📁 `apps/api/src/infra/crypto/secret-box.ts` — AES-256-GCM ด้วย `ENCRYPTION_KEY` (ตัวแปรนี้มีตั้งแต่ Phase 0 แต่เพิ่งได้ใช้) · `aad` ผูกค่ากับบริบท
+- 📁 `apps/api/src/auth/oauth/` — Authorization Code + **PKCE (S256)** ทั้งสองเจ้า ·
+  `GET /auth/oauth/providers` · `GET /auth/oauth/:provider` → 302 ไปผู้ให้บริการ · `GET /auth/oauth/:provider/callback` → ตั้ง refresh cookie → 302 `/today` ·
+  `POST /auth/oauth/:provider/link` (ผูกจากหน้าตั้งค่า) · `GET/DELETE /me/oauth-accounts`
+- เว็บ: ปุ่ม "ดำเนินการต่อด้วย Google / GitHub" ใน `/login` `/register` · ข้อความเมื่อ `?oauth_error=` · การ์ด **บัญชีที่เชื่อม** ในตั้งค่า
+  (GitHub เลือก "รวม repo ส่วนตัว" ได้) · คู่มือตั้ง OAuth app: 📁 `docs/deploy/staging-vercel-supabase.md` หัวข้อ 7
+
+**การตัดสินใจ**
+
+- **state + PKCE verifier อยู่ในคุกกี้ที่เข้ารหัส** ไม่ใช่ Redis/memory — serverless ไม่มี memory ร่วม และไม่ให้ flow ล้มเมื่อ Redis ล่ม ·
+  คุกกี้ `SameSite=Lax` (callback มาจากโดเมนของ Google = cross-site · Strict จะไม่ถูกส่งมา) · path `/api/v1/auth/oauth` · อายุ 10 นาที · ใช้ครั้งเดียว
+- **จับคู่บัญชี:** เคยผูก → คนเดิม · อีเมลตรงกับผู้ใช้เดิม → ผูกอัตโนมัติ**เฉพาะเมื่อทั้งสองฝั่งยืนยันอีเมลแล้ว** ·
+  ผู้ใช้เดิมยังไม่ยืนยัน → ปฏิเสธ (`email_conflict`) — กันผู้ร้ายสมัครด้วยอีเมลของเหยื่อทิ้งไว้แล้วรอเหยื่อมาล็อกอินด้วย Google เข้าบัญชีที่ผู้ร้ายรู้รหัสผ่าน ·
+  GitHub ใช้เฉพาะอีเมลหลักที่ **verified**
+- ล็อกอินสำเร็จ **ไม่ส่ง token ทาง URL** — ตั้ง refresh cookie แล้วพาไป `/today` · เว็บขอ access token เองตาม flow เดิม (`useSession`) ·
+  คุกกี้ refresh ยังเป็น `SameSite=Strict` ได้: การ**ตั้ง**คุกกี้ใน response ของ navigation ข้ามไซต์ทำได้ ส่วนการ**ส่ง**ทีหลังเป็น fetch จากหน้าเราเอง
+- ผูกบัญชีจากหน้าตั้งค่าเป็นการเปิดหน้าใหม่ (ไม่มี access token ใน memory ไปด้วย) → API ออก **link intent** เข้ารหัส อายุ 2 นาทีแนบไปกับ URL
+- **scope น้อยที่สุด:** Google `openid email profile` · GitHub ล็อกอิน `read:user user:email` · repo ส่วนตัวต้องติ๊กขอ `repo` เอง (OAuth App ไม่มี scope อ่านอย่างเดียว)
+- เก็บ token เฉพาะ GitHub (เข้ารหัส · aad ผูก id ของแถว — ก๊อป ciphertext ไปแถวอื่นถอดไม่ได้) · Google ใช้แค่ยืนยันตัวตน ไม่เก็บ
+- ผู้ใช้ที่สมัครด้วย OAuth ไม่มีรหัสผ่าน → ยกเลิกการเชื่อมบัญชีสุดท้ายไม่ได้ (409) · ตั้งรหัสผ่านได้ผ่าน "ลืมรหัสผ่าน"
+- ปุ่มแสดงทันทีแล้วซ่อนอันที่ปิด (แทนที่จะรอคำตอบก่อนวาด) — เมื่อเปิดครบไม่มี layout shift
+
+**วิธีตรวจ**
+
+- unit `secret-box.spec.ts` (3) · integration `oauth.int-spec.ts` (10 · ปลอมที่ `fetch` ชั้นนอกสุด ข้างในวิ่งจริงทั้งหมด):
+  URL ของ Google มี PKCE S256 + คุกกี้ Lax ที่อ่าน state ไม่ออก · สมัครใหม่ (ไม่มีรหัสผ่าน · โซนเวลาจากเบราว์เซอร์) → refresh cookie ใช้ได้จริง · เข้าซ้ำไม่สร้างคนใหม่ ·
+  ผูกอัตโนมัติ/ปฏิเสธตามสถานะการยืนยันอีเมล · state ปลอม/ไม่มีคุกกี้/ยกเลิก/code ผิด · ผูก GitHub + `repo` → token เข้ารหัส · ผูกซ้ำข้ามผู้ใช้ไม่ได้ ·
+  ยกเลิกทางเข้าสุดท้ายไม่ได้ · ไม่ได้ตั้งผู้ให้บริการ → ซ่อน + กลับหน้า login
+- API ทั้งชุด: unit 200 · integration 135 · UI (Playwright · mock API): ปุ่ม/ข้อความ error/เติมโซนเวลาตอนกด · การ์ดบัญชีที่เชื่อม · axe `/login` `/register` `/settings` สองธีมผ่าน
+
+**ค้าง**
+
+- ⚠️ **ยังไม่ได้ลองกับ Google/GitHub ตัวจริง** — ต้องให้เจ้าของสร้าง OAuth app แล้วใส่ค่าบน Vercel (คู่มือหัวข้อ 7)
+- ภาพ baseline ของหน้า `/login` (4 ภาพ) เปลี่ยน → รัน workflow **Update visual baselines** หลัง push ไม่งั้น job visual ใน CI แดง
 
 📚 บท learn 21 (ขั้น 9)

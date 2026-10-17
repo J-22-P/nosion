@@ -133,6 +133,12 @@ export class AuthService {
     await seedDemo(this.prisma, userId, buildDemoDataset(new Date(), settings.timezone));
   }
 
+  /** ออก session ให้ผู้ใช้ที่ยืนยันตัวตนด้วยวิธีอื่นแล้ว (OAuth) */
+  async startSession(user: User, meta: RequestMeta): Promise<IssuedTokens & { user: AuthUserDto }> {
+    const issued = await this.issueSession(user, meta);
+    return { ...issued, user: toAuthUser(user) };
+  }
+
   // ── Refresh rotation + reuse detection (สเปกหัวข้อ 9.2) ──
 
   async refresh(rawToken: string, meta: RequestMeta, now = new Date()): Promise<IssuedTokens> {

@@ -133,6 +133,22 @@ export async function mockApi(page: Page, options: { authenticated?: boolean } =
     if (method === 'PATCH' && path === '/me/settings') {
       return json({ ...SETTINGS, ...(route.request().postDataJSON() as object) });
     }
+    if (method === 'GET' && path === '/auth/oauth/providers') {
+      return json({ google: true, github: true });
+    }
+    if (method === 'GET' && path === '/me/oauth-accounts') {
+      return json({
+        hasPassword: true,
+        accounts: [
+          {
+            provider: 'google',
+            login: 'jay@example.com',
+            scopes: [],
+            createdAt: '2026-10-01T02:00:00.000Z',
+          },
+        ],
+      });
+    }
     if (method === 'GET' && path === '/me/api-keys') {
       return json([
         {
