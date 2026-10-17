@@ -11,12 +11,14 @@ import { TaskSidebar, TaskSmartListBar } from './task-sidebar';
 import { useTaskSidebar } from './use-task-queries';
 import { useTaskView, type TaskView } from './use-task-view';
 import { useLocale, useTranslations } from 'next-intl';
+import { useFocusNewOnParam } from '@/lib/shortcuts/use-focus-new';
 
 const VIEWS: TaskView[] = ['list', 'project', 'overdue', 'priority'];
 
 /** หน้า Tasks (สเปก 8.11.2) */
 export function TasksView() {
   const { view, list, q, filters, setView, setList, setQuery } = useTaskView();
+  useFocusNewOnParam();
   const sidebar = useTaskSidebar();
   const pendingCount = sidebar.data?.smartLists.all ?? null;
   const t = useTranslations('tasksView');

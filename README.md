@@ -3,8 +3,11 @@
 ระบบจัดการชีวิตที่ต่อโมดูลเพิ่มได้ — งาน การเงิน ออกกำลังกาย และนิสัย
 อยู่บนโครงสร้างข้อมูลเดียวกัน จึงดูรวมกันได้ในหน้าเดียวโดยไม่ต้องสลับแอป
 
-> **สถานะปัจจุบัน:** Phase 0–7 เสร็จแล้ว (Phase 6 ทำเฉพาะ Habit — ตัด Workout) · ถัดไป Phase 8 (Polish + Portfolio)
+> **สถานะปัจจุบัน:** Phase 0–8 เสร็จแล้ว (Phase 6 ทำเฉพาะ Habit — ตัด Workout · Phase 8 ข้าม Import CSV/Todoist)
 > — ดู [แผนงานเต็ม](#ทำอะไรต่อ) ท้ายเอกสาร · บันทึกรายขั้นที่ [docs/phases](docs/phases/README.md)
+
+**ลองใช้:** เปิดเว็บแล้วกด **"ลองใช้ทันที"** — ได้บัญชีทดลองพร้อมข้อมูลตัวอย่างใน 1 คลิก ไม่ต้องสมัคร
+(สลับ ไทย / English ได้ที่หน้าแรก) · บัญชีจริงเข้าด้วยอีเมล หรือ **Google / GitHub** ก็ได้
 
 ---
 
@@ -23,7 +26,13 @@ To-do list เป็นโปรเจกต์ที่ถูกทำซ้ำ
 - การเกิดซ้ำ (RRULE + timezone + DST + วันสิ้นเดือน) และการเตือนผ่าน Web Push / อีเมล
 - ปฏิทินรวมทุกโมดูล + iCal feed · Command Palette ⌘K สร้างรายการจากประโยคภาษาไทย/อังกฤษ · ปุ่มลัดครบ
 - นิสัย: นับจำนวน / ติ๊ก / ก่อนเวลา / รายสัปดาห์ พร้อม streak · สรุปรายสัปดาห์รวมทุกโมดูล
-- API มี Swagger, health check แยก liveness/readiness, error ตามมาตรฐาน RFC 9457
+- ใช้ตอนไม่มีเน็ตได้ (outbox + sync + แก้ชนระดับ field) · ติดตั้งเป็นแอปบนมือถือได้ (PWA)
+- **ภาษาไทย / อังกฤษ** ทั้งแอป อีเมล และการแจ้งเตือน · เลือกแสดงปี พ.ศ./ค.ศ. ได้
+- เข้าสู่ระบบด้วย **Google / GitHub** (OAuth + PKCE) · ผูกหลายบัญชีกับผู้ใช้คนเดียวได้
+- **GitHub → งานและปฏิทิน:** issue/PR ที่มอบหมายให้เรากลายเป็นงาน (milestone = วันในปฏิทิน) · webhook ปิดงานเมื่อ PR merged
+- **Public API** + API key (สิทธิ์ read/write · เพิกถอนได้ · 60 ครั้ง/นาที) · Swagger ที่ `/api/v1/docs`
+- บัญชีใหม่มีการ์ด "เริ่มต้นใช้งาน" พาทำทีละขั้น — คนที่ไม่ใช่ dev ใช้เองได้โดยไม่ต้องมีคนอธิบาย
+- API: health check แยก liveness/readiness · error ตามมาตรฐาน RFC 9457
 
 ---
 
@@ -89,17 +98,18 @@ frontend และ generate TypeScript type ทั้งสองฝั่ง ([
 
 ## สถาปัตยกรรม
 
-```
-Browser (Next.js PWA)
-        │ HTTPS / SSE
-        ▼
-NestJS REST API ──┬── Core Engines (Registry · Recurrence · Reminder · Calendar · Parser)
-                  ├── Domain Modules (Task · Expense · Workout · Habit)
-                  └── Infra (Prisma · Redis · Mail · Storage)
-                             │ enqueue
-                        Redis + BullMQ
-                             │ consume
-                     Worker (แยก container) ──► PostgreSQL
+แผนภาพ C4 เต็ม (Context · Container · Component) อยู่ที่ [docs/diagrams](./docs/diagrams/README.md) — ระดับ Container:
+
+```mermaid
+flowchart LR
+  user["👤 ผู้ใช้"] -- HTTPS --> web["Web<br/><small>Next.js PWA · Vercel</small>"]
+  web -- "proxy /api/v1 + IP จริง" --> api["API<br/><small>NestJS · Vercel Function</small>"]
+  api --> db[("PostgreSQL<br/><small>Supabase</small>")]
+  api --> redis[("Redis<br/><small>Upstash</small>")]
+  worker["Worker<br/><small>BullMQ · Fly.io</small>"] --> db
+  worker --> redis
+  api -- "OAuth · issue · webhook" --- github["GitHub / Google"]
+  api -- "push · อีเมล" --> notify["Web Push · Resend"]
 ```
 
 โครงสร้าง monorepo:
@@ -110,9 +120,11 @@ apps/
   web/      Next.js 15 (App Router)
   worker/   BullMQ consumer — แยก container เพราะต้องรันค้าง
 packages/
-  contracts/  Zod schema + type ที่ FE/BE ใช้ร่วมกัน
-  core/       TrackableModule interface, domain type, ฟังก์ชันเวลาแบบบริสุทธิ์
-  ui/         design token + helper ของ UI
+  contracts/      Zod schema + type ที่ FE/BE ใช้ร่วมกัน
+  core/           TrackableModule interface, domain type, ฟังก์ชันเวลา, NL parser, ข้อความฝั่งเซิร์ฟเวอร์ (th/en)
+  emails/         template อีเมล (React Email) ไทย/อังกฤษ
+  notifications/  ตัวส่งการเตือน (push · อีเมล) ใช้ร่วมกันระหว่าง API กับ worker
+  ui/             design token + helper ของ UI
 ```
 
 ---
@@ -129,6 +141,9 @@ packages/
 | Database     | PostgreSQL 17                     | JSONB + partial index + window function                      |
 | Cache/Queue  | Redis 7 + BullMQ                  | scheduling, rate limit, session revocation                   |
 | Auth         | JWT + refresh rotation + Argon2id | ควบคุมรายละเอียดด้านความปลอดภัยเอง                           |
+| OAuth        | Google OIDC · GitHub OAuth + PKCE | เขียนเอง ~300 บรรทัด — เห็นทุกขั้น ไม่ซ่อนใน library         |
+| i18n         | next-intl + ICU MessageFormat     | พหูพจน์อังกฤษ · ทุกหน้ายัง static ทั้งสองภาษา                |
+| Deploy       | Vercel + Supabase + Upstash       | ฟรีทั้งชุดสำหรับ staging · production จาก tag + rollback     |
 | Monorepo     | pnpm workspaces + Turborepo       | แชร์ type, cache build                                       |
 
 เหตุผลเต็มของการตัดสินใจสำคัญอยู่ใน [docs/adr](./docs/adr)
@@ -141,17 +156,25 @@ packages/
 เพราะอะไร หลักการทำงานเป็นอย่างไร และข้อเสียที่ยอมรับแลกมาคืออะไร
 เปิด [`docs/learn/index.html`](./docs/learn/index.html) ในเบราว์เซอร์เพื่อดูสารบัญ
 
-| ไฟล์                                                       | เนื้อหา                                                                        |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| [01](./docs/learn/01-foundations-web-architecture.md)      | พื้นฐานสถาปัตยกรรมเว็บ: process, HTTP, REST, ทำไมต้องแยก 3 แอป                 |
-| [02](./docs/learn/02-phase0-monorepo-and-tooling.md)       | Phase 0 · monorepo, pnpm, Turborepo, TypeScript, ESLint boundaries, Docker, CI |
-| [03](./docs/learn/03-phase0-database-and-prisma.md)        | Phase 0 · ฐานข้อมูล, index, JSONB, transaction, migration, Prisma              |
-| [04](./docs/learn/04-phase1-auth-deep-dive.md)             | Phase 1 · รหัสผ่าน, JWT, cookie, refresh rotation, IDOR, rate limit            |
-| [05](./docs/learn/05-phase1-plugin-architecture-and-di.md) | Phase 1 · SOLID, DI container, decorator, metadata, registry pattern           |
-| [06](./docs/learn/06-phase1-api-design-and-validation.md)  | Phase 1 · REST, RFC 9457, cursor pagination, Zod, optimistic concurrency       |
-| [07](./docs/learn/07-phase1-frontend-data-layer.md)        | Phase 1 · React, RSC, TanStack Query, Zustand, Tailwind token, a11y            |
-| [08](./docs/learn/08-testing-and-quality.md)               | การทดสอบ: pyramid, test double, coverage, flaky test, CI gate                  |
-| [09](./docs/learn/09-glossary.md)                          | อภิธานศัพท์ทั้งหมดที่ใช้ในโปรเจกต์                                             |
+| ไฟล์                                                                         | เนื้อหา                                                                            |
+| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| [01](./docs/learn/01-foundations-web-architecture.md)                        | พื้นฐานสถาปัตยกรรมเว็บ: process, HTTP, REST, ทำไมต้องแยก 3 แอป                     |
+| [02](./docs/learn/02-phase0-monorepo-and-tooling.md)                         | Phase 0 · monorepo, pnpm, Turborepo, TypeScript, ESLint boundaries, Docker, CI     |
+| [03](./docs/learn/03-phase0-database-and-prisma.md)                          | Phase 0 · ฐานข้อมูล, index, JSONB, transaction, migration, Prisma                  |
+| [04](./docs/learn/04-phase1-auth-deep-dive.md)                               | Phase 1 · รหัสผ่าน, JWT, cookie, refresh rotation, IDOR, rate limit                |
+| [05](./docs/learn/05-phase1-plugin-architecture-and-di.md)                   | Phase 1 · SOLID, DI container, decorator, metadata, registry pattern               |
+| [06](./docs/learn/06-phase1-api-design-and-validation.md)                    | Phase 1 · REST, RFC 9457, cursor pagination, Zod, optimistic concurrency           |
+| [07](./docs/learn/07-phase1-frontend-data-layer.md)                          | Phase 1 · React, RSC, TanStack Query, Zustand, Tailwind token, a11y                |
+| [08](./docs/learn/08-testing-and-quality.md)                                 | การทดสอบ: pyramid, test double, coverage, flaky test, CI gate                      |
+| [09](./docs/learn/09-glossary.md)                                            | อภิธานศัพท์ทั้งหมดที่ใช้ในโปรเจกต์                                                 |
+| [10–14](./docs/learn/10-phase2a-design-system-and-theming.md)                | Phase 2a · design system สองธีม · component ที่เข้าถึงได้ · PWA · visual/a11y test |
+| [15](./docs/learn/15-phase2b-money-months-and-second-module.md)              | Phase 2b · เงินเป็นจำนวนเต็ม · เดือนตามโซนผู้ใช้ · โมดูลที่สอง                     |
+| [16](./docs/learn/16-phase3-recurrence-floating-time-and-materialization.md) | Phase 3 · RRULE · floating time · สิ้นเดือน · materialization                      |
+| [17](./docs/learn/17-phase4-reminders-push-email-and-worker.md)              | Phase 4 · การเตือน · Web Push · อีเมล · worker · quiet hours                       |
+| [18](./docs/learn/18-phase5-nl-parser-calendar-and-palette.md)               | Phase 5 · NL parser ภาษาไทย · ปฏิทินรวม · ⌘K                                       |
+| [19](./docs/learn/19-phase6-habit-and-plugin-proof.md)                       | Phase 6 · นิสัย = กฎการเกิดซ้ำ · พิสูจน์ "แก้ core 0 บรรทัด"                       |
+| [20](./docs/learn/20-phase7-offline-sync.md)                                 | Phase 7 · offline-first · outbox · idempotency · merge ระดับ field                 |
+| [21](./docs/learn/21-phase8-integrations-i18n-and-release.md)                | Phase 8 · API key · OAuth · webhook · i18n · production release                    |
 
 ---
 
@@ -181,7 +204,17 @@ pnpm db:migrate:deploy
 pnpm db:seed
 ```
 
-บริการอื่นระหว่าง dev: Mailpit http://localhost:8025 · Swagger http://localhost:3001/docs
+บริการอื่นระหว่าง dev: Mailpit http://localhost:8025 · Swagger http://localhost:3001/api/v1/docs
+
+เข้าสู่ระบบด้วย Google/GitHub ในเครื่อง: ใส่ `GOOGLE_*` / `GITHUB_*` ใน `.env` (ไม่ใส่ = ปุ่มซ่อนเอง) — ขั้นตอนสร้าง OAuth app อยู่ใน
+[docs/deploy/staging-vercel-supabase.md](./docs/deploy/staging-vercel-supabase.md) หัวข้อ 7
+
+### Deploy
+
+| สภาพแวดล้อม | ขึ้นเมื่อไร                                                                                           | คู่มือ                                                                 |
+| ----------- | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| staging     | push ขึ้น `main` แล้ว CI เขียว → migrate → deploy → smoke → Lighthouse                                | [staging-vercel-supabase.md](./docs/deploy/staging-vercel-supabase.md) |
+| production  | push tag `v*.*.*` → อนุมัติ → backup (เข้ารหัส) → migrate → deploy → smoke → ล้ม = rollback อัตโนมัติ | [production.md](./docs/deploy/production.md)                           |
 
 > **หมายเหตุเรื่อง MinIO:** เราใช้ MinIO จำลอง S3/R2 สำหรับไฟล์แนบ ซึ่งเริ่มใช้จริงใน Phase 2
 > MinIO ถอด image ออกจาก Docker Hub แล้ว compose จึงดึงจาก `quay.io/minio/minio` และ
@@ -209,7 +242,10 @@ pnpm db:reset       # ล้างฐานข้อมูลแล้ว migrat
 | ----------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | Unit        | Vitest                             | ตรรกะบริสุทธิ์: การคำนวณเวลา/timezone/DST, ทะเบียนโมดูล, การ parse sort และ defer, schema ของ contract                            |
 | Integration | Vitest + supertest + Postgres จริง | auth flow เต็ม, refresh rotation + reuse detection, entry CRUD, **IDOR ทุก resource**, version conflict, idempotency ของ clientId |
-| E2E         | Playwright                         | จากหน้าแรก กด "ลองใช้ทันที" แล้วสร้างงานได้จริง                                                                                   |
+| E2E         | Playwright + API จริง              | ลองใช้ทันที → สร้างงาน · ⌘K สร้างบิลพร้อมการเตือน · ออฟไลน์แล้ว sync ไม่ซ้ำ · ผู้ใช้ใหม่ทำตามการ์ดเริ่มต้นใช้งาน                  |
+| UI          | Playwright + API ปลอม              | axe 0 serious ทุกหน้า **สองธีม · สองภาษา** · visual regression 6 หน้า × 2 ธีม × 2 จอ (≤ 0.2%) · ปุ่มลัด/dialog/โฟกัส              |
+| Performance | Lighthouse (มัธยฐาน 3 รอบ)         | ทุกหน้าหลัก มือถือ + desktop บน staging จริงหลังทุก deploy                                                                        |
+| ข้อความแปล  | `check-messages.mjs`               | th/en มี key ครบเท่ากัน · ICU ถูก · ทุก key ที่โค้ดเรียกมีจริง                                                                    |
 
 integration test ไม่ mock ฐานข้อมูล เพราะบั๊กที่เจ็บที่สุดในระบบแบบนี้คือ constraint,
 cascade และ transaction ซึ่ง mock จับไม่ได้
@@ -243,6 +279,6 @@ cascade และ transaction ซึ่ง mock จับไม่ได้
 - [x] **Phase 5** — Calendar รวมทุกโมดูล, NL Parser, Command Palette (⌘K)
 - [x] **Phase 6** — HabitModule + Weekly Review (บททดสอบจริงของ "แก้ core 0 บรรทัด") · _ตัด WorkoutModule_
 - [x] **Phase 7** — Offline-first sync พร้อมการแก้ conflict (outbox · idempotency · merge ระดับ field · PWA)
-- [ ] **Phase 8** — Polish, Lighthouse ≥ 90, deploy production
+- [x] **Phase 8** — axe/visual/Lighthouse ≥ 90 · API key + Public API · Google/GitHub sign-in · GitHub → งาน/ปฏิทิน + webhook · i18n ไทย/อังกฤษ · deploy production + rollback · onboarding _(ข้าม Import CSV/Todoist)_
 
-รายละเอียดทั้งหมดอยู่ใน [NOSION-SPEC.md](../NOSION-SPEC.md)
+รายละเอียดทั้งหมดอยู่ใน [NOSION-SPEC.md](../NOSION-SPEC.md) · ที่ยังค้าง: วิดีโอสาธิต 2 นาที · production จริง (workflow พร้อมแล้ว)

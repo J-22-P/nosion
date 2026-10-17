@@ -12,6 +12,7 @@ import { Sidebar } from './sidebar';
 import { MobileHeader, TopBar } from './top-bar';
 import { useTranslations } from 'next-intl';
 import { useLocaleSync } from '@/i18n/use-locale-sync';
+import { DemoBanner } from './demo-banner';
 
 /**
  * โครงหน้าแอปหลัก (สเปก 8.2 v1.1)
@@ -47,6 +48,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </a>
       <Sidebar pathname={pathname} />
       <div className="flex min-w-0 flex-1 flex-col">
+        {user?.isDemo ? <DemoBanner /> : null}
         <TopBar displayName={displayName} isDemo={user?.isDemo ?? false} />
         <MobileHeader pathname={pathname} displayName={displayName} />
         <main

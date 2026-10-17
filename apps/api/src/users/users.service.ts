@@ -1,5 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { type AuthUserDto, type ModuleKey, type UpdateSettingsInput } from '@nosion/contracts';
+import {
+  type AuthUserDto,
+  type ModuleKey,
+  type OnboardingDto,
+  type UpdateSettingsInput,
+} from '@nosion/contracts';
 import { PrismaService } from '../infra/prisma/prisma.service';
 import { isValidTimeZone } from './timezone';
 
@@ -64,6 +69,26 @@ export class UsersService {
         focusGoalMinutes: s.focusGoalMinutes,
       },
     };
+  }
+
+  /**
+   * ทำขั้นพื้นฐานครบหรือยัง — นับจากข้อมูลจริง ไม่เก็บ flag แยก (ลบงานหมดแล้วการ์ดกลับมาแนะนำได้ ถูกต้องกว่าจำว่า "เคยทำ")
+   * findFirst + select id = หยุดที่แถวแรก ไม่ต้องนับทั้งตาราง
+   */
+  async onboarding(userId: string): Promise<OnboardingDto> {
+    const exists = (module: ModuleKey) =>
+      this.prisma.entry
+        .findFirst({ where: { userId, module, deletedAt: null }, select: { id: true } })
+        .then(Boolean);
+    const [task, expense, habit, push] = await Promise.all([
+      exists('task'),
+      exists('expense'),
+      exists('habit'),
+      this.prisma.pushSubscription
+        .findFirst({ where: { userId }, select: { id: true } })
+        .then(Boolean),
+    ]);
+    return { task, expense, habit, push };
   }
 
   async updateProfile(

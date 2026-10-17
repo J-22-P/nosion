@@ -1258,3 +1258,84 @@ test.describe('i18n · English (Phase 8 ขั้น 6)', () => {
     });
   }
 });
+
+test.describe('ใช้เองได้โดยไม่ต้องมีคนอธิบาย (Phase 8 ขั้น 8)', () => {
+  test('บัญชีใหม่: การ์ดเริ่มต้นใช้งานบอกขั้นถัดไป · ลิงก์พาไปช่องพิมพ์ที่โฟกัสแล้ว · ซ่อนแล้วไม่กลับมา', async ({
+    page,
+  }) => {
+    await page.route('**/api/v1/me/onboarding', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ task: true, expense: false, habit: false, push: false }),
+      }),
+    );
+    await page.goto('/today');
+    const card = page.getByRole('region', { name: 'เริ่มต้นใช้งาน' });
+    await expect(card).toBeVisible({ timeout: 15_000 });
+    await expect(card).toContainText('ทำแล้ว 1 จาก 4');
+    await expect(card.getByRole('link', { name: 'เพิ่มงานแรก · ทำแล้ว' })).toBeVisible();
+
+    const axe = await new AxeBuilder({ page })
+      .include('[aria-labelledby="onboarding-title"]')
+      .analyze();
+    expect(axe.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')).toEqual(
+      [],
+    );
+
+    // ขั้นถัดไป → หน้า Expenses ที่เคอร์เซอร์อยู่ในช่องบันทึกด่วนแล้ว
+    await card.getByRole('link', { name: 'จดรายจ่าย' }).click();
+    await expect(page).toHaveURL(/\/expenses\?new=1$/);
+    await expect(page.getByLabel('บันทึกรายจ่ายด้วยข้อความ')).toBeFocused();
+
+    await page.goto('/today');
+    await page.getByRole('button', { name: 'ซ่อนการ์ดนี้' }).click();
+    await expect(page.getByRole('region', { name: 'เริ่มต้นใช้งาน' })).toHaveCount(0);
+    await page.reload();
+    await expect(page.getByText('สวัสดีตอนบ่าย Jay')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('region', { name: 'เริ่มต้นใช้งาน' })).toHaveCount(0);
+  });
+
+  test('/tasks?new=1 → โฟกัสช่องเพิ่มงานทันที', async ({ page }) => {
+    await page.goto('/tasks?new=1');
+    await expect(page.getByLabel('ชื่องานใหม่')).toBeFocused({ timeout: 15_000 });
+  });
+
+  test('บัญชีทดลอง: แถบบอกว่าข้อมูลจะหาย + ลิงก์ไปสมัคร · ไม่มีการ์ดเริ่มต้นใช้งาน', async ({
+    page,
+  }) => {
+    await page.route('**/api/v1/me', async (route) => {
+      const res = await route.fetch().catch(() => null);
+      const body = res ? await res.json() : null;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ...(body ?? {}),
+          user: { ...(body?.user ?? {}), isDemo: true },
+        }),
+      });
+    });
+    await page.goto('/today');
+    await expect(page.getByRole('note')).toContainText('บัญชีทดลอง', { timeout: 15_000 });
+    await expect(page.getByRole('link', { name: 'สมัครฟรีเพื่อเก็บข้อมูลของคุณ' })).toHaveAttribute(
+      'href',
+      '/register',
+    );
+    await expect(page.getByRole('region', { name: 'เริ่มต้นใช้งาน' })).toHaveCount(0);
+  });
+
+  test('หน้าแรก: บอกว่าทำอะไรได้ด้วยภาษาคนทั่วไป · axe ผ่าน', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: 'ทำอะไรได้บ้าง' })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByText('จดได้เร็วเหมือนพิมพ์แชต')).toBeVisible();
+    const axe = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+      .analyze();
+    expect(axe.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')).toEqual(
+      [],
+    );
+  });
+});
