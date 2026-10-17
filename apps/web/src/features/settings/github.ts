@@ -69,6 +69,15 @@ export function useGitHubSync() {
     },
     onSuccess: (r) => {
       const changed = r.created + r.updated + r.completed;
+      // ค้นแล้วไม่เจอสักรายการ (ไม่ใช่ "ไม่มีอะไรเปลี่ยน") — สาเหตุที่พบบ่อยคือ org ซ่อนงานจากแอปที่ยังไม่อนุมัติ
+      if (changed + r.unchanged === 0) {
+        toast.warning(tr('github.nothingFound'), {
+          description: tr('github.nothingFoundHint'),
+          duration: 15_000,
+        });
+        void queryClient.invalidateQueries({ queryKey: KEY });
+        return;
+      }
       toast.success(changed ? tr('github.synced', { count: changed }) : tr('github.nothingNew'), {
         description: changed
           ? tr('github.syncedDetail', {
