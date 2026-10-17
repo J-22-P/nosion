@@ -30,7 +30,7 @@
 | 4b  | เข้าสู่ระบบด้วย Google / GitHub (OAuth · ผูกบัญชีเดิม)                  | `1800855` | ✅                          |
 | 5   | GitHub: webhook PR merged → ปิดงาน (ตรวจลายเซ็น) + ดึง issue ลงปฏิทิน   | `abf0e6f` | ✅                          |
 | 6   | i18n: dictionary ไทย/อังกฤษ · สลับภาษาในตั้งค่า · วันที่/เงินตาม locale | `d44bd34` | ✅                          |
-| 7   | `deploy-production.yml` จาก tag + rollback                              | —         | ⬜                          |
+| 7   | `deploy-production.yml` จาก tag + rollback                              | `a97209f` | ✅                          |
 | 8   | ให้คนที่ไม่ใช่ dev ใช้เองได้: onboarding/empty state · README + diagram | —         | ⬜                          |
 | 9   | บท learn 21 + ADR                                                       | —         | ⬜                          |
 
@@ -350,5 +350,42 @@ schema ของ body ใน Swagger ยังว่าง (validate ด้ว�
 
 - ภาพ baseline ของ visual test เปลี่ยน (ปีในปฏิทินเป็น พ.ศ. · หน้า login มีปุ่มภาษา) → รัน **Update visual baselines** หลัง push
 - ข้อความ error ของ API ภาษาอังกฤษเป็นแบบกลาง (ด้านบน) · ชื่อหน่วยของนิสัยที่ผู้ใช้สร้างไว้แล้ว (เช่น "แก้ว") ไม่แปล (เป็นข้อมูล)
+
+📚 บท learn 21 (ขั้น 9)
+
+## ขั้น 7 · `deploy-production.yml` จาก tag + rollback — branch `feature/deploy-production`
+
+**เป้าหมาย:** สเปก 13.3 — ขึ้น production จาก tag · อนุมัติด้วยคน · สำรองฐานข้อมูลก่อน · ล้มแล้วย้อนเอง
+(เจ้าของเลือก: เขียน workflow รอไว้ สร้างโปรเจกต์ production ทีหลัง)
+
+**สิ่งที่เปลี่ยน**
+
+- 📁 `.github/workflows/deploy-production.yml` — `push: tags v*.*.*` (+ dispatch ด้วย tag) ·
+  `check` (tag อยู่บน main + CI ของ commit เขียว — ก่อนขออนุมัติ) → `deploy` (environment `production` · required reviewers) →
+  จำ deployment ปัจจุบัน (`vercel list --environment production --format json`) → `pg_dump` เข้ารหัส **age** เป็น artifact 30 วัน →
+  migrate (session pooler :5432) → api → web → worker (Fly · ถ้ามี) → smoke → ล้ม = `vercel rollback` + Fly image เดิม + เปิด issue → `release` (GitHub Release)
+- 📁 `.github/workflows/rollback-production.yml` — ย้อนด้วยมือ (both/api/web · ระบุ deployment ได้) ต้องอนุมัติเหมือน deploy
+- 📁 `scripts/smoke-production.sh` — หน้าแรก · login ภาษาอังกฤษ (ผ่าน rewrite ด้วยคุกกี้) · OpenAPI ผ่าน proxy · `/readyz` · demo login (200/403/429) · refresh ไม่มีคุกกี้ = 401
+- 📁 `docs/deploy/production.md` — ตั้งค่าครั้งแรก · environment protection · กุญแจ age · ปล่อยเวอร์ชัน · ย้อน · กู้ข้อมูล
+
+**การตัดสินใจ**
+
+- **deploy ทั้งหมดใน job เดียว** — GitHub ขออนุมัติทุก job ที่อ้าง environment ที่มี reviewer (แยก migrate/deploy/smoke = กดอนุมัติ 4–5 รอบ) ·
+  rollback จึงเป็น step `if: failure()` ใน job เดียวกัน (เห็น outcome ของทุก step → ย้อนเฉพาะที่ deploy ไปแล้ว)
+- ตรวจ CI + tag ใน job ที่**ไม่**อ้าง environment — tag ผิดถูกปฏิเสธก่อนรบกวนคนอนุมัติ · ใช้ repository variable `PROD_WEB_URL` เป็นสวิตช์ "มี production แล้ว"
+- backup เป็น artifact ต้อง**เข้ารหัส** (ใครอ่าน repo ได้ก็โหลด artifact ได้) — age ใช้ public key บน GitHub ส่วนกุญแจถอดอยู่กับเจ้าของ ·
+  ไม่มี recipient = ไม่ deploy
+- **ไม่ย้อน schema** ตอน rollback — migration additive ตามสเปก 13.4 (ADR ใน ขั้น 9) · กู้ข้อมูลเป็นการตัดสินใจของคน (ลงฐานชั่วคราวก่อน)
+- api ก่อน web — api รุ่นใหม่ต้องเข้ากับ web รุ่นเก่าได้ (ช่วงเวลาระหว่างสอง deploy)
+- ต่างจากสเปก 13.3 ที่เขียนไว้สำหรับ Fly (`fly pg backup` · `--strategy rolling` ของ API): โครงจริงคือ Vercel + Supabase จึงใช้ `vercel rollback` + `pg_dump`
+
+**วิธีตรวจ**
+
+- `actionlint` 1.7.7 (+ shellcheck ใน run block) ทั้งสอง workflow: ไม่มีข้อผิดพลาด
+- smoke script กับ production build ในเครื่อง (web `next start` + proxy → API `NODE_ENV=production`): ผ่านครบ 6 ข้อ
+- รูปแบบ JSON ของ `vercel list --format json` (CLI 63.1.0): อ่านจากซอร์สของ CLI — `{ deployments: [{ id, url, state, target }] }`
+- ⚠️ **ยังไม่เคยรันจริง** — ไม่มี production · ครั้งแรกให้ลองด้วย tag เช่น `v0.1.0` ตอนโปรเจกต์ production ยังไม่มีผู้ใช้
+
+**ค้าง:** "deployment ปัจจุบัน" = ตัว READY ล่าสุด — ถ้าเคย rollback ด้วยมือไว้ก่อน ตัวที่ใช้งานจริงอาจไม่ใช่ตัวล่าสุด (ควรอ่านจาก alias ของโดเมน — ทำเมื่อมีโดเมนจริง)
 
 📚 บท learn 21 (ขั้น 9)
