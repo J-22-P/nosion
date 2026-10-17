@@ -507,7 +507,9 @@
       "rate_limited": "เรียก GitHub ถี่เกินไป — รอสักครู่แล้วลองใหม่",
       "unreachable": "ติดต่อ GitHub ไม่สำเร็จ — ลองใหม่อีกครั้ง",
       "other": "GitHub ตอบผิดปกติ ({code}) — ลองใหม่อีกครั้ง"
-    }
+    },
+    "nothingFound": "ไม่พบ issue ที่มอบหมายให้คุณเลย",
+    "nothingFoundHint": "ถ้างานอยู่ใน repo ของ organization: org อาจจำกัดแอปภายนอกไว้ (GitHub ซ่อนงานโดยไม่แจ้ง error) — ไปที่ github.com/settings/applications → NOSION → Organization access แล้วกด Request ให้ owner ของ org อนุมัติ"
   },
   "tasks": {
     "view": {
