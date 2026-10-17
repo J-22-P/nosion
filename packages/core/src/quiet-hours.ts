@@ -1,4 +1,5 @@
 import { formatInTimeZone, zonedTimeToUtc } from './time';
+import { dateTimeFormat } from './intl';
 
 /**
  * ช่วงห้ามรบกวน (สเปก 6.2) — เวลาเป็น "HH:mm" ตามหน้าปัดในโซนของผู้ใช้
@@ -13,7 +14,7 @@ export interface QuietHours {
 
 /** "HH:mm" ของจุดเวลานั้นในโซนที่กำหนด */
 function localHm(at: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat('en-GB', {
+  return dateTimeFormat('en-GB', {
     timeZone,
     hour: '2-digit',
     minute: '2-digit',

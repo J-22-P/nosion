@@ -1,4 +1,5 @@
 import { text, type Lang } from './text';
+import { dateTimeFormat } from './intl';
 /**
  * ฟังก์ชันเวลาแบบบริสุทธิ์ — ไม่มี side effect, ไม่อ่านนาฬิกาเอง
  * ทุกที่ที่ต้องรู้ "ตอนนี้" ให้รับ Date เข้ามาเป็นพารามิเตอร์ เพื่อให้ test ควบคุมเวลาได้
@@ -53,7 +54,7 @@ export function periodBounds(period: string, timeZone: string, shift = 0): Month
 
 /** คืน 'YYYY-MM-DD' ของวันที่นั้นในโซนเวลาที่กำหนด */
 export function formatInTimeZone(date: Date, timeZone: string): string {
-  const parts = new Intl.DateTimeFormat('en-CA', {
+  const parts = dateTimeFormat('en-CA', {
     timeZone,
     year: 'numeric',
     month: '2-digit',
@@ -79,7 +80,7 @@ export function zonedTimeToUtc(localIso: string, timeZone: string): Date {
 
 /** offset ของโซนเวลา ณ เวลาหนึ่ง (มิลลิวินาที, บวก = เร็วกว่า UTC) */
 export function timeZoneOffsetMs(at: Date, timeZone: string): number {
-  const dtf = new Intl.DateTimeFormat('en-US', {
+  const dtf = dateTimeFormat('en-US', {
     timeZone,
     hourCycle: 'h23',
     year: 'numeric',
@@ -137,7 +138,7 @@ export function isEntryOverdue(
 
 /** ชั่วโมงตามหน้าปัดของผู้ใช้ (0–23) */
 export function localHour(now: Date, timeZone: string): number {
-  const h = new Intl.DateTimeFormat('en-US', {
+  const h = dateTimeFormat('en-US', {
     timeZone,
     hour: 'numeric',
     hourCycle: 'h23',

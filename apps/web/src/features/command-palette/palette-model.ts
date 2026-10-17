@@ -4,6 +4,7 @@ import type { NlToken } from '@nosion/core/nl';
 import { CATEGORY } from '@/features/expenses/categories';
 import { PRIMARY_NAV, SETTINGS_NAV } from '@/components/shell/nav';
 import { currentIntlLocale, dateFormat, tr } from '@/i18n/current';
+import { dateTimeFormat } from '@nosion/core/intl';
 
 /**
  * ส่วนคำนวณของ Command Palette (สเปก 8.3) — pure ทั้งไฟล์ ทดสอบได้โดยไม่ต้อง render
@@ -129,7 +130,7 @@ export function whenLabel(
   now = new Date(),
 ): string | null {
   if (!iso) return null;
-  const ymd = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone }).format(d);
+  const ymd = (d: Date) => dateTimeFormat('en-CA', { timeZone }).format(d);
   const day = ymd(new Date(iso));
   const diff = Math.round((Date.parse(day) - Date.parse(ymd(now))) / 86_400_000);
   const dayText =
@@ -141,7 +142,7 @@ export function whenLabel(
           ? tr('format.yesterday')
           : dateFormat({ timeZone, day: 'numeric', month: 'short' }).format(new Date(iso));
   if (isAllDay) return dayText;
-  const time = new Intl.DateTimeFormat('en-GB', {
+  const time = dateTimeFormat('en-GB', {
     timeZone,
     hour: '2-digit',
     minute: '2-digit',
@@ -198,7 +199,7 @@ export function entryHref(
   timeZone: string,
 ): string {
   if (entry.occurredAt) {
-    const date = new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date(entry.occurredAt));
+    const date = dateTimeFormat('en-CA', { timeZone }).format(new Date(entry.occurredAt));
     return `/calendar?date=${date}`;
   }
   if (entry.module === 'expense') return '/expenses';

@@ -27,6 +27,10 @@
     "./nl": {
       "types": "./dist/nl.d.ts",
       "default": "./dist/nl.js"
+    },
+    "./intl": {
+      "types": "./dist/intl.d.ts",
+      "default": "./dist/intl.js"
     }
   },
   "scripts": {

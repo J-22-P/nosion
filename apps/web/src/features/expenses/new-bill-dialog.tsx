@@ -14,6 +14,7 @@ import { DEFAULT_TIME_ZONE } from '@/lib/format';
 import { CATEGORY, PAYMENT_LABEL } from './categories';
 import { errorText } from '@/i18n/errors';
 import { tr } from '@/i18n/current';
+import { dateTimeFormat } from '@nosion/core/intl';
 
 type PaymentMethod = keyof typeof PAYMENT_LABEL;
 
@@ -31,7 +32,7 @@ type RemindOption = (typeof REMIND_OPTIONS)[number]['value'];
 
 /** 'YYYY-MM-DD' ของวันนี้ตามโซนผู้ใช้ — ไม่ใช้วันที่ของเครื่อง (สเปก 8.9) */
 function todayYmd(timeZone = DEFAULT_TIME_ZONE): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date());
+  return dateTimeFormat('en-CA', { timeZone }).format(new Date());
 }
 
 /**

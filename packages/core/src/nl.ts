@@ -14,6 +14,7 @@
  */
 import type { Priority } from '@nosion/contracts';
 import { formatInTimeZone, zonedTimeToUtc } from './time';
+import { dateTimeFormat } from './intl';
 
 export type NlPriority = Exclude<Priority, 'none'>;
 
@@ -623,7 +624,7 @@ export function parseNaturalText(input: string, ctx: NlContext): NlResult {
 
   if (!date) {
     // เวลาที่เลยไปแล้วของวันนี้ = รอบถัดไป ("standup 9am" ตอน 10 โมง = พรุ่งนี้ 9 โมง)
-    const nowHm = new Intl.DateTimeFormat('en-GB', {
+    const nowHm = dateTimeFormat('en-GB', {
       timeZone: ctx.timeZone,
       hour: '2-digit',
       minute: '2-digit',
