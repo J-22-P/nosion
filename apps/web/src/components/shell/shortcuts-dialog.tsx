@@ -2,6 +2,7 @@
 
 import { X } from 'lucide-react';
 import { useEffect, useRef } from 'react';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Kbd } from '@/components/ui/kbd';
 import { SHORTCUTS } from '@/lib/shortcuts/keymap';
@@ -12,6 +13,8 @@ export function ShortcutsDialog() {
   const open = useUIStore((s) => s.shortcutsOpen);
   const setOpen = useUIStore((s) => s.setShortcutsOpen);
   const ref = useRef<HTMLDialogElement>(null);
+  const t = useTranslations('shortcuts');
+  const tCommon = useTranslations('common');
 
   useEffect(() => {
     const dialog = ref.current;
@@ -36,9 +39,14 @@ export function ShortcutsDialog() {
     >
       <div className="sticky top-0 flex items-center justify-between gap-3 border-b border-hairline bg-surface px-5 py-4">
         <h2 id="shortcuts-title" className="text-base font-semibold">
-          ปุ่มลัด
+          {t('title')}
         </h2>
-        <Button variant="ghost" size="icon-sm" onClick={() => setOpen(false)} aria-label="ปิด">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={() => setOpen(false)}
+          aria-label={tCommon('close')}
+        >
           <X size={16} aria-hidden="true" />
         </Button>
       </div>
@@ -46,12 +54,12 @@ export function ShortcutsDialog() {
         {groups.map((group) => (
           <section key={group} aria-labelledby={`sc-${group}`}>
             <h3 id={`sc-${group}`} className="mb-2 text-xs font-medium text-fg-secondary">
-              {group}
+              {t(`group.${group}`)}
             </h3>
             <dl className="divide-y divide-hairline">
               {SHORTCUTS.filter((s) => s.group === group).map((s) => (
                 <div key={s.label} className="flex items-center justify-between gap-4 py-2 text-sm">
-                  <dt>{s.label}</dt>
+                  <dt>{t(s.label)}</dt>
                   <dd className="flex shrink-0 items-center gap-1">
                     {s.keys.map((k, i) =>
                       k === '–' ? (

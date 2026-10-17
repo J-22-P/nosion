@@ -16,8 +16,11 @@ import {
   useGitHubSync,
   useRotateGitHubWebhook,
 } from './github';
+import { useTranslations } from 'next-intl';
+import { dateFormat } from '@/i18n/current';
 
-const when = new Intl.DateTimeFormat('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
+const when = (iso: string) =>
+  dateFormat({ dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso));
 
 /**
  * GitHub → งาน/ปฏิทิน (Phase 8 ขั้น 5)
@@ -28,39 +31,37 @@ export function GitHubCard() {
   const status = useGitHubIntegration();
   const sync = useGitHubSync();
   const providers = useOAuthProviders();
+  const t = useTranslations('github');
 
   return (
     <Card>
-      <CardHeader
-        icon={<Github />}
-        title="GitHub → งานและปฏิทิน"
-        description="ดึง issue และ PR ที่มอบหมายให้คุณมาเป็นงาน · issue ที่อยู่ใน milestone ขึ้นปฏิทินตามวันกำหนด"
-      />
+      <CardHeader icon={<Github />} title={t('title')} description={t('description')} />
       <CardContent className="space-y-5">
         {status.isPending ? (
           <Skeleton className="h-16 w-full" />
         ) : status.isError ? (
           <p role="alert" className="text-sm text-danger">
-            โหลดสถานะ GitHub ไม่สำเร็จ
+            {t('loadFailed')}
           </p>
         ) : !status.data.connected ? (
           <p className="text-sm text-fg-secondary">
-            {providers.data?.github === false
-              ? 'เซิร์ฟเวอร์นี้ยังไม่ได้เปิดการเชื่อม GitHub'
-              : 'เชื่อม GitHub ในการ์ด “บัญชีที่เชื่อม” ด้านบนก่อน — เชื่อมแล้วดึงงานให้ทันที'}
+            {providers.data?.github === false ? t('serverDisabled') : t('connectFirst')}
           </p>
         ) : (
           <>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="text-sm">
                 <p>
-                  เชื่อมกับ <span className="font-medium">{status.data.login}</span>
-                  {status.data.privateRepos ? ' · รวม repo ส่วนตัว' : ' · เฉพาะ repo สาธารณะ'}
+                  {t.rich('connectedAs', {
+                    login: status.data.login ?? '',
+                    scope: status.data.privateRepos ? t('scope.private') : t('scope.public'),
+                    b: (chunks) => <span className="font-medium">{chunks}</span>,
+                  })}
                 </p>
                 <p className="text-xs text-fg-secondary">
                   {status.data.lastSyncAt
-                    ? `ดึงล่าสุด ${when.format(new Date(status.data.lastSyncAt))}`
-                    : 'ยังไม่เคยดึง'}
+                    ? t('lastSync', { when: when(status.data.lastSyncAt) })
+                    : t('neverSynced')}
                 </p>
                 {status.data.lastSyncError ? (
                   <p role="alert" className="mt-1 text-xs text-danger">
@@ -80,7 +81,7 @@ export function GitHubCard() {
                   aria-hidden="true"
                   className={sync.isPending ? 'animate-spin' : undefined}
                 />
-                {sync.isPending ? 'กำลังดึง…' : 'ดึงงานตอนนี้'}
+                {sync.isPending ? t('syncing') : t('syncNow')}
               </Button>
             </div>
             <WebhookSection
@@ -107,18 +108,16 @@ function WebhookSection({
   const rotate = useRotateGitHubWebhook();
   const disable = useDisableGitHubWebhook();
   const [created, setCreated] = useState<GitHubWebhookSecretDto | null>(null);
+  const t = useTranslations('github');
+  const code = (chunks: React.ReactNode) => <code className="font-mono">{chunks}</code>;
 
   return (
     <section aria-labelledby="gh-webhook-title" className="space-y-3 border-t border-hairline pt-4">
       <div>
         <h3 id="gh-webhook-title" className="text-sm font-medium">
-          Webhook (ไม่บังคับ)
+          {t('webhook')}
         </h3>
-        <p className="text-xs text-fg-secondary">
-          ให้ GitHub แจ้งทันทีเมื่อ issue เปลี่ยน · PR ที่ merge แล้วปิดงานที่อ้างถึงด้วย{' '}
-          <code className="font-mono">nosion:&lt;รหัสงาน&gt;</code> (เมนู ⋯ ของงาน →
-          คัดลอกรหัสอ้างอิง)
-        </p>
+        <p className="text-xs text-fg-secondary">{t.rich('webhookHint', { code })}</p>
       </div>
 
       {created ? (
@@ -126,24 +125,18 @@ function WebhookSection({
           role="status"
           className="space-y-3 rounded-row border border-hairline-strong bg-sunken p-4"
         >
-          <p className="text-sm font-medium">
-            ใส่ใน repo → Settings → Webhooks → Add webhook · Content type{' '}
-            <code className="font-mono">application/json</code> · เลือก event{' '}
-            <span lang="en">Issues</span> และ <span lang="en">Pull requests</span>
-          </p>
-          <CopyField label="Payload URL" value={created.url} />
-          <CopyField label="Secret (แสดงครั้งเดียว)" value={created.secret} />
+          <p className="text-sm font-medium">{t.rich('webhookSteps', { code })}</p>
+          <CopyField label={t('payloadUrl')} value={created.url} />
+          <CopyField label={t('secretOnce')} value={created.secret} />
           <Button variant="ghost" size="sm" onClick={() => setCreated(null)}>
-            ใส่แล้ว ปิด
+            {t('done')}
           </Button>
         </div>
       ) : configured && url ? (
         <div className="space-y-2">
-          <CopyField label="Payload URL" value={url} />
+          <CopyField label={t('payloadUrl')} value={url} />
           <p className="text-xs text-fg-secondary">
-            {lastDeliveryAt
-              ? `GitHub ส่งมาล่าสุด ${when.format(new Date(lastDeliveryAt))}`
-              : 'ยังไม่เคยได้รับ event จาก GitHub'}
+            {lastDeliveryAt ? t('lastDelivery', { when: when(lastDeliveryAt) }) : t('noDelivery')}
           </p>
         </div>
       ) : null}
@@ -155,7 +148,7 @@ function WebhookSection({
           disabled={rotate.isPending}
           onClick={() => rotate.mutate(undefined, { onSuccess: setCreated })}
         >
-          {configured ? 'สร้าง secret ใหม่' : 'เปิด webhook'}
+          {configured ? t('rotate') : t('enable')}
         </Button>
         {configured ? (
           <Button
@@ -167,7 +160,7 @@ function WebhookSection({
               disable.mutate();
             }}
           >
-            ปิด webhook
+            {t('disable')}
           </Button>
         ) : null}
       </div>
@@ -176,9 +169,10 @@ function WebhookSection({
 }
 
 function CopyField({ label, value }: { label: string; value: string }) {
+  const t = useTranslations('github');
   async function copy() {
-    if (await copyText(value)) toast.success(`คัดลอก ${label} แล้ว`);
-    else toast.error('คัดลอกไม่ได้ — เลือกข้อความในช่องแล้วคัดลอกเอง');
+    if (await copyText(value)) toast.success(t('copied', { label }));
+    else toast.error(t('copyFailed'));
   }
   return (
     <div className="flex gap-2">
@@ -189,8 +183,13 @@ function CopyField({ label, value }: { label: string; value: string }) {
         className="font-mono text-xs"
         onFocus={(e) => e.currentTarget.select()}
       />
-      <Button variant="secondary" onClick={copy} className="gap-1.5" aria-label={`คัดลอก ${label}`}>
-        <Copy size={14} aria-hidden="true" /> คัดลอก
+      <Button
+        variant="secondary"
+        onClick={copy}
+        className="gap-1.5"
+        aria-label={t('copyLabel', { label })}
+      >
+        <Copy size={14} aria-hidden="true" /> {t('copy')}
       </Button>
     </div>
   );

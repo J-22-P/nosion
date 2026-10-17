@@ -8,6 +8,7 @@ export interface MeResponse {
   settings: {
     timezone: string;
     locale: string;
+    buddhistEra: boolean;
     currency: string;
     weekStartsOn: number;
     theme: string;
@@ -48,6 +49,7 @@ export class UsersService {
       settings: {
         timezone: s.timezone,
         locale: s.locale,
+        buddhistEra: s.buddhistEra,
         currency: s.currency,
         weekStartsOn: s.weekStartsOn,
         theme: s.theme,

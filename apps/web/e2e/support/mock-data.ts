@@ -45,6 +45,7 @@ export const USER = {
 export const SETTINGS = {
   timezone: 'Asia/Bangkok',
   locale: 'th',
+  buddhistEra: true,
   currency: 'THB',
   weekStartsOn: 1,
   theme: 'system',

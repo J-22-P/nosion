@@ -3,8 +3,9 @@
 import { cn } from '@nosion/ui';
 import { X } from 'lucide-react';
 import { useState } from 'react';
-import { PRIORITY_LABEL } from '@/lib/format';
+import { priorityLabel } from '@/lib/format';
 import { PRIORITIES, type CaptureChip } from './nl-chips';
+import { useTranslations } from 'next-intl';
 
 /**
  * แถว chip "PARSED:" ใต้ช่องบันทึกด่วน — กด chip เพื่อแก้ (วันที่ / เวลา / ความสำคัญ / แท็ก / โปรเจกต์) · × เพื่อลบ
@@ -23,6 +24,7 @@ export function ParsedChips({
   extra?: React.ReactNode;
 }) {
   const [editing, setEditing] = useState<string | null>(null);
+  const t = useTranslations('capture');
   if (chips.length === 0 && !extra) return null;
 
   return (
@@ -53,7 +55,7 @@ export function ParsedChips({
               <button
                 type="button"
                 onClick={() => setEditing(chip.key)}
-                aria-label={`แก้ ${chip.label}`}
+                aria-label={t('edit', { label: chip.label })}
                 className="rounded-[4px] hover:underline focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
               >
                 {chip.label}
@@ -61,11 +63,11 @@ export function ParsedChips({
             ) : (
               <span>{chip.label}</span>
             )}
-            {isNew?.(chip) ? <span className="text-[10px] text-accent">ใหม่</span> : null}
+            {isNew?.(chip) ? <span className="text-[10px] text-accent">{t('new')}</span> : null}
             <button
               type="button"
               onClick={() => onReplace(chip, '')}
-              aria-label={`ลบ ${chip.raw}`}
+              aria-label={t('remove', { raw: chip.raw })}
               className="ml-0.5 flex size-4 items-center justify-center rounded-full hover:bg-wash"
             >
               <X size={10} aria-hidden="true" />
@@ -81,9 +83,10 @@ export function ParsedChips({
 /** ตัวแก้แทนที่ chip ชั่วคราว · Enter/เลือก = ยืนยัน · Esc/ออกโดยไม่เปลี่ยน = ยกเลิก (null) */
 function ChipEditor({ chip, onDone }: { chip: CaptureChip; onDone: (raw: string | null) => void }) {
   const [value, setValue] = useState(chip.value);
+  const t = useTranslations('capture');
   const field =
     'h-6 rounded-chip border border-hairline-strong bg-surface px-2 font-mono text-xs text-fg';
-  const label = `แก้ ${chip.label}`;
+  const label = t('edit', { label: chip.label });
   const commit = (v: string) => onDone(v === chip.value ? null : v);
   const keys = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
@@ -110,7 +113,7 @@ function ChipEditor({ chip, onDone }: { chip: CaptureChip; onDone: (raw: string 
       >
         {PRIORITIES.map((p) => (
           <option key={p} value={p}>
-            !{PRIORITY_LABEL[p]}
+            !{priorityLabel(p)}
           </option>
         ))}
       </select>

@@ -9,6 +9,7 @@ import { Card, CardHeader } from '@/components/ui/card';
 import { useSession } from '@/features/auth/use-session';
 import { HUB_ITEMS } from './nav';
 import { Avatar, useLogout } from './profile-menu';
+import { useTranslations } from 'next-intl';
 
 /**
  * หน้า hub "สรุป" (8.2) — รวมโมดูลที่เปิดน้อยกว่า (Workouts, Habits, Review, Settings)
@@ -18,17 +19,19 @@ export function HubView() {
   const { user } = useSession();
   const logout = useLogout();
   const name = user?.displayName ?? '';
+  const t = useTranslations('shell');
+  const tNav = useTranslations('nav');
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <h1 className="text-[30px] font-semibold leading-tight md:text-[40px]">สรุป</h1>
+      <h1 className="text-[30px] font-semibold leading-tight md:text-[40px]">{t('hubTitle')}</h1>
 
       <Card>
         <CardHeader
           icon={<Avatar name={name} className="size-10" />}
           title={name}
           description={user?.email}
-          aside={user?.isDemo ? <Badge tone="accent">บัญชีทดลอง</Badge> : null}
+          aside={user?.isDemo ? <Badge tone="accent">{t('demoAccount')}</Badge> : null}
         />
       </Card>
 
@@ -42,7 +45,7 @@ export function HubView() {
                   <Icon size={18} strokeWidth={1.75} aria-hidden="true" />
                 </span>
                 <span className="flex-1">
-                  <span className="block text-sm font-medium">{item.label}</span>
+                  <span className="block text-sm font-medium">{tNav(item.key)}</span>
                   <span className="block text-xs text-fg-secondary" lang="en">
                     {item.en}
                   </span>
@@ -50,7 +53,7 @@ export function HubView() {
                 {item.ready ? (
                   <ChevronRight size={18} className="text-fg-tertiary" aria-hidden="true" />
                 ) : (
-                  <Badge tone="outline">เร็ว ๆ นี้</Badge>
+                  <Badge tone="outline">{tNav('soon')}</Badge>
                 )}
               </>
             );
@@ -79,7 +82,7 @@ export function HubView() {
       </Card>
 
       <Card>
-        <CardHeader title="ธีม" aside={<ThemeSwitcher compact />} />
+        <CardHeader title={t('theme')} aside={<ThemeSwitcher compact />} />
       </Card>
 
       <button
@@ -87,7 +90,7 @@ export function HubView() {
         onClick={() => void logout()}
         className="flex h-12 w-full items-center justify-center gap-2 rounded-card border border-hairline bg-surface text-sm font-medium text-danger transition-colors hover:bg-danger-soft focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
       >
-        <LogOut size={16} aria-hidden="true" /> ออกจากระบบ
+        <LogOut size={16} aria-hidden="true" /> {t('logout')}
       </button>
     </div>
   );

@@ -1,4 +1,5 @@
 import type { Priority } from '@nosion/contracts';
+import { dateFormat, tr } from '@/i18n/current';
 
 /**
  * โซนเวลาที่ใช้ตีความ "วัน" บนหน้าจอ — ยังตายตัวเป็นเวลาไทยเหมือนเดิม
@@ -6,12 +7,6 @@ import type { Priority } from '@nosion/contracts';
  * ห้ามใช้ setHours/getDate ของเครื่อง: Mac เป็นเวลาไทย แต่ CI เป็น UTC → ผลไม่ตรงกัน
  */
 export const DEFAULT_TIME_ZONE = 'Asia/Bangkok';
-
-const TH_DATE = new Intl.DateTimeFormat('th-TH', {
-  day: 'numeric',
-  month: 'short',
-  timeZone: DEFAULT_TIME_ZONE,
-});
 
 /** 'YYYY-MM-DD' ของจุดเวลานั้นตามโซนที่กำหนด */
 function ymd(date: Date, timeZone: string): string {
@@ -24,7 +19,7 @@ function dayDiff(date: Date, now: Date, timeZone: string): number {
   return Math.round((utc(ymd(date, timeZone)) - utc(ymd(now, timeZone))) / 86_400_000);
 }
 
-/** วันที่แบบอ่านง่าย: วันนี้ / พรุ่งนี้ / เมื่อวาน / 18 ก.ย. */
+/** วันที่แบบอ่านง่าย: วันนี้ / พรุ่งนี้ / เมื่อวาน / 18 ก.ย. (ตามภาษาปัจจุบัน) */
 export function formatDueDate(
   iso: string | null,
   now: Date = new Date(),
@@ -33,11 +28,11 @@ export function formatDueDate(
   if (!iso) return null;
   const date = new Date(iso);
   const days = dayDiff(date, now, timeZone);
-  if (days === 0) return 'วันนี้';
-  if (days === 1) return 'พรุ่งนี้';
-  if (days === -1) return 'เมื่อวาน';
-  if (days < -1) return `เลยมา ${Math.abs(days)} วัน`;
-  return TH_DATE.format(date);
+  if (days === 0) return tr('format.today');
+  if (days === 1) return tr('format.tomorrow');
+  if (days === -1) return tr('format.yesterday');
+  if (days < -1) return tr('format.overdueDays', { days: Math.abs(days) });
+  return dateFormat({ day: 'numeric', month: 'short', timeZone }).format(date);
 }
 
 /**
@@ -56,13 +51,10 @@ export function isOverdueDate(
   return isAllDay ? dayDiff(date, now, timeZone) < 0 : date.getTime() < now.getTime();
 }
 
-export const PRIORITY_LABEL: Record<Priority, string> = {
-  none: 'ไม่ระบุ',
-  low: 'ต่ำ',
-  medium: 'ปานกลาง',
-  high: 'สูง',
-  urgent: 'ด่วน',
-};
+/** ชื่อระดับความสำคัญตามภาษา */
+export function priorityLabel(priority: Priority): string {
+  return tr(`priority.${priority}`);
+}
 
 /**
  * v1.1 monochrome: สีใช้เฉพาะเมื่อมีความหมาย (8.7.1) — urgent เท่านั้นที่เป็นสีแดง

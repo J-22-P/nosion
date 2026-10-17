@@ -3,9 +3,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { ApiError } from '@/lib/api-client';
 import { formatDuration } from '@/lib/format';
 import { tasksApi } from './api';
+import { errorText } from '@/i18n/errors';
+import { tr } from '@/i18n/current';
 
 /**
  * key ขึ้นต้นด้วย 'entries' โดยตั้งใจ — mutation ของ entry ทุกตัว invalidate ['entries']
@@ -39,25 +40,27 @@ function useTimerMutation<T>(fn: (id: string) => Promise<T>, errorTitle: string)
     },
     onError: (error) => {
       toast.error(errorTitle, {
-        description: error instanceof ApiError ? error.message : undefined,
+        description: errorText(error),
       });
     },
   });
 }
 
 export function useStartTimer() {
-  return useTimerMutation(tasksApi.startTimer, 'เริ่มจับเวลาไม่สำเร็จ');
+  return useTimerMutation(tasksApi.startTimer, tr('focus.startFailed'));
 }
 
 export function useStopTimer() {
-  const mutation = useTimerMutation(tasksApi.stopTimer, 'หยุดจับเวลาไม่สำเร็จ');
+  const mutation = useTimerMutation(tasksApi.stopTimer, tr('focus.stopFailed'));
   return {
     ...mutation,
     stop: (id: string) =>
       mutation.mutate(id, {
         onSuccess: (result) =>
-          toast.success('บันทึกเวลาโฟกัสแล้ว', {
-            description: `+${formatDuration(result.session.durationSeconds ?? 0)} ในงานนี้`,
+          toast.success(tr('focus.saved'), {
+            description: tr('focus.savedDetail', {
+              duration: formatDuration(result.session.durationSeconds ?? 0),
+            }),
           }),
       }),
   };

@@ -9,9 +9,10 @@ import type {
 } from '@nosion/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ApiError } from '@/lib/api-client';
 import { cachedEntry, isQueued } from '@/lib/sync';
 import { entriesApi, pickBase, projectsApi, tagsApi, type EntryFilters } from './api';
+import { errorText } from '@/i18n/errors';
+import { tr } from '@/i18n/current';
 
 const entriesKey = (filters: EntryFilters) => ['entries', filters] as const;
 
@@ -33,7 +34,7 @@ export function useTags() {
 }
 
 /** ต่อท้ายข้อความสำเร็จเมื่อทำตอนออฟไลน์ (เข้าคิวแล้ว ยังไม่ถึง server) */
-export const QUEUED_NOTE = 'บันทึกในเครื่องแล้ว จะซิงก์เมื่อออนไลน์';
+export const queuedNote = () => tr('entries.queuedNote');
 
 /**
  * ทุก mutation ใช้รูปแบบเดียวกัน: อัปเดตแคชทันที (optimistic) → ถ้าพลาดย้อนกลับ + แจ้งเตือน
@@ -66,8 +67,7 @@ function useOptimisticEntryMutation<TVariables>(
     },
     onError: (error, _vars, context) => {
       if (context?.previous) queryClient.setQueryData(key, context.previous);
-      const detail = error instanceof ApiError ? error.message : '';
-      toast.error(errorMessage, { description: detail || undefined });
+      toast.error(errorMessage, { description: errorText(error) });
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['entries'] });
@@ -83,7 +83,7 @@ export function useCompleteEntry(filters: EntryFilters) {
       entries.map((e) =>
         e.id === id ? { ...e, status: 'done', completedAt: new Date().toISOString() } : e,
       ),
-    'ทำเครื่องหมายว่าเสร็จไม่สำเร็จ',
+    tr('entries.completeFailed'),
   );
 }
 
@@ -92,7 +92,7 @@ export function useDeferEntry(filters: EntryFilters) {
     filters,
     ({ id, to }) => entriesApi.defer(id, to),
     (entries, { id }) => entries.filter((e) => e.id !== id),
-    'เลื่อนงานไม่สำเร็จ',
+    tr('entries.deferFailed'),
   );
 }
 
@@ -101,7 +101,7 @@ export function useDeleteEntry(filters: EntryFilters) {
     filters,
     (id) => entriesApi.remove(id),
     (entries, id) => entries.filter((e) => e.id !== id),
-    'ลบงานไม่สำเร็จ',
+    tr('entries.deleteFailed'),
   );
 }
 
@@ -115,7 +115,7 @@ export function useUpdateEntry(filters: EntryFilters) {
     (vars) => entriesApi.update(vars.id, vars.input, basesByVars.get(vars)),
     (entries, { id, input }) =>
       entries.map((e) => (e.id === id ? { ...e, ...(input as Partial<EntryDto>) } : e)),
-    'บันทึกการแก้ไขไม่สำเร็จ',
+    tr('entries.updateFailed'),
     (vars) =>
       basesByVars.set(vars, pickBase(cachedEntry(vars.id), vars.input as SyncEditableFields)),
   );
@@ -123,8 +123,8 @@ export function useUpdateEntry(filters: EntryFilters) {
 
 export function useCreateEntry(
   messages: { success: string; error: string } = {
-    success: 'เพิ่มงานแล้ว',
-    error: 'เพิ่มงานไม่สำเร็จ',
+    success: tr('entries.created'),
+    error: tr('entries.createFailed'),
   },
 ) {
   const queryClient = useQueryClient();
@@ -132,13 +132,13 @@ export function useCreateEntry(
     mutationFn: (input: CreateEntryInput) => entriesApi.create(input),
     onSuccess: (entry) => {
       toast.success(messages.success, {
-        description: isQueued(entry) ? `${entry.title} · ${QUEUED_NOTE}` : entry.title,
+        description: isQueued(entry) ? `${entry.title} · ${queuedNote()}` : entry.title,
       });
       void queryClient.invalidateQueries({ queryKey: ['entries'] });
     },
     onError: (error) => {
       toast.error(messages.error, {
-        description: error instanceof ApiError ? error.message : undefined,
+        description: errorText(error),
       });
     },
   });
@@ -157,8 +157,8 @@ export function useReopenEntry() {
       void queryClient.invalidateQueries({ queryKey: ['entries'] });
     },
     onError: (error) => {
-      toast.error('ย้อนกลับไม่สำเร็จ', {
-        description: error instanceof ApiError ? error.message : undefined,
+      toast.error(tr('entries.reopenFailed'), {
+        description: errorText(error),
       });
     },
   });

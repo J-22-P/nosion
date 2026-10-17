@@ -78,7 +78,7 @@ describe('grid', () => {
 
   it('ป้ายภาษาไทย + เวลาตามโซนผู้ใช้', () => {
     expect(monthTitle('2026-08-12')).toBe('สิงหาคม 2026');
-    expect(longDayLabel('2026-08-12')).toBe('วันพุธ 12 สิงหาคม 2026');
+    expect(longDayLabel('2026-08-12')).toBe('วันพุธที่ 12 สิงหาคม 2026');
     expect(timeOf('2026-10-20T03:00:00.000Z', 'Asia/Bangkok')).toBe('10:00');
   });
 

@@ -34,12 +34,10 @@ import {
   useServerTiming,
 } from './use-calendar';
 import { AgendaList, MonthGrid, WeekGrid, WeekStrip } from './views';
+import { moduleLabel } from '@/i18n/current';
+import { tr } from '@/i18n/current';
 
-const VIEW_OPTIONS = [
-  { value: 'month', label: 'เดือน' },
-  { value: 'week', label: 'สัปดาห์' },
-  { value: 'agenda', label: 'รายการ' },
-] as const satisfies readonly { value: View; label: string }[];
+const VIEWS = ['month', 'week', 'agenda'] as const satisfies readonly View[];
 
 /**
  * หน้า Calendar (สเปก 8.11.4) — ทุกโมดูลบนปฏิทินเดียวจาก GET /calendar คำขอเดียว
@@ -114,7 +112,7 @@ export function CalendarView() {
             </span>
           </h1>
           <p className="mt-1 text-sm text-fg-secondary">
-            ปฏิทินรวมทุกโมดูล · <span className="font-mono text-xs">{timeZone}</span>
+            {tr('calendar.subtitle')} <span className="font-mono text-xs">{timeZone}</span>
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -122,28 +120,32 @@ export function CalendarView() {
             <Button
               variant="ghost"
               size="icon-sm"
-              aria-label={state.view === 'week' ? 'สัปดาห์ก่อน' : 'เดือนก่อน'}
+              aria-label={
+                state.view === 'week' ? tr('calendar.prevWeek') : tr('calendar.prevMonth')
+              }
               onClick={() => state.setDate(shiftAnchor(state.view, selected, -1))}
             >
               <ChevronLeft size={16} aria-hidden="true" />
             </Button>
             <Button variant="secondary" size="sm" shape="pill" onClick={() => state.setDate(today)}>
-              วันนี้
+              {tr('calendar.today')}
             </Button>
             <Button
               variant="ghost"
               size="icon-sm"
-              aria-label={state.view === 'week' ? 'สัปดาห์ถัดไป' : 'เดือนถัดไป'}
+              aria-label={
+                state.view === 'week' ? tr('calendar.nextWeek') : tr('calendar.nextMonth')
+              }
               onClick={() => state.setDate(shiftAnchor(state.view, selected, 1))}
             >
               <ChevronRight size={16} aria-hidden="true" />
             </Button>
           </div>
           <SegmentedControl
-            label="มุมมองปฏิทิน"
+            label={tr('calendar.viewLabel')}
             value={state.view}
             onChange={state.setView}
-            options={VIEW_OPTIONS}
+            options={VIEWS.map((v) => ({ value: v, label: tr(`calendar.view.${v}`) }))}
           />
           <Button
             variant="secondary"
@@ -161,11 +163,11 @@ export function CalendarView() {
           ไม่งั้นขึ้นบรรทัดใหม่ตอนข้อมูลมาแล้วดันปฏิทินลง (CLS 0.53 · Lighthouse Phase 8) */}
       <div
         role="group"
-        aria-label="กรองตามโมดูล"
+        aria-label={tr('calendar.filter')}
         className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] md:mx-0 md:flex-wrap md:overflow-visible md:px-0 md:pb-0"
       >
         <Chip selected={state.modules === null} onClick={() => state.setModules(null)}>
-          ทั้งหมด <span className="font-mono">{total}</span>
+          {tr('calendar.all')} <span className="font-mono">{total}</span>
         </Chip>
         {enabled.map((m) => (
           <Chip
@@ -180,17 +182,14 @@ export function CalendarView() {
             >
               {MODULE_THEME[m].prefix}
             </span>
-            {MODULE_THEME[m].label} <span className="font-mono">{counts[m] ?? 0}</span>
+            {moduleLabel(m)} <span className="font-mono">{counts[m] ?? 0}</span>
           </Chip>
         ))}
       </div>
 
       {calendar.isError && !data ? (
         <Card>
-          <ErrorState
-            message="โหลดปฏิทินไม่สำเร็จ ลองใหม่อีกครั้ง"
-            onRetry={() => void calendar.refetch()}
-          />
+          <ErrorState message={tr('calendar.loadFailed')} onRetry={() => void calendar.refetch()} />
         </Card>
       ) : (
         <div className="grid gap-4 lg:grid-cols-12">
@@ -249,24 +248,25 @@ export function CalendarView() {
       )}
 
       <footer className="flex flex-wrap items-center justify-between gap-3 text-xs text-fg-secondary">
-        <ul className="flex flex-wrap gap-3" aria-label="คำอธิบายสัญลักษณ์">
+        <ul className="flex flex-wrap gap-3" aria-label={tr('calendar.legend')}>
           {MODULE_KEYS.map((m) => (
             <li key={m} className="flex items-center gap-1">
               <span className="font-mono" style={{ color: MODULE_THEME[m].cssVar }}>
                 {MODULE_THEME[m].prefix}
               </span>
-              {MODULE_THEME[m].label}
+              {moduleLabel(m)}
             </li>
           ))}
           <li className="flex items-center gap-1">
-            <span aria-hidden="true" className="size-1.5 rounded-full bg-accent" /> มีการเตือน
+            <span aria-hidden="true" className="size-1.5 rounded-full bg-accent" />{' '}
+            {tr('calendar.hasReminder')}
           </li>
           <li className="flex items-center gap-1">
             <span
               aria-hidden="true"
               className="inline-block h-2.5 w-4 rounded-[3px] border border-dashed border-hairline-strong"
             />{' '}
-            รอบล่วงหน้า
+            {tr('calendar.projected')}
           </li>
         </ul>
         {latency !== null ? (

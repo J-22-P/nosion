@@ -12,23 +12,24 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Sparkline } from './charts';
 import { baht, shortDate } from './format';
 import { useBills, useBudgetStatus, useForecast, useSetTotalBudget } from './use-expense-queries';
+import { tr } from '@/i18n/current';
 
 /** สถานะงบ/คาดการณ์ — สีมาพร้อมไอคอนและข้อความเสมอ (ไม่สื่อด้วยสีอย่างเดียว) */
 const TONE: Record<
   BudgetTone,
-  { label: string; tone: 'neutral' | 'outline' | 'danger'; Icon: typeof CheckCircle2 }
+  { tone: 'neutral' | 'outline' | 'danger'; Icon: typeof CheckCircle2 }
 > = {
   // monochrome ตาม mockup — สีแดงเหลือไว้แค่ "เกินงบ" ซึ่งต้องลงมือทำจริง
-  safe: { label: 'ปลอดภัย', tone: 'neutral', Icon: CheckCircle2 },
-  warning: { label: 'ใกล้เกิน', tone: 'outline', Icon: AlertTriangle },
-  over: { label: 'เกินงบ', tone: 'danger', Icon: OctagonAlert },
+  safe: { tone: 'neutral', Icon: CheckCircle2 },
+  warning: { tone: 'outline', Icon: AlertTriangle },
+  over: { tone: 'danger', Icon: OctagonAlert },
 };
 
 export function ToneBadge({ tone }: { tone: BudgetTone }) {
   const t = TONE[tone];
   return (
     <Badge tone={t.tone}>
-      <t.Icon aria-hidden="true" /> {t.label}
+      <t.Icon aria-hidden="true" /> {tr(`kpi.tone.${tone}`)}
     </Badge>
   );
 }
@@ -77,7 +78,7 @@ function KpiError({ title }: { title: string }) {
     <Card>
       <CardContent className="pt-5 md:pt-6">
         <p role="alert" className="text-sm text-fg-secondary">
-          โหลด “{title}” ไม่สำเร็จ — ลองรีเฟรชหน้า
+          {tr('kpi.loadFailed', { title })}
         </p>
       </CardContent>
     </Card>
@@ -88,18 +89,18 @@ function KpiError({ title }: { title: string }) {
 export function SpendKpi() {
   const query = useBudgetStatus();
   if (query.isPending) return <KpiSkeleton />;
-  if (!query.data) return <KpiError title="รายจ่ายเดือนนี้" />;
+  if (!query.data) return <KpiError title={tr('kpi.spend')} />;
   const { total, firstDay, lastDay, currency } = query.data;
   const pct = total.ratio === null ? null : Math.round(total.ratio * 1000) / 10;
   const left = total.budgetMinor === null ? null : total.budgetMinor - total.spentMinor;
 
   return (
     <KpiCard
-      title="รายจ่ายเดือนนี้"
+      title={tr('kpi.spend')}
       aside={
         pct !== null ? (
           <Badge tone="neutral" className="nums">
-            {pct}% ใช้ไป
+            {tr('kpi.used', { pct })}
           </Badge>
         ) : null
       }
@@ -118,20 +119,20 @@ export function SpendKpi() {
         <>
           <p className="flex items-center justify-between gap-2 text-[13px] text-fg-secondary">
             {left !== null && left >= 0
-              ? `คงเหลือใช้ได้อีก ${baht(left, currency)} ในเดือนนี้`
-              : `เกินงบ ${baht(-(left ?? 0), currency)}`}
+              ? tr('kpi.left', { amount: baht(left, currency) })
+              : tr('kpi.over', { amount: baht(-(left ?? 0), currency) })}
             {total.tone !== 'safe' ? <ToneBadge tone={total.tone} /> : null}
           </p>
           <Progress
             value={total.spentMinor}
             max={total.budgetMinor}
             budget
-            label="ยอดใช้เทียบงบรวมเดือนนี้"
+            label={tr('kpi.progress')}
             className="mt-auto h-2"
           />
           <p className="flex justify-between font-mono text-[11px] text-fg-secondary">
-            <span>เริ่ม {shortDate(firstDay)}</span>
-            <span>สิ้นสุด {shortDate(lastDay)}</span>
+            <span>{tr('kpi.start', { date: shortDate(firstDay) })}</span>
+            <span>{tr('kpi.end', { date: shortDate(lastDay) })}</span>
           </p>
         </>
       ) : (
@@ -155,18 +156,18 @@ function SetBudgetForm() {
       }}
     >
       <label className="sr-only" htmlFor="total-budget">
-        งบรวมต่อเดือน (บาท)
+        {tr('kpi.budgetLabel')}
       </label>
       <input
         id="total-budget"
         inputMode="decimal"
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        placeholder="ตั้งงบต่อเดือน เช่น 15000"
+        placeholder={tr('kpi.budgetPlaceholder')}
         className="h-9 min-w-0 flex-1 rounded-control border border-hairline-strong bg-surface px-3 text-sm text-fg placeholder:text-fg-tertiary focus-visible:border-accent focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
       />
       <Button type="submit" size="sm" variant="secondary" disabled={!minor || save.isPending}>
-        ตั้งงบ
+        {tr('kpi.setBudget')}
       </Button>
     </form>
   );
@@ -176,7 +177,7 @@ function SetBudgetForm() {
 export function ForecastKpi() {
   const query = useForecast();
   if (query.isPending) return <KpiSkeleton />;
-  if (!query.data) return <KpiError title="คาดการณ์สิ้นเดือน" />;
+  if (!query.data) return <KpiError title={tr('kpi.forecast')} />;
   const f = query.data;
   const marginPct =
     f.marginMinor !== null && f.budgetMinor
@@ -185,7 +186,7 @@ export function ForecastKpi() {
 
   return (
     <KpiCard
-      title="คาดการณ์สิ้นเดือน"
+      title={tr('kpi.forecast')}
       aside={f.budgetMinor !== null ? <ToneBadge tone={f.status} /> : null}
     >
       <p className={BIG} lang="en">
@@ -193,15 +194,21 @@ export function ForecastKpi() {
       </p>
       <p className="text-[13px] text-fg-secondary">
         {f.marginMinor === null
-          ? 'ตั้งงบรวมเพื่อดูว่าจะเกินหรือไม่'
+          ? tr('kpi.forecastNoBudget')
           : f.marginMinor >= 0
-            ? `ต่ำกว่าเป้าหมายงบรวม ${baht(f.marginMinor, f.currency)} (${marginPct}%)`
-            : `เกินงบ ${baht(-f.marginMinor, f.currency)} (${marginPct}%)`}
+            ? tr('kpi.forecastUnder', {
+                amount: baht(f.marginMinor, f.currency),
+                pct: marginPct ?? 0,
+              })
+            : tr('kpi.forecastOver', {
+                amount: baht(-f.marginMinor, f.currency),
+                pct: marginPct ?? 0,
+              })}
       </p>
       <Sparkline
         className="mt-auto pt-1"
         points={f.series.map((p) => ({ x: p.date, y: p.cumulativeMinor }))}
-        label={`ยอดใช้สะสมตั้งแต่วันที่ 1 ถึงวันที่ ${f.dayOfMonth} รวม ${baht(f.spentToDateMinor, f.currency)}${f.unpaidBillsMinor > 0 ? ` · คาดการณ์รวมบิลที่ยังไม่จ่าย ${baht(f.unpaidBillsMinor, f.currency)}` : ''}`}
+        label={`${tr('kpi.sparkline', { day: f.dayOfMonth, amount: baht(f.spentToDateMinor, f.currency) })}${f.unpaidBillsMinor > 0 ? tr('kpi.sparklineBills', { amount: baht(f.unpaidBillsMinor, f.currency) }) : ''}`}
         format={(y) => baht(y, f.currency)}
       />
     </KpiCard>
@@ -212,7 +219,7 @@ export function ForecastKpi() {
 export function BillsKpi() {
   const query = useBills();
   if (query.isPending) return <KpiSkeleton />;
-  if (!query.data) return <KpiError title="บิลประจำ" />;
+  if (!query.data) return <KpiError title={tr('kpi.bills')} />;
   const b = query.data;
   const overdue = b.bills.filter((x) => x.daysUntilDue !== null && x.daysUntilDue < 0);
 
@@ -222,27 +229,30 @@ export function BillsKpi() {
 
   return (
     <KpiCard
-      title="บิลประจำ (Fixed bills)"
+      title={tr('kpi.billsTitle')}
       aside={<CalendarClock size={18} aria-hidden="true" className="text-fg-secondary" />}
     >
       <p className="flex items-baseline gap-2">
         <span className={BIG} lang="en">
           {baht(b.fixedMonthlyMinor, b.currency)}
         </span>
-        <span className="text-sm text-fg-secondary">/ เดือน</span>
+        <span className="text-sm text-fg-secondary">{tr('kpi.perMonth')}</span>
       </p>
       <p className="text-[13px] text-fg-secondary">
-        ครบกำหนดใน 7 วัน <span className="nums font-medium text-fg">{b.dueSoonCount}</span> รายการ
+        {tr.rich('kpi.dueSoon', {
+          count: b.dueSoonCount,
+          b: (chunks) => <span className="nums font-medium text-fg">{chunks}</span>,
+        })}
       </p>
       {overdue.length > 0 ? (
         <p className="mt-auto flex items-center gap-2 rounded-row bg-danger-soft px-3 py-2.5 text-[13px] text-danger">
           <AlertTriangle size={16} aria-hidden="true" className="shrink-0" />
-          เลยกำหนด {overdue.map((x) => x.title).join(', ')}
+          {tr('kpi.overdueBills', { titles: overdue.map((x) => x.title).join(', ') })}
         </p>
       ) : dueSoon.length > 0 ? (
         <p className="mt-auto flex items-center gap-2 rounded-row bg-sunken px-3 py-2.5 text-[13px] text-fg">
           <AlertTriangle size={16} aria-hidden="true" className="shrink-0" />
-          {dueSoon.map((x) => x.title).join(' & ')} ใกล้ครบกำหนด
+          {tr('kpi.dueSoonBills', { titles: dueSoon.map((x) => x.title).join(' & ') })}
         </p>
       ) : null}
     </KpiCard>

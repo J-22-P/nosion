@@ -25,6 +25,8 @@ const clockTime = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'เวลาต
 export const updateSettingsSchema = z.object({
   timezone: z.string().max(64).optional(),
   locale: z.enum(['th', 'en']).optional(),
+  /** ปีพุทธศักราช — มีผลเฉพาะภาษาไทย */
+  buddhistEra: z.boolean().optional(),
   currency: z.string().length(3).optional(),
   weekStartsOn: z.number().int().min(0).max(6).optional(),
   theme: z.enum(['light', 'dark', 'system']).optional(),

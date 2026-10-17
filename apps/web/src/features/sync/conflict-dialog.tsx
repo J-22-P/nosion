@@ -6,6 +6,7 @@ import { useEffect, useRef } from 'react';
 import { create } from 'zustand';
 import { Button } from '@/components/ui/button';
 import { fieldLabel } from './summarize';
+import { useTranslations } from 'next-intl';
 
 interface ConflictState {
   /** conflict ล่าสุด (ใหม่ก่อน · เก็บ 20) — อยู่ในหน่วยความจำเท่านั้น */
@@ -37,6 +38,7 @@ function display(value: unknown): string {
 export function ConflictDialog() {
   const { items, open, close } = useConflictStore();
   const ref = useRef<HTMLDialogElement>(null);
+  const t = useTranslations('syncUi');
 
   useEffect(() => {
     const dialog = ref.current;
@@ -54,31 +56,28 @@ export function ConflictDialog() {
     >
       <div className="flex items-center justify-between gap-3 border-b border-hairline px-5 py-4">
         <h2 id="conflict-title" className="text-base font-semibold">
-          แก้ชนกับอุปกรณ์อื่น
+          {t('conflictTitle')}
         </h2>
-        <Button variant="ghost" size="icon-sm" onClick={close} aria-label="ปิด">
+        <Button variant="ghost" size="icon-sm" onClick={close} aria-label={t('close')}>
           <X size={16} aria-hidden="true" />
         </Button>
       </div>
       <div className="max-h-[60vh] space-y-4 overflow-y-auto p-5 text-sm">
-        <p className="text-fg-secondary">
-          ระหว่างที่ออฟไลน์ มีการแก้ช่องเดียวกันจากอุปกรณ์อื่น — ระบบเก็บค่าบนเซิร์ฟเวอร์ไว้
-          ช่องอื่นที่แก้คนละช่องรวมให้แล้ว
-        </p>
+        <p className="text-fg-secondary">{t('conflictIntro')}</p>
         {items.map((item) => (
           <section key={item.opId} className="space-y-2">
-            <h3 className="font-medium">{item.entry?.title ?? 'รายการ'}</h3>
+            <h3 className="font-medium">{item.entry?.title ?? t('item')}</h3>
             <table className="w-full text-left text-xs">
               <thead className="text-fg-secondary">
                 <tr>
                   <th scope="col" className="py-1 pr-3 font-medium">
-                    ช่อง
+                    {t('colField')}
                   </th>
                   <th scope="col" className="py-1 pr-3 font-medium">
-                    ค่าของคุณ (ไม่ได้ใช้)
+                    {t('colYours')}
                   </th>
                   <th scope="col" className="py-1 font-medium">
-                    ค่าที่ใช้
+                    {t('colUsed')}
                   </th>
                 </tr>
               </thead>

@@ -1,15 +1,18 @@
 'use client';
 
-import type {
-  OAuthAccountsDto,
-  OAuthErrorCode,
-  OAuthLinkDto,
-  OAuthProvider,
-  OAuthProvidersDto,
+import {
+  OAUTH_ERRORS,
+  type OAuthAccountsDto,
+  type OAuthErrorCode,
+  type OAuthLinkDto,
+  type OAuthProvider,
+  type OAuthProvidersDto,
 } from '@nosion/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { API_URL, ApiError, apiFetch } from '@/lib/api-client';
+import { API_URL, apiFetch } from '@/lib/api-client';
+import { useTranslations } from 'next-intl';
+import { useApiErrorText } from '@/i18n/errors';
 
 export const PROVIDER_LABEL: Record<OAuthProvider, string> = {
   google: 'Google',
@@ -17,21 +20,14 @@ export const PROVIDER_LABEL: Record<OAuthProvider, string> = {
 };
 
 /** `?oauth_error=` จาก API → ข้อความที่ผู้ใช้อ่านเข้าใจ (ไม่แสดงข้อความดิบของผู้ให้บริการ) */
-export const OAUTH_ERROR_MESSAGE: Record<OAuthErrorCode, string> = {
-  provider_disabled: 'ระบบนี้ยังไม่ได้เปิดการเข้าสู่ระบบด้วยบัญชีนี้',
-  denied: 'ยกเลิกการเข้าสู่ระบบแล้ว',
-  state_mismatch: 'ลิงก์หมดอายุหรือเปิดจากหน้าต่างอื่น — ลองกดปุ่มอีกครั้ง',
-  exchange_failed: 'ติดต่อผู้ให้บริการไม่สำเร็จ — ลองใหม่อีกครั้ง',
-  email_unverified: 'บัญชีนี้ยังไม่มีอีเมลที่ยืนยันแล้ว — ยืนยันอีเมลกับผู้ให้บริการก่อน',
-  email_conflict:
-    'อีเมลนี้มีบัญชีที่ยังไม่ได้ยืนยันอยู่แล้ว — เข้าสู่ระบบด้วยรหัสผ่าน แล้วเชื่อมบัญชีจากหน้าตั้งค่า',
-  already_linked: 'บัญชีนี้ถูกเชื่อมกับผู้ใช้อื่นอยู่แล้ว',
-  account_unavailable: 'บัญชีนี้ใช้งานไม่ได้แล้ว',
-};
-
-export function oauthErrorMessage(code: string | null): string | null {
-  if (!code) return null;
-  return OAUTH_ERROR_MESSAGE[code as OAuthErrorCode] ?? 'เข้าสู่ระบบไม่สำเร็จ ลองใหม่อีกครั้ง';
+export function useOAuthErrorMessage() {
+  const t = useTranslations('oauth.error');
+  return (code: string | null): string | null => {
+    if (!code) return null;
+    return (OAUTH_ERRORS as readonly string[]).includes(code)
+      ? t(code as OAuthErrorCode)
+      : t('unknown');
+  };
 }
 
 /** URL เริ่ม flow — เปิดแบบ top-level (ไม่ใช่ fetch) · แนบโซนเวลาของเครื่องให้บัญชีใหม่ */
@@ -60,6 +56,8 @@ export function useOAuthAccounts() {
 
 /** ผูกบัญชี: ขอ URL ที่มี token อายุสั้น แล้วพาเบราว์เซอร์ไปหน้าผู้ให้บริการ */
 export function useLinkOAuth() {
+  const t = useTranslations('oauth');
+  const apiErrorText = useApiErrorText();
   return useMutation({
     mutationFn: ({
       provider,
@@ -75,25 +73,21 @@ export function useLinkOAuth() {
     onSuccess: ({ url }) => {
       window.location.assign(url);
     },
-    onError: (error) =>
-      toast.error('เริ่มเชื่อมบัญชีไม่สำเร็จ', {
-        description: error instanceof ApiError ? error.message : undefined,
-      }),
+    onError: (error) => toast.error(t('linkFailed'), { description: apiErrorText(error) }),
   });
 }
 
 export function useUnlinkOAuth() {
   const queryClient = useQueryClient();
+  const t = useTranslations('oauth');
+  const apiErrorText = useApiErrorText();
   return useMutation({
     mutationFn: (provider: OAuthProvider) =>
       apiFetch<void>(`/me/oauth-accounts/${provider}`, { method: 'DELETE' }),
     onSuccess: (_, provider) => {
-      toast.success(`ยกเลิกการเชื่อม ${PROVIDER_LABEL[provider]} แล้ว`);
+      toast.success(t('unlinked', { provider: PROVIDER_LABEL[provider] }));
       void queryClient.invalidateQueries({ queryKey: ACCOUNTS_KEY });
     },
-    onError: (error) =>
-      toast.error('ยกเลิกการเชื่อมไม่สำเร็จ', {
-        description: error instanceof ApiError ? error.message : undefined,
-      }),
+    onError: (error) => toast.error(t('unlinkFailed'), { description: apiErrorText(error) }),
   });
 }

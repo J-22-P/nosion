@@ -62,3 +62,28 @@ describe('buildReminderMessage', () => {
     expect(m.actions[0]!.title).toBe('เสร็จแล้ว');
   });
 });
+
+describe('ภาษาอังกฤษ (Phase 8 ขั้น 6)', () => {
+  it('ผู้ใช้ภาษาอังกฤษ → ข้อความ + ปุ่มใน notification เป็นอังกฤษ · เงินยังเป็น ฿', () => {
+    const now = new Date('2026-10-17T03:00:00Z');
+    const msg = buildReminderMessage(
+      {
+        id: 'e1',
+        userId: 'u1',
+        module: 'expense',
+        title: 'Internet',
+        occurredAt: new Date('2026-10-17T17:00:00Z'), // 18 ต.ค. เวลาไทย = พรุ่งนี้
+        isAllDay: true,
+        payload: { amountMinor: 79900, currency: 'THB', isBill: true },
+      },
+      { timezone: 'Asia/Bangkok', currency: 'THB', locale: 'en' },
+      now,
+    );
+    expect(msg.title).toBe('Internet ฿799.00');
+    expect(msg.body).toBe('Due tomorrow');
+    expect(msg.actions?.map((a) => a.title)).toEqual(['Paid', 'Snooze 1 day']);
+    expect(dueText(new Date('2026-10-14T17:00:00Z'), true, now, 'Asia/Bangkok', 'en')).toBe(
+      '2 days overdue',
+    );
+  });
+});

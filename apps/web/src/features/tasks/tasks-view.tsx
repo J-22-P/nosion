@@ -10,19 +10,17 @@ import { FocusCard } from './focus-card';
 import { TaskSidebar, TaskSmartListBar } from './task-sidebar';
 import { useTaskSidebar } from './use-task-queries';
 import { useTaskView, type TaskView } from './use-task-view';
+import { useLocale, useTranslations } from 'next-intl';
 
-const VIEW_OPTIONS = [
-  { value: 'list', label: 'รายการ' },
-  { value: 'project', label: 'โปรเจกต์' },
-  { value: 'overdue', label: 'เกินกำหนด' },
-  { value: 'priority', label: 'ความสำคัญ' },
-] as const;
+const VIEWS: TaskView[] = ['list', 'project', 'overdue', 'priority'];
 
 /** หน้า Tasks (สเปก 8.11.2) */
 export function TasksView() {
   const { view, list, q, filters, setView, setList, setQuery } = useTaskView();
   const sidebar = useTaskSidebar();
   const pendingCount = sidebar.data?.smartLists.all ?? null;
+  const t = useTranslations('tasksView');
+  const locale = useLocale();
 
   return (
     <div className="space-y-6">
@@ -33,24 +31,29 @@ export function TasksView() {
           </p>
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <h1 className="text-[30px] font-semibold leading-tight md:text-[40px]">
-              งานทั้งหมด{' '}
-              <span className="text-fg-tertiary tracking-display" lang="en">
-                (Tasks)
-              </span>
+              {t('title')}
+              {locale === 'th' ? (
+                <>
+                  {' '}
+                  <span className="text-fg-tertiary tracking-display" lang="en">
+                    (Tasks)
+                  </span>
+                </>
+              ) : null}
             </h1>
             {pendingCount !== null ? (
               <Badge tone="neutral" className="nums">
-                {pendingCount} ค้างอยู่
+                {t('pending', { count: pendingCount })}
               </Badge>
             ) : null}
           </div>
         </div>
         <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] lg:mx-0 lg:px-0">
           <SegmentedControl<TaskView>
-            label="มุมมอง"
+            label={t('viewLabel')}
             value={view}
             onChange={setView}
-            options={VIEW_OPTIONS}
+            options={VIEWS.map((v) => ({ value: v, label: t(v) }))}
           />
         </div>
       </header>
@@ -82,6 +85,7 @@ export function TasksView() {
 /** ค้นหาชื่องาน — หน่วง 250ms ก่อนเขียนลง URL เพื่อไม่ยิง API ทุกตัวอักษร */
 function SearchBox({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const [draft, setDraft] = useState(value);
+  const t = useTranslations('tasksView');
 
   useEffect(() => setDraft(value), [value]);
 
@@ -94,13 +98,13 @@ function SearchBox({ value, onChange }: { value: string; onChange: (value: strin
   return (
     <label className="flex h-10 items-center gap-2 rounded-control border border-hairline bg-surface px-3 transition-shadow focus-within:shadow-[var(--focus-ring)]">
       <Search size={16} className="shrink-0 text-fg-secondary" aria-hidden="true" />
-      <span className="sr-only">ค้นหางาน</span>
+      <span className="sr-only">{t('search')}</span>
       <input
         type="search"
         data-shortcut="search"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
-        placeholder="ค้นหางาน…"
+        placeholder={t('searchPlaceholder')}
         className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-fg-tertiary"
       />
     </label>

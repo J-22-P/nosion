@@ -11,6 +11,7 @@ import { ColumnChart } from './charts';
 import { baht, bahtCompact, shortMonth } from './format';
 import { ToneBadge } from './kpi-cards';
 import { useBudgetStatus, useTrends } from './use-expense-queries';
+import { tr } from '@/i18n/current';
 
 type Tab = 'budget' | 'trend';
 
@@ -19,12 +20,12 @@ export function CategoryCard({ className }: { className?: string }) {
   const [tab, setTab] = useState<Tab>('budget');
   const control = (
     <SegmentedControl<Tab>
-      label="มุมมองหมวดหมู่"
+      label={tr('catCard.view')}
       value={tab}
       onChange={setTab}
       options={[
-        { value: 'budget', label: 'งบประมาณ' },
-        { value: 'trend', label: 'แนวโน้ม' },
+        { value: 'budget', label: tr('catCard.budget') },
+        { value: 'trend', label: tr('catCard.trend') },
       ]}
     />
   );
@@ -32,8 +33,8 @@ export function CategoryCard({ className }: { className?: string }) {
     <Card className={className}>
       {/* มือถือ: ตัวสลับอยู่ใต้หัวการ์ด — วางข้างหัวแล้วชื่อการ์ดถูกบีบจนตัดเป็นคำละบรรทัด */}
       <CardHeader
-        title={<span className="text-xl">สัดส่วนตามหมวดหมู่</span>}
-        description="การกระจายค่าใช้จ่ายเทียบกับงบที่จัดสรร"
+        title={<span className="text-xl">{tr('catCard.title')}</span>}
+        description={tr('catCard.description')}
         aside={<div className="hidden sm:block">{control}</div>}
       />
       <CardContent>
@@ -56,12 +57,10 @@ function BudgetBars() {
     );
   }
   if (!query.data)
-    return <ErrorState message="โหลดงบรายหมวดไม่สำเร็จ" onRetry={() => void query.refetch()} />;
+    return <ErrorState message={tr('catCard.loadFailed')} onRetry={() => void query.refetch()} />;
   const { categories, currency } = query.data;
   if (categories.length === 0) {
-    return (
-      <EmptyState title="ยังไม่มีรายจ่ายเดือนนี้" description="บันทึกรายการแรกจากช่องด้านบน" />
-    );
+    return <EmptyState title={tr('catCard.empty')} description={tr('catCard.emptyHint')} />;
   }
   return (
     <>
@@ -85,18 +84,18 @@ function BudgetBars() {
                   value={c.spentMinor}
                   max={c.budgetMinor}
                   budget
-                  label={`งบหมวด${meta.label}`}
+                  label={tr('catCard.budgetOf', { category: meta.label })}
                 />
               ) : (
-                <p className="text-xs text-fg-secondary">ยังไม่ได้ตั้งงบหมวดนี้</p>
+                <p className="text-xs text-fg-secondary">{tr('catCard.noBudget')}</p>
               )}
             </li>
           );
         })}
       </ul>
       <p className="mt-5 flex justify-between border-t border-hairline pt-4 text-xs text-fg-secondary">
-        <span>คำนวณอัตโนมัติจากหมวดของแต่ละรายการ</span>
-        <span className="nums">{categories.length} หมวดหมู่ที่มีข้อมูล</span>
+        <span>{tr('catCard.auto')}</span>
+        <span className="nums">{tr('catCard.count', { count: categories.length })}</span>
       </p>
     </>
   );
@@ -106,11 +105,13 @@ function Trend() {
   const query = useTrends(true);
   if (query.isPending) return <Skeleton className="h-40 w-full" />;
   if (!query.data)
-    return <ErrorState message="โหลดแนวโน้มไม่สำเร็จ" onRetry={() => void query.refetch()} />;
+    return (
+      <ErrorState message={tr('catCard.trendLoadFailed')} onRetry={() => void query.refetch()} />
+    );
   const { points, currency } = query.data;
   return (
     <ColumnChart
-      title="รายจ่ายรวม 6 เดือนล่าสุด"
+      title={tr('catCard.trendTitle')}
       columns={points.map((p, i) => ({
         key: p.period,
         label: shortMonth(p.period),

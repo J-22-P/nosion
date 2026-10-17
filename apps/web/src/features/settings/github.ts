@@ -7,7 +7,9 @@ import type {
 } from '@nosion/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ApiError, apiFetch } from '@/lib/api-client';
+import { apiFetch } from '@/lib/api-client';
+import { errorText } from '@/i18n/errors';
+import { tr } from '@/i18n/current';
 
 const KEY = ['integrations', 'github'] as const;
 
@@ -25,9 +27,13 @@ export function useGitHubSync() {
       apiFetch<GitHubSyncResultDto>('/integrations/github/sync', { method: 'POST' }),
     onSuccess: (r) => {
       const changed = r.created + r.updated + r.completed;
-      toast.success(changed ? `ดึงจาก GitHub แล้ว ${changed} รายการ` : 'ไม่มีอะไรใหม่บน GitHub', {
+      toast.success(changed ? tr('github.synced', { count: changed }) : tr('github.nothingNew'), {
         description: changed
-          ? `ใหม่ ${r.created} · อัปเดต ${r.updated} · ปิด ${r.completed}`
+          ? tr('github.syncedDetail', {
+              created: r.created,
+              updated: r.updated,
+              completed: r.completed,
+            })
           : undefined,
       });
       void queryClient.invalidateQueries({ queryKey: KEY });
@@ -35,8 +41,8 @@ export function useGitHubSync() {
       void queryClient.invalidateQueries({ queryKey: ['entries'] });
     },
     onError: (error) => {
-      toast.error('ดึงจาก GitHub ไม่สำเร็จ', {
-        description: error instanceof ApiError ? error.message : undefined,
+      toast.error(tr('github.syncFailed'), {
+        description: errorText(error),
       });
       void queryClient.invalidateQueries({ queryKey: KEY });
     },
@@ -50,8 +56,8 @@ export function useRotateGitHubWebhook() {
       apiFetch<GitHubWebhookSecretDto>('/integrations/github/webhook', { method: 'POST' }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: KEY }),
     onError: (error) =>
-      toast.error('สร้าง webhook ไม่สำเร็จ', {
-        description: error instanceof ApiError ? error.message : undefined,
+      toast.error(tr('github.webhookFailed'), {
+        description: errorText(error),
       }),
   });
 }
@@ -61,7 +67,7 @@ export function useDisableGitHubWebhook() {
   return useMutation({
     mutationFn: () => apiFetch<void>('/integrations/github/webhook', { method: 'DELETE' }),
     onSuccess: () => {
-      toast.success('ปิด webhook แล้ว');
+      toast.success(tr('github.webhookDisabled'));
       void queryClient.invalidateQueries({ queryKey: KEY });
     },
   });

@@ -29,7 +29,7 @@
 | 4   | API key (สร้าง/เพิกถอน · scope) + Public API ใน Swagger                 | `400f307` | ✅                          |
 | 4b  | เข้าสู่ระบบด้วย Google / GitHub (OAuth · ผูกบัญชีเดิม)                  | `1800855` | ✅                          |
 | 5   | GitHub: webhook PR merged → ปิดงาน (ตรวจลายเซ็น) + ดึง issue ลงปฏิทิน   | `abf0e6f` | ✅                          |
-| 6   | i18n: dictionary ไทย/อังกฤษ · สลับภาษาในตั้งค่า · วันที่/เงินตาม locale | —         | ⬜                          |
+| 6   | i18n: dictionary ไทย/อังกฤษ · สลับภาษาในตั้งค่า · วันที่/เงินตาม locale | —         | ✅                          |
 | 7   | `deploy-production.yml` จาก tag + rollback                              | —         | ⬜                          |
 | 8   | ให้คนที่ไม่ใช่ dev ใช้เองได้: onboarding/empty state · README + diagram | —         | ⬜                          |
 | 9   | บท learn 21 + ADR                                                       | —         | ⬜                          |
@@ -299,5 +299,56 @@ schema ของ body ใน Swagger ยังว่าง (validate ด้ว�
 
 - ⚠️ ยังไม่ได้ลองกับ GitHub ตัวจริง (ต้องมี OAuth app — ขั้น 4b) · ตั้งงาน `internal/cron/github` รายชั่วโมงบน cron-job.org (คู่มือหัวข้อ 5b)
 - webhook ต้องเปิดทีละ repo — GitHub App (ติดตั้งครั้งเดียวทุก repo + สิทธิ์อ่านอย่างเดียว) ดีกว่าแต่ตั้งค่ายากกว่ามาก · บันทึกไว้ใน ADR (ขั้น 9)
+
+📚 บท learn 21 (ขั้น 9)
+
+## ขั้น 6 · i18n ไทย/อังกฤษ — branch `feature/i18n`
+
+**เป้าหมาย:** สเปก 8.9 — `next-intl` ไทย (ค่าเริ่มต้น) + อังกฤษ · สลับในตั้งค่า · วันที่/เงินตามภาษา · ปีพุทธศักราชเลือกได้ · ICU plural
+
+**สิ่งที่เปลี่ยน**
+
+- **เว็บ:** ข้อความไทยที่ฝังในโค้ด ~900 บรรทัด / 94 ไฟล์ → 📁 `apps/web/messages/{th,en}.json` (923 ข้อความ) ·
+  หน้าทั้งหมดย้ายเข้า 📁 `src/app/[locale]/` · 📁 `src/middleware.ts` อ่านคุกกี้ `NOSION_LOCALE` แล้ว rewrite ไป `/<locale>/…` ภายใน
+- 📁 `src/i18n/current.ts` — `tr()` / `dateFormat()` / `currentIntlLocale()` สำหรับโค้ดที่ไม่ใช่ component (ตัวจัดรูปแบบ · สรุปกฎการเกิดซ้ำ · โมเดล ⌘K · toast)
+  ตั้งค่าโดย `<LocaleBridge>` ใน layout · ตารางชื่อ (หมวด · วิธีจ่าย · smart list · วันในสัปดาห์) เป็น **getter** → ทุกจุดที่อ่าน `.label` ได้ภาษาปัจจุบันโดยไม่ต้องแก้
+- 📁 `src/i18n/errors.ts` — ข้อความ validation ของ `packages/contracts` (ใช้ร่วมกับ API จึงเป็นไทย) แปลด้วยตารางที่เว็บ ·
+  error จาก API ในโหมดอังกฤษ → ข้อความกลางตามชนิดปัญหา (RFC 9457 `type`/status) แทนการโชว์ไทยปน
+- ตั้งค่า → การ์ด **ภาษาและรูปแบบวันที่** (สลับภาษา · ปี พ.ศ.) · ปุ่มสลับภาษาที่หน้าแรกและหน้า login/register ·
+  ภาษาของบัญชี ↔ เครื่อง: เลือกบนเครื่องนี้แล้ว (มีคุกกี้) = บันทึกลงบัญชี · ไม่เคยเลือก = ใช้ภาษาของบัญชี (📁 `i18n/use-locale-sync.ts`)
+- **API:** 📁 `packages/core/src/text.ts` พจนานุกรมข้อความที่เซิร์ฟเวอร์ประกอบเอง (การ์ด Today · สรุปสัปดาห์ · standup · คำทักทาย · การแจ้งเตือน) —
+  `EN: Record<keyof typeof TH>` = ภาษาไหนขาด key คอมไพล์ไม่ผ่าน · โมดูลใช้ `ctx.locale` (มีใน `UserContext` ตั้งแต่ Phase 0)
+- ปุ่ม/ป้ายในปฏิทิน (`calendarActions`/`toCalendarEvent` ไม่รู้ภาษา) → API ส่ง `meta.badgeKey` เพิ่ม · เว็บแปลตามโมดูล+ชนิด
+- **อีเมล:** 📁 `packages/emails/src/copy.ts` ทั้ง 7 แบบ + footer + `<html lang>` · digest/การเตือน/ยืนยัน/รีเซ็ต/ความปลอดภัย ใช้ภาษาของผู้รับ ·
+  สมัครสมาชิกส่ง `locale` มาด้วย → อีเมลยืนยันฉบับแรกถูกภาษา · **push** (หัวข้อ ปุ่ม "จ่ายแล้ว/เลื่อน 1 วัน") ตามภาษาผู้ใช้
+- migration `20261017150000_buddhist_era` — `user_settings.buddhistEra` (ค่าเริ่มต้น `true`)
+- เงิน: `formatMoney` ใช้ `currencyDisplay: 'narrowSymbol'` → ภาษาอังกฤษก็เป็น `฿1,234.50` (ไม่ใช่ `THB 1,234.50`)
+
+**การตัดสินใจ**
+
+- **URL ไม่มี `/en`** (`localePrefix: never` แบบทำเองใน middleware) — ลิงก์ในแอปไม่ต้องรู้ภาษา · service worker/แคชออฟไลน์ใช้ path เดิม ·
+  ทุกหน้ายัง **static** ครบสองภาษา (`generateStaticParams` · build แสดง ● SSG ทุกหน้า) ต่างจากอ่านคุกกี้ตอน render ซึ่งทำให้ทุกหน้า dynamic (TTFB/Lighthouse)
+- **ไม่เดาภาษาจาก `Accept-Language`** — ผลแน่นอน (เทสต์/Lighthouse เป็นเบราว์เซอร์อังกฤษ) · ค่าเริ่มต้นไทยตามสเปก · ผู้ใช้เลือกเองได้ตั้งแต่หน้าแรก
+- **Intl ไทยต้องระบุปฏิทินเสมอ** — `th-TH` เฉย ๆ = พุทธศักราช (เดิมหน้าแอปปนกัน: Today เป็น 2569 · ปฏิทินเป็น 2026) ·
+  ตอนนี้ `th-TH-u-ca-buddhist` / `th-TH-u-ca-gregory` ตามที่ผู้ใช้เลือก ค่าเริ่มต้น พ.ศ. (เท่ากับหน้าตาเดิมของ Today)
+- ข้อความ error ของ API **ยังเป็นภาษาไทย** (Problem Details `detail` ~80 จุดใน service) — แปลทั้งหมดคุ้มน้อยกว่าให้เว็บแปลตาม `type`
+  (ภาษาอังกฤษเห็นข้อความกลางที่ถูกต้องแต่เจาะจงน้อยกว่า) · Swagger/Public API คงไว้แบบเดิม
+- ข้อมูลตัวอย่างของบัญชีทดลอง (ชื่องาน/บิล) เป็นภาษาไทย — เป็น "ข้อมูลของผู้ใช้" ไม่ใช่ UI
+
+**วิธีตรวจ**
+
+- 📁 `apps/web/scripts/check-messages.mjs` (อยู่ใน `test:unit`) — key ของ th/en ตรงกัน · ICU parse ได้และใช้ตัวแปรชุดเดียวกัน ·
+  ทุก `tr('…')` / `t('…')` ในโค้ดมี key จริง (1,047 จุด) — จับ key ชนกัน (`newBill.remind` เป็นทั้งข้อความและกลุ่ม) ได้ระหว่างทำ
+- เว็บ unit 119 (เทสต์ตั้งภาษาไทย ค.ศ. ใน `src/test-setup.ts`) · UI (mock API) **68**: ชุดเดิม 60 ภาษาไทย + ภาษาอังกฤษ 8 —
+  ปุ่มสลับภาษาที่ login (คุกกี้ + URL เดิม + `<html lang="en">`) · 7 หน้าหลักเป็นอังกฤษ + axe ผ่าน
+- เจอระหว่างทำ: หน้า login/register เป็น server component ที่ไม่ได้ `setRequestLocale` → ชุดอังกฤษถูก **สร้างเป็นไทย** (เฉพาะส่วนที่เป็น client เปลี่ยน) ·
+  toast "เชื่อม GitHub แล้ว" ขึ้นซ้ำสองครั้งหลังเปลี่ยน dependency ของ effect → กันด้วย ref
+- API: unit 216 · integration **146** (เพิ่ม `i18n.int-spec.ts`: สมัครด้วย `locale=en` · Today/สรุปสัปดาห์/standup เป็นอังกฤษ · สลับกลับเป็นไทยทันที) ·
+  core 189 (`text.test.ts`) · emails 15 (ฉบับอังกฤษไม่มีอักษรไทยเลย) · notifications 21 (push อังกฤษ) · `pnpm verify` exit 0
+
+**ค้าง**
+
+- ภาพ baseline ของ visual test เปลี่ยน (ปีในปฏิทินเป็น พ.ศ. · หน้า login มีปุ่มภาษา) → รัน **Update visual baselines** หลัง push
+- ข้อความ error ของ API ภาษาอังกฤษเป็นแบบกลาง (ด้านบน) · ชื่อหน่วยของนิสัยที่ผู้ใช้สร้างไว้แล้ว (เช่น "แก้ว") ไม่แปล (เป็นข้อมูล)
 
 📚 บท learn 21 (ขั้น 9)

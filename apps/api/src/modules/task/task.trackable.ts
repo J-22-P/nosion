@@ -12,6 +12,7 @@ import {
   type TrackableModule,
   type UserContext,
   type WeeklySection,
+  text,
 } from '@nosion/core';
 import { RegisterModule } from '../../core/registry/register-module.decorator';
 
@@ -65,20 +66,26 @@ export class TaskTrackableModule implements TrackableModule<TaskPayload> {
 
   summarizeToday(entries: Entry[], ctx: UserContext): TodayWidget {
     const now = ctx.now ?? new Date();
+    const lang = ctx.locale;
     const done = entries.filter((e) => e.status === 'done').length;
     const overdue = entries.filter((e) => isEntryOverdue(e, now, ctx.timezone));
     const open = entries.filter((e) => e.status !== 'done' && e.status !== 'cancelled');
 
     return {
       module: this.key,
-      title: 'งานวันนี้',
+      title: text(lang, 'task.today.title'),
       order: 10,
       headline:
-        `งานวันนี้ ${entries.length} ชิ้น` +
-        (overdue.length > 0 ? ` · เลยกำหนด ${overdue.length}` : ''),
-      subline: entries.length > 0 ? `เสร็จแล้ว ${done}/${entries.length}` : undefined,
+        text(lang, 'task.today.headline', { count: entries.length }) +
+        (overdue.length > 0
+          ? text(lang, 'task.today.overdueSuffix', { count: overdue.length })
+          : ''),
+      subline:
+        entries.length > 0
+          ? text(lang, 'task.today.subline', { done, total: entries.length })
+          : undefined,
       progress: { done, total: entries.length },
-      actions: [{ label: 'สร้าง standup', href: '/today?standup=1' }],
+      actions: [{ label: text(lang, 'task.today.standup'), href: '/today?standup=1' }],
       data: { overdueCount: overdue.length },
       // ค้างอยู่ก่อน แล้วตามด้วยที่เสร็จวันนี้ (การ์ดแสดงแบบขีดฆ่า — mockup 8.11.1) · รวมไม่เกิน 8
       items: [...open, ...entries.filter((e) => e.status === 'done')].slice(0, 8).map((e) => ({
@@ -87,14 +94,15 @@ export class TaskTrackableModule implements TrackableModule<TaskPayload> {
         status: e.status,
         priority: e.priority,
         occurredAt: e.occurredAt,
-        detail: isEntryOverdue(e, now, ctx.timezone) ? 'เลยกำหนด' : undefined,
+        detail: isEntryOverdue(e, now, ctx.timezone) ? text(lang, 'task.today.overdue') : undefined,
       })),
       isEmpty: entries.length === 0,
-      emptyCta: { label: 'เพิ่มงานแรก', href: '/tasks?new=1' },
+      emptyCta: { label: text(lang, 'task.today.empty'), href: '/tasks?new=1' },
     };
   }
 
-  summarizeWeek(entries: Entry[], _ctx: UserContext): WeeklySection {
+  summarizeWeek(entries: Entry[], ctx: UserContext): WeeklySection {
+    const lang = ctx.locale;
     const done = entries.filter((e) => e.status === 'done');
     const estimated = entries.reduce(
       (sum, e) => sum + ((e.payload as TaskPayload).estimateMinutes ?? 0),
@@ -114,21 +122,30 @@ export class TaskTrackableModule implements TrackableModule<TaskPayload> {
       .at(0);
 
     const highlights: string[] = [];
-    if (done.length > 0) highlights.push(`ปิดงานได้ ${done.length} รายการ`);
+    if (done.length > 0) highlights.push(text(lang, 'task.week.closed', { count: done.length }));
     if (mostDeferred && ((mostDeferred.payload as TaskPayload).deferCount ?? 0) > 0) {
       highlights.push(
-        `งานที่ผัดบ่อยที่สุด: "${mostDeferred.title}" (${(mostDeferred.payload as TaskPayload).deferCount} ครั้ง)`,
+        text(lang, 'task.week.mostDeferred', {
+          title: mostDeferred.title,
+          count: (mostDeferred.payload as TaskPayload).deferCount ?? 0,
+        }),
       );
     }
 
     return {
       module: this.key,
-      title: 'งาน',
+      title: text(lang, 'task.week.title'),
       order: 10,
       stats: [
-        { label: 'ทำเสร็จ', value: `${done.length}/${entries.length}` },
-        { label: 'เวลาที่ประเมิน', value: `${Math.round(estimated / 60)} ชม.` },
-        { label: 'เวลาที่ใช้จริง', value: `${Math.round(actual / 60)} ชม.` },
+        { label: text(lang, 'task.week.done'), value: `${done.length}/${entries.length}` },
+        {
+          label: text(lang, 'task.week.estimated'),
+          value: text(lang, 'task.week.hours', { n: Math.round(estimated / 60) }),
+        },
+        {
+          label: text(lang, 'task.week.actual'),
+          value: text(lang, 'task.week.hours', { n: Math.round(actual / 60) }),
+        },
       ],
       highlights,
     };

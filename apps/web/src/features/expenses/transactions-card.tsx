@@ -15,6 +15,7 @@ import { formatDueDate } from '@/lib/format';
 import { CATEGORY, PAYMENT_LABEL } from './categories';
 import { bahtExact, timeOf } from './format';
 import { useBudgetStatus } from './use-expense-queries';
+import { currentLocale, tr } from '@/i18n/current';
 
 const RECENT: EntryFilters = { module: 'expense', sort: 'occurredAt:desc', limit: 8 };
 
@@ -68,15 +69,15 @@ export function TransactionsCard({ className }: { className?: string }) {
 
       const csv = toCsv([
         [
-          'วันที่',
-          'รายการ',
-          'หมวด',
-          'ประเภทต้นทุน',
-          'วิธีจ่าย',
-          'ทิศทาง',
-          'จำนวนเงิน',
-          'สกุลเงิน',
-          'สถานะ',
+          tr('tx.csv.date'),
+          tr('tx.csv.title'),
+          tr('tx.csv.category'),
+          tr('tx.csv.costType'),
+          tr('tx.csv.payment'),
+          tr('tx.csv.direction'),
+          tr('tx.csv.amount'),
+          tr('tx.csv.currency'),
+          tr('tx.csv.status'),
         ],
         ...all.map((e) => {
           const p = payloadOf(e);
@@ -84,9 +85,9 @@ export function TransactionsCard({ className }: { className?: string }) {
             e.occurredAt ?? '',
             e.title,
             CATEGORY[p.category].label,
-            p.costType === 'fixed' ? 'คงที่' : 'ผันแปร',
+            p.costType === 'fixed' ? tr('tx.fixed') : tr('tx.variable'),
             PAYMENT_LABEL[p.paymentMethod],
-            p.direction === 'income' ? 'รายรับ' : 'รายจ่าย',
+            p.direction === 'income' ? tr('tx.income') : tr('tx.expense'),
             // จำนวนเงินเป็นตัวเลขล้วน (ไม่มี ฿/ลูกน้ำ) ให้ Excel คำนวณต่อได้
             ((p.direction === 'income' ? 1 : -1) * p.amountMinor) / 100,
             p.currency,
@@ -95,9 +96,9 @@ export function TransactionsCard({ className }: { className?: string }) {
         }),
       ]);
       downloadText(`nosion-expenses-${period}.csv`, csv);
-      toast.success(`ส่งออก ${all.length} รายการแล้ว`);
+      toast.success(tr('tx.exported', { count: all.length }));
     } catch {
-      toast.error('ส่งออก CSV ไม่สำเร็จ');
+      toast.error(tr('tx.exportFailed'));
     } finally {
       setExporting(false);
     }
@@ -108,10 +109,15 @@ export function TransactionsCard({ className }: { className?: string }) {
       <CardHeader
         title={
           <span className="text-xl">
-            รายการใช้จ่ายล่าสุด <span className="text-fg-secondary">(Transactions)</span>
+            {tr('tx.title')}{' '}
+            {currentLocale() === 'th' ? (
+              <span className="text-fg-secondary" lang="en">
+                (Transactions)
+              </span>
+            ) : null}
           </span>
         }
-        description="บันทึกธุรกรรมล่าสุดของเดือนนี้"
+        description={tr('tx.description')}
         aside={
           <Button
             variant="secondary"
@@ -119,7 +125,7 @@ export function TransactionsCard({ className }: { className?: string }) {
             shape="circle"
             onClick={() => void exportMonth()}
             disabled={exporting || !status.data}
-            aria-label="ส่งออกรายการของเดือนนี้เป็น CSV"
+            aria-label={tr('tx.export')}
           >
             <Download size={16} aria-hidden="true" />
           </Button>
@@ -133,9 +139,9 @@ export function TransactionsCard({ className }: { className?: string }) {
             ))}
           </div>
         ) : query.isError && !query.data ? (
-          <ErrorState message="โหลดรายการไม่สำเร็จ" onRetry={() => void query.refetch()} />
+          <ErrorState message={tr('tx.loadFailed')} onRetry={() => void query.refetch()} />
         ) : rows.length === 0 ? (
-          <EmptyState title="ยังไม่มีรายการ" description="ลองพิมพ์ “กาแฟ 65” ในช่องบันทึกด่วน" />
+          <EmptyState title={tr('tx.empty')} description={tr('tx.emptyHint')} />
         ) : (
           <>
             {/* desktop: ตาราง */}
@@ -144,19 +150,19 @@ export function TransactionsCard({ className }: { className?: string }) {
                 <thead className="text-xs text-fg-secondary">
                   <tr className="border-b border-hairline">
                     <th scope="col" className="pb-2 font-medium">
-                      วันที่/เวลา
+                      {tr('tx.col.when')}
                     </th>
                     <th scope="col" className="pb-2 font-medium">
-                      รายการ
+                      {tr('tx.col.item')}
                     </th>
                     <th scope="col" className="pb-2 font-medium">
-                      หมวดหมู่
+                      {tr('tx.col.category')}
                     </th>
                     <th scope="col" className="pb-2 font-medium">
-                      ประเภทต้นทุน
+                      {tr('tx.col.costType')}
                     </th>
                     <th scope="col" className="pb-2 text-right font-medium">
-                      จำนวนเงิน
+                      {tr('tx.col.amount')}
                     </th>
                   </tr>
                 </thead>
@@ -187,7 +193,7 @@ export function TransactionsCard({ className }: { className?: string }) {
                           </span>
                         </td>
                         <td className="py-3.5 pr-4 text-xs text-fg-secondary">
-                          {p.costType === 'fixed' ? 'คงที่ (FIXED)' : 'ผันแปร (VARIABLE)'}
+                          {p.costType === 'fixed' ? tr('tx.fixedTag') : tr('tx.variableTag')}
                         </td>
                         <td className="py-3.5 text-right">
                           <Amount e={e} />
@@ -217,7 +223,7 @@ export function TransactionsCard({ className }: { className?: string }) {
               })}
             </ul>
             <p className="mt-3 border-t border-hairline pt-3 text-xs text-fg-secondary">
-              แสดง {rows.length} รายการล่าสุด · ส่งออกทั้งเดือนด้วยปุ่ม CSV
+              {tr('tx.footer', { count: rows.length })}
             </p>
           </>
         )}

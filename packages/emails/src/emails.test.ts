@@ -161,3 +161,33 @@ describe('createMailTransport · resend', () => {
     expect(() => createMailTransport({ driver: 'resend', from: 'x' })).toThrow('RESEND_API_KEY');
   });
 });
+
+describe('อีเมลภาษาอังกฤษ (Phase 8 ขั้น 6)', () => {
+  const settingsUrl = 'https://app.nosion.dev/settings';
+
+  it('lang=en → หัวเรื่อง เนื้อหา footer และ <html lang> เป็นอังกฤษ', async () => {
+    const mail = await renderEmail('dailyDigest', {
+      lang: 'en',
+      name: 'Jay',
+      dateLabel: 'Thursday, October 15',
+      overdue: [{ title: 'Send report', detail: '2 days overdue' }],
+      today: [],
+      bills: [],
+      appUrl: 'https://app.nosion.dev/today',
+      settingsUrl,
+      unsubscribeUrl: 'https://api.nosion.dev/unsub',
+    });
+    expect(mail.subject).toBe('1 thing needs you today · NOSION');
+    expect(mail.text).toContain('Good morning, Jay');
+    expect(mail.text).toContain('Overdue (1)');
+    expect(mail.text).toContain('Unsubscribe from these emails');
+    expect(mail.html).toContain('lang="en"');
+    expect(mail.text).not.toMatch(/[\u0E00-\u0E7F]/);
+  });
+
+  it('ไม่ส่ง lang = ไทยเหมือนเดิม', async () => {
+    const mail = await renderEmail('verifyEmail', { link: 'https://x', settingsUrl });
+    expect(mail.subject).toBe('ยืนยันอีเมลของคุณ · NOSION');
+    expect(mail.html).toContain('lang="th"');
+  });
+});

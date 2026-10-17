@@ -4,9 +4,10 @@ import type { CreateRecurrenceRuleInput, HabitListDto, HabitPayload } from '@nos
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { recurrenceApi } from '@/features/recurrence/api';
-import { ApiError } from '@/lib/api-client';
 import { pushUndo } from '@/lib/shortcuts/undo-store';
 import { habitsApi } from './api';
+import { errorText } from '@/i18n/errors';
+import { tr } from '@/i18n/current';
 
 /** ขึ้นต้นด้วย 'entries' — ติ๊กนิสัยจากปฏิทิน / Today แล้วหน้านี้สดเอง (invalidate ['entries'] ที่เดียว) */
 export const HABITS_KEY = ['entries', 'habits'] as const;
@@ -16,7 +17,7 @@ export function useHabits() {
 }
 
 const fail = (title: string) => (error: unknown) =>
-  toast.error(title, { description: error instanceof ApiError ? error.message : undefined });
+  toast.error(title, { description: errorText(error) });
 
 /**
  * −1 / +1 และติ๊กทำแล้ว — อัปเดตแคชทันที (กดรัว ๆ ไม่ต้องรอ) แล้วค่อยเชื่อค่าจาก server
@@ -53,7 +54,7 @@ export function useHabitProgress() {
     mutationFn: ({ entryId, delta }: { entryId: string; delta: 1 | -1 }) =>
       habitsApi.increment(entryId, delta),
     onMutate: ({ entryId, delta }) => patchCache(entryId, (v) => v + delta),
-    onError: fail('บันทึกไม่สำเร็จ'),
+    onError: fail(tr('habits.saveFailed')),
     onSettled: settle,
   });
 
@@ -63,10 +64,13 @@ export function useHabitProgress() {
     onMutate: ({ entryId, done }) => patchCache(entryId, (_v, target) => (done ? target : 0)),
     onSuccess: (_r, { entryId, done, title }) =>
       pushUndo({
-        label: `${done ? 'ทำแล้ว' : 'ยกเลิก'}: ${title}`,
+        label: tr('habits.undoCheck', {
+          action: done ? tr('habits.undoDone') : tr('habits.undoCancel'),
+          title,
+        }),
         run: () => habitsApi.check(entryId, !done).finally(settle),
       }),
-    onError: fail('บันทึกไม่สำเร็จ'),
+    onError: fail(tr('habits.saveFailed')),
     onSettled: settle,
   });
 
@@ -77,8 +81,8 @@ export function useCreateHabit() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: CreateRecurrenceRuleInput) => recurrenceApi.create(input),
-    onSuccess: (rule) => toast.success('สร้างนิสัยแล้ว', { description: rule.template.title }),
-    onError: fail('สร้างนิสัยไม่สำเร็จ'),
+    onSuccess: (rule) => toast.success(tr('habits.created'), { description: rule.template.title }),
+    onError: fail(tr('habits.createFailed')),
     onSettled: () => void queryClient.invalidateQueries({ queryKey: ['entries'] }),
   });
 }
@@ -90,14 +94,15 @@ export function useHabitRule() {
     pause: useMutation({
       mutationFn: ({ ruleId, paused }: { ruleId: string; paused: boolean }) =>
         recurrenceApi.pause(ruleId, paused),
-      onSuccess: (_r, { paused }) => toast.success(paused ? 'หยุดนิสัยไว้ก่อน' : 'กลับมาทำต่อแล้ว'),
-      onError: fail('เปลี่ยนสถานะไม่สำเร็จ'),
+      onSuccess: (_r, { paused }) =>
+        toast.success(paused ? tr('habits.pausedToast') : tr('habits.resumedToast')),
+      onError: fail(tr('habits.statusFailed')),
       onSettled: settle,
     }),
     remove: useMutation({
       mutationFn: (ruleId: string) => recurrenceApi.remove(ruleId),
-      onSuccess: () => toast.success('ลบนิสัยแล้ว — ประวัติเดิมยังอยู่ในปฏิทิน'),
-      onError: fail('ลบไม่สำเร็จ'),
+      onSuccess: () => toast.success(tr('habits.deleted')),
+      onError: fail(tr('habits.deleteFailed')),
       onSettled: settle,
     }),
   };

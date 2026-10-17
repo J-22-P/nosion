@@ -1,4 +1,10 @@
-import { dayBoundsInTimeZone, formatMoney, signUnsubscribeToken } from '@nosion/core';
+import {
+  dayBoundsInTimeZone,
+  formatMoney,
+  intlLocaleOf,
+  signUnsubscribeToken,
+  type Lang,
+} from '@nosion/core';
 import { renderEmail, type DigestItem, type MailTransport } from '@nosion/emails';
 import { Prisma, type PrismaClient } from '@prisma/client';
 import { logger } from './logger';
@@ -78,7 +84,7 @@ export interface DigestContent {
 export async function buildDigest(
   prisma: PrismaClient,
   userId: string,
-  settings: { timezone: string; currency: string },
+  settings: { timezone: string; currency: string; locale?: Lang },
   now: Date,
 ): Promise<DigestContent> {
   const { start, end } = dayBoundsInTimeZone(now, settings.timezone);
@@ -121,7 +127,7 @@ export async function buildDigest(
     }),
   ]);
   const due = (e: (typeof today)[number]) =>
-    dueText(e.occurredAt!, e.isAllDay, now, settings.timezone);
+    dueText(e.occurredAt!, e.isAllDay, now, settings.timezone, settings.locale);
   return {
     overdue: overdue.map((e) => ({ title: e.title, detail: due(e) })),
     today: today.map((e) => ({ title: e.title, detail: e.isAllDay ? undefined : due(e) })),
@@ -129,7 +135,9 @@ export async function buildDigest(
       const p = (e.payload ?? {}) as { amountMinor?: number; currency?: string };
       const amount =
         typeof p.amountMinor === 'number'
-          ? formatMoney(p.amountMinor, p.currency ?? settings.currency)
+          ? formatMoney(p.amountMinor, p.currency ?? settings.currency, {
+              locale: intlLocaleOf(settings.locale ?? 'th'),
+            })
           : undefined;
       return { title: e.title, detail: [due(e), amount].filter(Boolean).join(' · ') };
     }),
@@ -161,12 +169,17 @@ export async function runDailyDigest(
     try {
       const user = await deps.prisma.user.findUniqueOrThrow({
         where: { id: userId },
-        select: { email: true, displayName: true, settings: { select: { currency: true } } },
+        select: {
+          email: true,
+          displayName: true,
+          settings: { select: { currency: true, locale: true } },
+        },
       });
+      const lang: Lang = user.settings?.locale === 'en' ? 'en' : 'th';
       const content = await buildDigest(
         deps.prisma,
         userId,
-        { timezone, currency: user.settings?.currency ?? 'THB' },
+        { timezone, currency: user.settings?.currency ?? 'THB', locale: lang },
         now,
       );
       // ไม่มีอะไรเลย = ไม่ส่ง — อีเมล "วันนี้ว่าง" ทุกเช้าทำให้คนเลิกเปิดอ่านฉบับที่มีเรื่องจริง
@@ -180,8 +193,9 @@ export async function runDailyDigest(
         now,
       )}`;
       const mail = await renderEmail('dailyDigest', {
+        lang,
         name: user.displayName,
-        dateLabel: new Intl.DateTimeFormat('th-TH', {
+        dateLabel: new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'th-TH', {
           weekday: 'long',
           day: 'numeric',
           month: 'long',

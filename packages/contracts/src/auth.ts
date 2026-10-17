@@ -13,6 +13,8 @@ export const registerSchema = z.object({
   password: passwordSchema,
   displayName: z.string().trim().min(1).max(80),
   timezone: z.string().max(64).default('Asia/Bangkok'),
+  /** ภาษาที่เลือกไว้ตอนสมัคร (คุกกี้ของเว็บ) — อีเมลยืนยันฉบับแรกได้ภาษาที่ถูกต้อง */
+  locale: z.enum(['th', 'en']).default('th'),
 });
 export type RegisterInput = z.infer<typeof registerSchema>;
 /** ค่าที่ฟอร์มถืออยู่ก่อน Zod เติม default — react-hook-form ต้องใช้ชนิดนี้ */

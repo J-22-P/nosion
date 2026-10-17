@@ -188,4 +188,19 @@ describe('buildExpenseTodayWidget', () => {
     expect(w.isEmpty).toBe(true);
     expect(w.emptyCta?.href).toBe('/expenses?new=1');
   });
+
+  it('ผู้ใช้ภาษาอังกฤษ → การ์ดทั้งใบเป็นภาษาอังกฤษ (ชื่อบิลเป็นข้อมูลของผู้ใช้ คงเดิม)', () => {
+    const w = buildExpenseTodayWidget({
+      entries: [entry({ amountMinor: 6500 }), entry({ amountMinor: 27500 })],
+      status: status(),
+      bills: bills([bill({ id: 'late', title: 'ค่าโทร', amountMinor: 50000, daysUntilDue: -3 })]),
+      timeZone: TZ,
+      now: NOW,
+      lang: 'en',
+    });
+    expect(w.title).toBe('Money & budget');
+    expect(w.headline).toBe('Spent ฿340 today · This month ฿8,420 / ฿15,000');
+    expect(w.alerts).toContainEqual({ level: 'warning', message: 'ค่าโทร ฿500.00 3 days overdue' });
+    expect(w.emptyCta?.label).toBe('Record your first expense');
+  });
 });

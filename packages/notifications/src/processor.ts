@@ -90,7 +90,7 @@ export async function processReminder(
 
   const message = buildReminderMessage(
     { ...entry, occurredAt: entry.occurredAt! },
-    { timezone, currency: settings?.currency ?? 'THB' },
+    { timezone, currency: settings?.currency ?? 'THB', locale: settings?.locale },
     now,
   );
   try {

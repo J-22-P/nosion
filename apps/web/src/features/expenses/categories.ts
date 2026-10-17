@@ -14,27 +14,45 @@ import {
   UtensilsCrossed,
   type LucideIcon,
 } from 'lucide-react';
+import { tr } from '@/i18n/current';
 
-/** ชื่อ + ไอคอนของหมวด — ไอคอนเป็นตัวบอกหมวด ไม่ใช่สี (v1.1 ตัดสีรุ้ง) */
-export const CATEGORY: Record<ExpenseCategory, { label: string; icon: LucideIcon }> = {
-  food: { label: 'อาหาร', icon: UtensilsCrossed },
-  transport: { label: 'เดินทาง', icon: Car },
-  housing: { label: 'ที่พัก', icon: Home },
-  utilities: { label: 'สาธารณูปโภค', icon: Plug },
-  health: { label: 'สุขภาพ', icon: HeartPulse },
-  entertainment: { label: 'บันเทิง', icon: Clapperboard },
-  shopping: { label: 'ช้อปปิ้ง', icon: ShoppingBag },
-  education: { label: 'การศึกษา', icon: BookOpen },
-  subscription: { label: 'สมาชิกรายเดือน', icon: Repeat },
-  debt: { label: 'หนี้สิน', icon: CreditCard },
-  savings: { label: 'เงินออม', icon: PiggyBank },
-  other: { label: 'อื่น ๆ', icon: Tag },
+/** ไอคอนของหมวด — ไอคอนเป็นตัวบอกหมวด ไม่ใช่สี (v1.1 ตัดสีรุ้ง) */
+const CATEGORY_ICON: Record<ExpenseCategory, LucideIcon> = {
+  food: UtensilsCrossed,
+  transport: Car,
+  housing: Home,
+  utilities: Plug,
+  health: HeartPulse,
+  entertainment: Clapperboard,
+  shopping: ShoppingBag,
+  education: BookOpen,
+  subscription: Repeat,
+  debt: CreditCard,
+  savings: PiggyBank,
+  other: Tag,
 };
 
-export const PAYMENT_LABEL = {
-  cash: 'เงินสด',
-  card: 'บัตร',
-  transfer: 'โอน',
-  ewallet: 'e-Wallet',
-  other: 'อื่น ๆ',
-} as const;
+/** ชื่อ (ตามภาษาปัจจุบัน — getter อ่านตอนใช้) + ไอคอนของหมวด */
+export const CATEGORY = Object.fromEntries(
+  (Object.keys(CATEGORY_ICON) as ExpenseCategory[]).map((key) => [
+    key,
+    {
+      icon: CATEGORY_ICON[key],
+      get label() {
+        return tr(`category.${key}`);
+      },
+    },
+  ]),
+) as Record<ExpenseCategory, { readonly label: string; icon: LucideIcon }>;
+
+type PaymentMethod = 'cash' | 'card' | 'transfer' | 'ewallet' | 'other';
+
+export const PAYMENT_LABEL = Object.defineProperties(
+  {},
+  Object.fromEntries(
+    (['cash', 'card', 'transfer', 'ewallet', 'other'] as const).map((key) => [
+      key,
+      { enumerable: true, get: () => tr(`payment.${key}`) },
+    ]),
+  ),
+) as Readonly<Record<PaymentMethod, string>>;

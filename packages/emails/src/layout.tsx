@@ -11,6 +11,7 @@ import {
   Text,
 } from '@react-email/components';
 import type { ReactNode } from 'react';
+import { copyFor, type EmailLang } from './copy';
 
 /**
  * โครงอีเมลทุกฉบับ — monochrome ตาม design system (ADR-009) และ inline style เท่านั้น
@@ -31,14 +32,17 @@ export interface LayoutProps {
   /** ข้อความตัวอย่างที่กล่องจดหมายแสดงต่อท้ายหัวเรื่อง */
   preview: string;
   children: ReactNode;
+  /** ภาษาของผู้รับ · ไม่ส่ง = ไทย */
+  lang?: EmailLang;
   /** อีเมลแจ้งข่าวสาร (digest ฯลฯ) ต้องมี — อีเมลธุรกรรม (ยืนยัน/รีเซ็ต) ใช้ลิงก์ตั้งค่าแทน */
   unsubscribeUrl?: string;
   settingsUrl: string;
 }
 
-export function Layout({ preview, children, unsubscribeUrl, settingsUrl }: LayoutProps) {
+export function Layout({ preview, children, unsubscribeUrl, settingsUrl, lang }: LayoutProps) {
+  const c = copyFor(lang);
   return (
-    <Html lang="th">
+    <Html lang={c.htmlLang}>
       <Head />
       <Preview>{preview}</Preview>
       <Body
@@ -59,15 +63,15 @@ export function Layout({ preview, children, unsubscribeUrl, settingsUrl }: Layou
           {children}
           <Hr style={{ borderColor: color.hairline, margin: '32px 0 16px' }} />
           <Text style={{ color: color.secondary, fontSize: 12, lineHeight: '18px', margin: 0 }}>
-            ส่งจาก NOSION ·{' '}
+            {c.footerSentBy} ·{' '}
             <Link href={settingsUrl} style={{ color: color.secondary }}>
-              ตั้งค่าการแจ้งเตือน
+              {c.footerSettings}
             </Link>
             {unsubscribeUrl ? (
               <>
                 {' · '}
                 <Link href={unsubscribeUrl} style={{ color: color.secondary }}>
-                  เลิกรับอีเมลแบบนี้
+                  {c.footerUnsubscribe}
                 </Link>
               </>
             ) : null}

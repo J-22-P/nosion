@@ -1,4 +1,5 @@
 import type { ProblemDetails } from '@nosion/contracts';
+import { tr } from '@/i18n/current';
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 const BASE = `${API_URL}/api/v1`;
@@ -117,7 +118,7 @@ async function readProblem(res: Response): Promise<ProblemDetails> {
       type: 'about:blank',
       title: res.statusText || 'Request failed',
       status: res.status,
-      detail: 'เซิร์ฟเวอร์ตอบกลับในรูปแบบที่ไม่คาดคิด',
+      detail: tr('errors.unexpectedResponse'),
     };
   }
 }

@@ -1,4 +1,5 @@
 import type { PreviewDraftRuleInput, RecurrenceEndType } from '@nosion/contracts';
+import { currentLocale, tr } from '@/i18n/current';
 
 /**
  * ตัวสร้างกฎการเกิดซ้ำแบบไม่ต้องรู้ RFC 5545 (สเปก 15 Phase 3) — ส่วนนี้เป็นฟังก์ชันล้วน ทดสอบได้โดยไม่ต้อง render
@@ -13,37 +14,23 @@ import type { PreviewDraftRuleInput, RecurrenceEndType } from '@nosion/contracts
 export type Frequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
 export type Weekday = 'MO' | 'TU' | 'WE' | 'TH' | 'FR' | 'SA' | 'SU';
 
-export const WEEKDAYS: readonly { value: Weekday; short: string; long: string }[] = [
-  { value: 'MO', short: 'จ', long: 'จันทร์' },
-  { value: 'TU', short: 'อ', long: 'อังคาร' },
-  { value: 'WE', short: 'พ', long: 'พุธ' },
-  { value: 'TH', short: 'พฤ', long: 'พฤหัสบดี' },
-  { value: 'FR', short: 'ศ', long: 'ศุกร์' },
-  { value: 'SA', short: 'ส', long: 'เสาร์' },
-  { value: 'SU', short: 'อา', long: 'อาทิตย์' },
-];
+/** index ของ getUTCDay() (อา=0) — ใช้ดึงชื่อย่อวันชุดเดียวกับปฏิทิน */
+const DAY_INDEX: Record<Weekday, number> = { SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6 };
 
-const UNIT: Record<Frequency, string> = {
-  daily: 'วัน',
-  weekly: 'สัปดาห์',
-  monthly: 'เดือน',
-  yearly: 'ปี',
-};
-
-const TH_MONTHS = [
-  'ม.ค.',
-  'ก.พ.',
-  'มี.ค.',
-  'เม.ย.',
-  'พ.ค.',
-  'มิ.ย.',
-  'ก.ค.',
-  'ส.ค.',
-  'ก.ย.',
-  'ต.ค.',
-  'พ.ย.',
-  'ธ.ค.',
-];
+/** ชื่อเป็น getter — อ่านตามภาษาปัจจุบันตอนใช้ */
+export const WEEKDAYS: readonly {
+  value: Weekday;
+  readonly short: string;
+  readonly long: string;
+}[] = (['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'] as const).map((value) => ({
+  value,
+  get short() {
+    return tr(`calendar.weekdayShort.${DAY_INDEX[value]}`);
+  },
+  get long() {
+    return tr(`rb.weekdayLong.${value}`);
+  },
+}));
 
 export interface RecurrenceDraft {
   freq: Frequency;
@@ -106,24 +93,24 @@ export type DraftErrors = Partial<
 export function validateDraft(draft: RecurrenceDraft): DraftErrors {
   const errors: DraftErrors = {};
   if (!Number.isInteger(draft.interval) || draft.interval < 1 || draft.interval > 366) {
-    errors.interval = 'ใส่ตัวเลข 1–366';
+    errors.interval = tr('rb.err.interval');
   }
   if (
     draft.freq === 'monthly' &&
     (!Number.isInteger(draft.monthDay) || draft.monthDay < 1 || draft.monthDay > 31)
   ) {
-    errors.monthDay = 'เลือกวันที่ 1–31';
+    errors.monthDay = tr('rb.err.monthDay');
   }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(draft.startsAt)) errors.startsAt = 'เลือกวันเริ่ม';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(draft.startsAt)) errors.startsAt = tr('rb.err.startsAt');
   if (draft.endType === 'onDate') {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(draft.endsAt)) errors.endsAt = 'เลือกวันสิ้นสุด';
-    else if (draft.endsAt < draft.startsAt) errors.endsAt = 'วันสิ้นสุดต้องไม่ก่อนวันเริ่ม';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(draft.endsAt)) errors.endsAt = tr('rb.err.endsAt');
+    else if (draft.endsAt < draft.startsAt) errors.endsAt = tr('rb.err.endsBeforeStart');
   }
   if (
     draft.endType === 'afterCount' &&
     (!Number.isInteger(draft.maxCount) || draft.maxCount < 1 || draft.maxCount > 1000)
   ) {
-    errors.maxCount = 'ใส่จำนวนครั้ง 1–1000';
+    errors.maxCount = tr('rb.err.maxCount');
   }
   return errors;
 }
@@ -141,32 +128,39 @@ export function toRuleInput(
   };
 }
 
-/** 'YYYY-MM-DD' → "5 มี.ค. 2027" (ปี ค.ศ. ให้ตรงกับช่องเลือกวันที่ของเบราว์เซอร์) */
+/** 'YYYY-MM-DD' → "5 มี.ค. 2027" · "Mar 5, 2027" (ปี ค.ศ. เสมอ ให้ตรงกับช่องเลือกวันที่ของเบราว์เซอร์) */
 export function formatLocalDate(ymd: string, withYear = true): string {
-  const day = +ymd.slice(8, 10);
-  const month = TH_MONTHS[+ymd.slice(5, 7) - 1];
-  return withYear ? `${day} ${month} ${ymd.slice(0, 4)}` : `${day} ${month}`;
+  const locale = currentLocale() === 'en' ? 'en-US' : 'th-TH-u-ca-gregory';
+  return new Intl.DateTimeFormat(locale, {
+    day: 'numeric',
+    month: 'short',
+    ...(withYear ? { year: 'numeric' as const } : {}),
+    timeZone: 'UTC',
+  }).format(new Date(`${ymd}T00:00:00Z`));
 }
 
 /** สรุปเป็นประโยคเดียว เช่น "ทุกเดือน วันที่ 31 · ไม่มีวันสิ้นสุด" — ให้ผู้ใช้ทวนก่อนบันทึก */
 export function describeDraft(draft: RecurrenceDraft): string {
-  const every =
-    draft.interval > 1 ? `ทุก ${draft.interval} ${UNIT[draft.freq]}` : `ทุก${UNIT[draft.freq]}`;
+  // ประโยคเดียวกับ ⌘K (rrule.*) — "ทุกเดือน" · "ทุก 2 สัปดาห์" · "Every 2 weeks"
+  const every = tr(`rrule.${draft.freq}`, { n: draft.interval });
   let when = '';
   if (draft.freq === 'weekly') {
     const days = draft.weekdays.length ? draft.weekdays : [weekdayOf(draft.startsAt)];
     const names = WEEKDAYS.filter((w) => days.includes(w.value)).map((w) => w.long);
-    when = names.length === 7 ? ' ทุกวันในสัปดาห์' : ` วัน${names.join(' ')}`;
+    when =
+      names.length === 7
+        ? tr('rb.everyDayOfWeek')
+        : tr('rb.onWeekdays', { days: names.join(tr('rb.weekdaySeparator')) });
   } else if (draft.freq === 'monthly') {
-    when = ` วันที่ ${draft.monthDay}${draft.monthDay > 28 ? ' (เดือนที่สั้นกว่าใช้วันสุดท้าย)' : ''}`;
+    when = `${tr('rb.onMonthDay', { day: draft.monthDay })}${draft.monthDay > 28 ? tr('rb.clampNote') : ''}`;
   } else if (draft.freq === 'yearly' && /^\d{4}-\d{2}-\d{2}$/.test(draft.startsAt)) {
-    when = ` วันที่ ${formatLocalDate(draft.startsAt, false)}`;
+    when = tr('rb.onDate', { date: formatLocalDate(draft.startsAt, false) });
   }
   const end =
     draft.endType === 'afterCount'
-      ? `${draft.maxCount} ครั้ง`
+      ? tr('rb.times', { count: draft.maxCount })
       : draft.endType === 'onDate' && draft.endsAt
-        ? `ถึง ${formatLocalDate(draft.endsAt)}`
-        : 'ไม่มีวันสิ้นสุด';
+        ? tr('rb.until', { date: formatLocalDate(draft.endsAt) })
+        : tr('rb.noEnd');
   return `${every}${when} · ${end}`;
 }
