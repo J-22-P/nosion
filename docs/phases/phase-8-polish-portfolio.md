@@ -30,7 +30,7 @@
 | 4b  | เข้าสู่ระบบด้วย Google / GitHub (OAuth · ผูกบัญชีเดิม)                  | `1800855` | ✅                          |
 | 5   | GitHub: webhook PR merged → ปิดงาน (ตรวจลายเซ็น) + ดึง issue ลงปฏิทิน   | `abf0e6f` | ✅                          |
 | 6   | i18n: dictionary ไทย/อังกฤษ · สลับภาษาในตั้งค่า · วันที่/เงินตาม locale | `d44bd34` | ✅                          |
-| 7   | `deploy-production.yml` จาก tag + rollback                              | —         | ✅                          |
+| 7   | `deploy-production.yml` จาก tag + rollback                              | `a97209f` | ✅                          |
 | 8   | ให้คนที่ไม่ใช่ dev ใช้เองได้: onboarding/empty state · README + diagram | —         | ⬜                          |
 | 9   | บท learn 21 + ADR                                                       | —         | ⬜                          |
 
