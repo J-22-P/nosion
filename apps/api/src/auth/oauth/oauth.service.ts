@@ -86,6 +86,11 @@ export class OAuthService {
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {
     this.box = new SecretBox(config.ENCRYPTION_KEY);
+    if (this.missingEncryptionKey()) {
+      this.logger.error(
+        'ENCRYPTION_KEY ยังเป็นค่าเริ่มต้น (ศูนย์ล้วน) — ปิดการเข้าสู่ระบบด้วย Google/GitHub จนกว่าจะตั้ง',
+      );
+    }
   }
 
   providers(): OAuthProvidersDto {
@@ -376,7 +381,16 @@ export class OAuthService {
       provider === 'google'
         ? [c.GOOGLE_CLIENT_ID, c.GOOGLE_CLIENT_SECRET]
         : [c.GITHUB_CLIENT_ID, c.GITHUB_CLIENT_SECRET];
-    return clientId && clientSecret ? { clientId, clientSecret } : null;
+    if (!clientId || !clientSecret || this.missingEncryptionKey()) return null;
+    return { clientId, clientSecret };
+  }
+
+  /**
+   * production ที่ลืมตั้ง ENCRYPTION_KEY จะได้กุญแจศูนย์ล้วนจากค่าเริ่มต้น — ใครก็ถอดคุกกี้ state/token GitHub ได้
+   * ปิด OAuth ไปเลย (ปุ่มหาย) ดีกว่าทำงานด้วยกุญแจที่ทุกคนรู้ · เครื่อง dev/เทสต์ใช้ค่าเริ่มต้นได้ตามเดิม
+   */
+  private missingEncryptionKey(): boolean {
+    return this.config.NODE_ENV === 'production' && /^0+$/.test(this.config.ENCRYPTION_KEY);
   }
 }
 
