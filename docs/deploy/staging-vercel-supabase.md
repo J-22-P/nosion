@@ -180,6 +180,18 @@ wizard ทำ 10 ขั้น: ติดตั้ง/ล็อกอิน flyct
 - **GitHub → ปฏิทิน (ขั้น 5):** เชื่อมแล้วดึงรอบแรกทันที · ดึงซ้ำทุกชั่วโมงด้วยงาน `internal/cron/github` บน cron-job.org (หัวข้อ 5b) ·
   webhook ต่อ repo (ไม่บังคับ) ผู้ใช้เปิดเองที่ ตั้งค่า → GitHub → เปิด webhook
 
+**org ไม่อนุมัติแอป NOSION** — GitHub ซ่อน issue ของ org จากแอปที่ไม่ได้อนุมัติแบบเงียบ ๆ (ดึงแล้ว "ไม่พบ issue") ·
+นำเข้าด้วย `gh` ในเครื่องแทน (อ่านได้เพราะ GitHub CLI ได้รับอนุญาตแล้ว) ผ่าน Public API:
+
+```bash
+# NOSION → Settings → API keys → สร้าง key สิทธิ์ Read + Write
+cd apps/api
+NOSION_API_KEY=nos_… DRY_RUN=1 pnpm import:github   # ดูก่อนว่าจะได้อะไร
+NOSION_API_KEY=nos_… pnpm import:github             # นำเข้า (รันซ้ำได้ ไม่สร้างซ้ำ · 300 งาน ≈ 10 นาที ตามเพดาน 60/นาที)
+```
+
+ใช้ตัวค้นและกติกาวันเดียวกับการดึงอัตโนมัติ (clientId `gh:<node_id>` ตัวเดียวกัน) — วันหลัง org อนุมัติ การดึงอัตโนมัติดูแลงานชุดนี้ต่อได้ทันที
+
 ## ปัญหาที่น่าจะเจอ
 
 | อาการ                                                                              | สาเหตุ / แก้                                                                                                                                                                                                                                |
