@@ -1,7 +1,9 @@
 'use client';
 
 import { cn } from '@nosion/ui';
-import type { ElementType, HTMLAttributes } from 'react';
+import { ImageOff } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import { useState, type ElementType, type HTMLAttributes } from 'react';
 import ReactMarkdown, { type Components, type ExtraProps } from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize from 'rehype-sanitize';
@@ -80,16 +82,67 @@ const COMPONENTS: Components = {
   input: ({ node: _node, ...props }) => (
     <input {...props} disabled className="mr-1.5 align-middle" />
   ),
-  img: ({ node: _node, alt, ...props }) => (
-    // eslint-disable-next-line @next/next/no-img-element -- รูปจากภายนอก (GitHub) ไม่รู้ขนาดล่วงหน้า
-    <img
-      {...props}
-      alt={alt ?? ''}
-      loading="lazy"
-      className="my-2 inline-block h-auto max-w-full rounded-control"
+  img: ({ node: _node, src, alt, width, height }) => (
+    <MarkdownImage
+      src={typeof src === 'string' ? src : undefined}
+      alt={alt}
+      width={width}
+      height={height}
     />
   ),
 };
+
+/**
+ * รูปใน Markdown — โหลดไม่ได้ (เช่น รูปแนบของ repo ส่วนตัวบน GitHub: เบราว์เซอร์ไม่ส่งคุกกี้ GitHub ไปกับ <img>
+ * ที่ฝังในเว็บอื่น จึงได้ 404) → แสดงกล่องลิงก์ "เปิดดูบน GitHub" แทนไอคอนรูปเสีย
+ * กดลิงก์ = เปิดหน้าใหม่ซึ่งเบราว์เซอร์ส่งคุกกี้ไปด้วย → ถ้าล็อกอิน GitHub และมีสิทธิ์ใน repo ก็เห็นรูป
+ */
+function MarkdownImage({
+  src,
+  alt,
+  width,
+  height,
+}: {
+  src?: string;
+  alt?: string;
+  width?: number | string;
+  height?: number | string;
+}) {
+  const t = useTranslations('markdown');
+  const [failed, setFailed] = useState(false);
+  if (!src) return null;
+  if (failed) {
+    const fromGitHub = /^https:\/\/(github\.com|[\w-]+\.githubusercontent\.com)\//.test(src);
+    return (
+      <a
+        href={src}
+        target="_blank"
+        rel="noreferrer noopener"
+        className="my-2 flex items-center gap-2.5 rounded-control border border-dashed border-hairline-strong px-3 py-2.5 text-[13px] text-fg-secondary hover:bg-wash"
+      >
+        <ImageOff size={16} aria-hidden="true" className="shrink-0" />
+        <span className="min-w-0">
+          <span className="block font-medium text-fg">
+            {fromGitHub ? t('imageGitHub') : t('imageFailed')}
+          </span>
+          {fromGitHub ? <span className="block">{t('imageGitHubHint')}</span> : null}
+        </span>
+      </a>
+    );
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- รูปจากภายนอก (GitHub) ไม่รู้ขนาดล่วงหน้า
+    <img
+      src={src}
+      alt={alt ?? ''}
+      width={width}
+      height={height}
+      loading="lazy"
+      onError={() => setFailed(true)}
+      className="my-2 inline-block h-auto max-w-full rounded-control"
+    />
+  );
+}
 
 export function Markdown({ children, className }: { children: string; className?: string }) {
   return (

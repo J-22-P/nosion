@@ -3,6 +3,7 @@
 import { prioritySchema, taskPayloadSchema, type EntryDto, type Priority } from '@nosion/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CircleDot, ExternalLink, GitPullRequest, Undo2, X } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +12,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input, Label, Select } from '@/components/ui/input';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Markdown } from '@/components/shared/markdown';
 import { useSession } from '@/features/auth/use-session';
 import { entriesApi } from '@/features/entries/api';
 import { useProjects } from '@/features/entries/use-entries';
@@ -24,6 +24,15 @@ import { cachedEntry } from '@/lib/sync';
 import { useLocale, useTranslations } from 'next-intl';
 
 type DescriptionMode = 'preview' | 'write';
+
+/**
+ * ตัวแสดง Markdown (~100 KB gzip รวม parser) โหลดเมื่อเปิดดูรายละเอียดครั้งแรกเท่านั้น
+ * dialog นี้อยู่ใน AppShell ของทุกหน้า — import ตรง ๆ = ทุกหน้าแบก JS นี้ (Lighthouse มือถือตก)
+ */
+const Markdown = dynamic(() => import('@/components/shared/markdown').then((m) => m.Markdown), {
+  ssr: false,
+  loading: () => <Skeleton className="h-16 w-full" />,
+});
 
 export const taskDetailKey = (id: string) => ['entries', 'detail', id] as const;
 
