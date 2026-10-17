@@ -507,7 +507,9 @@
       "rate_limited": "Too many requests to GitHub — wait a moment and try again",
       "unreachable": "Couldn't reach GitHub — try again",
       "other": "GitHub responded unexpectedly ({code}) — try again"
-    }
+    },
+    "nothingFound": "No issues assigned to you were found",
+    "nothingFoundHint": "If your work is in an organization's repos, the org may restrict third-party apps (GitHub hides them silently) — go to github.com/settings/applications → NOSION → Organization access and press Request so an org owner can approve"
   },
   "tasks": {
     "view": {
