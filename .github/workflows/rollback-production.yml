@@ -1,0 +1,61 @@
+name: Rollback production
+
+# ย้อน production ด้วยมือ — เจอปัญหาหลัง deploy ผ่าน smoke ไปแล้ว (smoke ล้ม = deploy-production ย้อนให้เองอยู่แล้ว)
+# ไม่ระบุ deployment = ย้อนไปตัวก่อนหน้าของแต่ละ project · ไม่แตะฐานข้อมูล (migration additive — สเปก 13.4)
+# กู้ข้อมูลจาก backup เป็นขั้นตอนแยก (มีคนตัดสินใจ) — docs/deploy/production.md หัวข้อ "กู้ข้อมูล"
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'ย้อนอะไร'
+        type: choice
+        options: [both, api, web]
+        default: both
+      api_deployment:
+        description: 'URL/ID ของ deployment api ที่จะย้อนไป (ว่าง = ตัวก่อนหน้า)'
+        required: false
+      web_deployment:
+        description: 'URL/ID ของ deployment web ที่จะย้อนไป (ว่าง = ตัวก่อนหน้า)'
+        required: false
+
+concurrency:
+  group: deploy-production # ห้ามชนกับการ deploy ที่กำลังรัน
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  VERCEL_CLI: vercel@63.1.0
+
+jobs:
+  rollback:
+    runs-on: ubuntu-24.04
+    environment: production # ต้องมีคนอนุมัติเหมือนการ deploy
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: api
+            project: VERCEL_PROJECT_ID_API
+          - app: web
+            project: VERCEL_PROJECT_ID_WEB
+    steps:
+      - if: inputs.target == 'both' || inputs.target == matrix.app
+        env:
+          VERCEL_PROJECT_ID: ${{ secrets[matrix.project] }}
+          WANTED: ${{ matrix.app == 'api' && inputs.api_deployment || inputs.web_deployment }}
+        run: |
+          set -euo pipefail
+          target="$WANTED"
+          if [ -z "$target" ]; then
+            # ตัวที่ READY ลำดับที่สอง = ก่อนตัวที่ใช้อยู่ตอนนี้
+            target=$(npx --yes ${{ env.VERCEL_CLI }} list --environment production --format json --token="$VERCEL_TOKEN" \
+              | jq -r '[.deployments[] | select(.state == "READY")][1].url // empty')
+          fi
+          test -n "$target" || { echo "::error::ไม่พบ deployment ก่อนหน้าของ ${{ matrix.app }}"; exit 1; }
+          npx --yes ${{ env.VERCEL_CLI }} rollback "$target" --yes --timeout 5m --token="$VERCEL_TOKEN"
+          echo "### ${{ matrix.app }} ย้อนไป $target" >> "$GITHUB_STEP_SUMMARY"

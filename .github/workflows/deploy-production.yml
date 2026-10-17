@@ -1,0 +1,254 @@
+name: Deploy production
+
+# ขึ้น production จาก tag เท่านั้น (สเปก 13.3) — `git tag v1.2.0 && git push origin v1.2.0`
+# ลำดับ: ตรวจ tag + CI ของ commit → รออนุมัติ (environment "production") → จำ deployment ปัจจุบัน → สำรองฐานข้อมูล
+#        → migrate → deploy api / web (+worker) → smoke → ล้ม = rollback อัตโนมัติ + เปิด issue · ผ่าน = GitHub Release
+# คู่มือ: docs/deploy/production.md · ยังไม่ตั้ง vars.PROD_WEB_URL (= ยังไม่มี production) → ข้ามเงียบ ไม่ทำให้แดง
+#
+# งาน deploy ทั้งหมดอยู่ใน job เดียว: GitHub ขออนุมัติ "ทุก job" ที่อ้าง environment ที่มี reviewer
+# แยกหลาย job = ต้องกดอนุมัติหลายรอบ · rollback จึงเป็น step `if: failure()` ใน job เดียวกัน (เห็นผลของทุกขั้น)
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'tag ที่จะ deploy ซ้ำ (เช่น v1.2.0) — ใช้เมื่อ run ของ tag ล้มด้วยเหตุนอกโค้ด'
+        required: true
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false # migration/rollback ห้ามถูกตัดกลางทาง
+
+permissions:
+  contents: write # สร้าง GitHub Release
+  issues: write # เปิด issue เมื่อ rollback
+  actions: read # ตรวจว่า CI ของ commit เขียว
+
+env:
+  VERCEL_CLI: vercel@63.1.0
+  TURBO_TELEMETRY_DISABLED: 1
+  NEXT_TELEMETRY_DISABLED: 1
+  TAG: ${{ inputs.tag || github.ref_name }}
+
+jobs:
+  # ── 1. ตรวจก่อนขออนุมัติ (ไม่ใช้ secrets) ───────────────────────────
+  check:
+    runs-on: ubuntu-24.04
+    outputs:
+      ready: ${{ steps.configured.outputs.ready }}
+      sha: ${{ steps.ci.outputs.sha }}
+    steps:
+      - id: configured
+        env:
+          WEB_URL: ${{ vars.PROD_WEB_URL }}
+        run: |
+          if [ -n "$WEB_URL" ]; then echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::ยังไม่ได้ตั้ง vars.PROD_WEB_URL — ยังไม่มี production ให้ deploy (ดู docs/deploy/production.md)"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v5
+        if: steps.configured.outputs.ready == 'true'
+        with:
+          ref: ${{ env.TAG }}
+          fetch-depth: 0
+
+      # tag ต้องชี้ commit บน main และ CI ของ commit นั้นเขียวแล้ว — ไม่ deploy ของที่ยังไม่ผ่านเทสต์
+      - id: ci
+        if: steps.configured.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          sha=$(git rev-parse "$TAG^{commit}")
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          git fetch --quiet origin main
+          git merge-base --is-ancestor "$sha" origin/main \
+            || { echo "::error::$TAG ($sha) ไม่ได้อยู่บน main — tag จาก commit ที่ merge แล้วเท่านั้น"; exit 1; }
+          green=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$sha&status=success" --jq '.total_count')
+          test "$green" -gt 0 \
+            || { echo "::error::CI ของ $sha ยังไม่เขียว (หรือยังไม่เคยรัน) — รอ CI ผ่านก่อนค่อย tag"; exit 1; }
+          echo "### $TAG → \`$sha\` · CI เขียว ✓" >> "$GITHUB_STEP_SUMMARY"
+
+  # ── 2. deploy (รออนุมัติครั้งเดียว) ──────────────────────────────────
+  deploy:
+    needs: check
+    if: needs.check.outputs.ready == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    environment:
+      name: production # ← "Required reviewers" + อนุญาตเฉพาะ tag v* (ตั้งที่ GitHub)
+      url: ${{ vars.PROD_WEB_URL }}
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      PROJECT_API: ${{ secrets.VERCEL_PROJECT_ID_API }}
+      PROJECT_WEB: ${{ secrets.VERCEL_PROJECT_ID_WEB }}
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      FLY_APP: ${{ vars.PROD_FLY_WORKER_APP }}
+      NEXT_PUBLIC_APP_VERSION: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.check.outputs.sha }}
+      - uses: ./.github/actions/setup
+
+      - name: ตรวจ secrets
+        env:
+          PROD_DIRECT_URL: ${{ secrets.PROD_DIRECT_URL }}
+          AGE_RECIPIENT: ${{ vars.PROD_BACKUP_AGE_RECIPIENT }}
+        run: |
+          missing=""
+          for name in VERCEL_TOKEN VERCEL_ORG_ID PROJECT_API PROJECT_WEB PROD_DIRECT_URL AGE_RECIPIENT; do
+            [ -n "${!name}" ] || missing="$missing $name"
+          done
+          test -z "$missing" || { echo "::error::production ยังตั้งไม่ครบ:$missing (docs/deploy/production.md)"; exit 1; }
+
+      # deployment ที่ใช้อยู่ตอนนี้ = ปลายทางของ rollback
+      - id: previous
+        name: จำ deployment ปัจจุบัน
+        run: |
+          set -euo pipefail
+          current() {
+            VERCEL_PROJECT_ID="$1" npx --yes "$VERCEL_CLI" list --environment production \
+              --format json --token="$VERCEL_TOKEN" 2>/dev/null \
+              | jq -r '[.deployments[] | select(.state == "READY")][0].url // empty'
+          }
+          api=$(current "$PROJECT_API")
+          web=$(current "$PROJECT_WEB")
+          worker=""
+          if [ -n "$FLY_API_TOKEN" ] && [ -n "$FLY_APP" ]; then
+            curl -fsSL https://fly.io/install.sh | sh -s -- >/dev/null
+            echo "$HOME/.fly/bin" >> "$GITHUB_PATH"
+            worker=$("$HOME/.fly/bin/flyctl" image show --app "$FLY_APP" --json 2>/dev/null \
+              | jq -r '.[0] | "\(.Registry)/\(.Repository):\(.Tag)"' || true)
+          fi
+          {
+            echo "api=$api"
+            echo "web=$web"
+            echo "worker=$worker"
+          } >> "$GITHUB_OUTPUT"
+          echo "ก่อน deploy: api=${api:-ไม่มี} · web=${web:-ไม่มี} · worker=${worker:-ไม่มี}" >> "$GITHUB_STEP_SUMMARY"
+
+      # สำรองฐานข้อมูลก่อนแตะอะไรทั้งสิ้น (สเปก 13.3) — pg_dump แล้วเข้ารหัสด้วย age public key
+      # artifact โหลดได้ทุกคนที่อ่าน repo ได้ จึงต้องเข้ารหัส · identity (กุญแจถอด) อยู่กับเจ้าของเท่านั้น ไม่อยู่บน GitHub
+      - name: สำรองฐานข้อมูล (pg_dump → age)
+        env:
+          PROD_DIRECT_URL: ${{ secrets.PROD_DIRECT_URL }}
+          AGE_RECIPIENT: ${{ vars.PROD_BACKUP_AGE_RECIPIENT }}
+        run: |
+          set -euo pipefail
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17 age >/dev/null
+          mkdir -p backup
+          pg_dump --dbname="$PROD_DIRECT_URL" --format=custom --no-owner --no-privileges \
+            | age --recipient "$AGE_RECIPIENT" > "backup/nosion-$TAG.dump.age"
+          ls -lh backup >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: db-backup-${{ env.TAG }}
+          path: backup/
+          retention-days: 30
+
+      # direct/session connection (5432) — pgbouncer โหมด transaction ไม่รองรับ advisory lock ของ migrate
+      # migration ต้อง backward-compatible เสมอ (expand → contract · สเปก 13.4) → ย้อนโค้ดได้โดยไม่ย้อน schema
+      - name: migrate
+        run: pnpm db:migrate:deploy
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DIRECT_URL }}
+
+      # api ก่อน web — web รุ่นใหม่อาจเรียก endpoint ใหม่ · api รุ่นใหม่ต้องเข้ากับ web รุ่นเก่าได้อยู่แล้ว
+      - id: api
+        name: deploy api
+        env:
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_API }}
+        run: |
+          set -euo pipefail
+          rm -rf .vercel
+          npx "$VERCEL_CLI" pull --yes --environment=production --token="$VERCEL_TOKEN"
+          npx "$VERCEL_CLI" build --prod --token="$VERCEL_TOKEN"
+          url=$(npx "$VERCEL_CLI" deploy --prebuilt --prod --token="$VERCEL_TOKEN")
+          echo "### api → $url" >> "$GITHUB_STEP_SUMMARY"
+
+      - id: web
+        name: deploy web
+        env:
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_WEB }}
+        run: |
+          set -euo pipefail
+          rm -rf .vercel
+          npx "$VERCEL_CLI" pull --yes --environment=production --token="$VERCEL_TOKEN"
+          npx "$VERCEL_CLI" build --prod --token="$VERCEL_TOKEN"
+          url=$(npx "$VERCEL_CLI" deploy --prebuilt --prod --token="$VERCEL_TOKEN")
+          echo "### web → $url" >> "$GITHUB_STEP_SUMMARY"
+
+      # worker บน Fly.io (ถ้ามี) · rolling: เครื่องใหม่ผ่าน /readyz ก่อนเครื่องเก่าปิด
+      - id: worker
+        name: deploy worker
+        if: env.FLY_API_TOKEN != '' && env.FLY_APP != ''
+        run: >
+          flyctl deploy . --app "$FLY_APP" --config ops/fly/worker.fly.toml
+          --dockerfile docker/worker.Dockerfile --remote-only --strategy rolling --wait-timeout 300
+
+      - name: smoke test
+        run: bash scripts/smoke-production.sh "${{ vars.PROD_WEB_URL }}" "${{ vars.PROD_API_URL }}"
+
+      # ── ล้มหลังจากเริ่มแตะ production → ย้อนกลับ ───────────────────────
+      - name: rollback api / web
+        if: failure() && steps.previous.outcome == 'success'
+        env:
+          PREVIOUS_API: ${{ steps.previous.outputs.api }}
+          PREVIOUS_WEB: ${{ steps.previous.outputs.web }}
+          API_STEP: ${{ steps.api.outcome }}
+          WEB_STEP: ${{ steps.web.outcome }}
+        run: |
+          set -uo pipefail
+          status=0
+          back() { # $1 ชื่อ · $2 project · $3 deployment เดิม · $4 ผลของ step deploy
+            if [ "$4" = "skipped" ]; then echo "$1: ยังไม่ได้ deploy — ไม่ต้องย้อน"; return; fi
+            if [ -z "$3" ]; then echo "::warning::$1: ไม่มี deployment เดิมให้ย้อน (deploy ครั้งแรก)"; return; fi
+            VERCEL_PROJECT_ID="$2" npx --yes "$VERCEL_CLI" rollback "$3" --yes --timeout 5m --token="$VERCEL_TOKEN" || status=1
+            echo "### $1 ย้อนไป $3" >> "$GITHUB_STEP_SUMMARY"
+          }
+          back api "$PROJECT_API" "$PREVIOUS_API" "$API_STEP"
+          back web "$PROJECT_WEB" "$PREVIOUS_WEB" "$WEB_STEP"
+          exit $status
+
+      - name: rollback worker
+        if: failure() && steps.worker.outcome != 'skipped' && steps.previous.outputs.worker != ''
+        run: flyctl deploy --app "$FLY_APP" --image "${{ steps.previous.outputs.worker }}" --strategy immediate
+
+      - name: เปิด issue
+        if: failure() && steps.previous.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIOUS_API: ${{ steps.previous.outputs.api }}
+          PREVIOUS_WEB: ${{ steps.previous.outputs.web }}
+        run: |
+          body=$(cat <<EOF
+          - Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+          - ย้อน api → \`${PREVIOUS_API:-ไม่มี}\` · web → \`${PREVIOUS_WEB:-ไม่มี}\`
+          - migration **ไม่ถูกย้อน** (additive เสมอ · สเปก 13.4) — โค้ดรุ่นก่อนทำงานกับ schema ใหม่ได้
+          - backup ก่อน deploy: artifact \`db-backup-$TAG\` ของ run นี้ · วิธีกู้: docs/deploy/production.md
+          EOF
+          )
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "🚨 Production deploy $TAG ล้มเหลว — rollback แล้ว" --body "$body"
+
+  # ── 3. ผ่านทั้งหมด → GitHub Release ──────────────────────────────────
+  release:
+    needs: deploy
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - run: |
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+            || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --generate-notes --verify-tag
