@@ -1,0 +1,46 @@
+name: Fix staging DATABASE_URL
+
+# ตั้ง DATABASE_URL ของ staging API บน Vercel ให้เป็น transaction pooler ตามคู่มือ (docs/deploy/staging-vercel-supabase.md)
+# เหตุ (Phase 8 ขั้น 2): log ของ Vercel แสดง EMAXCONNSESSION "session mode - pool_size: 15" — API ใช้ session pooler
+# ทำให้ล้มเมื่อมีคำขอพร้อมกันเกิน 15 instance (refresh ล้ม → ผู้ใช้ถูกพาไป /login · demo login · cron การเตือน)
+#
+# สร้างค่าใหม่จาก secret STAGING_DIRECT_URL (session pooler :5432 ของโปรเจกต์เดียวกัน — user/password/host ชุดเดียวกัน)
+# → พอร์ต 6543 + ?pgbouncer=true&connection_limit=1 → เขียนทับบน Vercel แบบ Sensitive · ไม่พิมพ์ค่าใด ๆ
+# หลังรันเสร็จต้อง deploy API ใหม่ (env มีผลกับ deployment ใหม่เท่านั้น) — กด "Deploy staging"
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fix:
+    runs-on: ubuntu-24.04
+    environment: staging
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_API }}
+      DIRECT_URL: ${{ secrets.STAGING_DIRECT_URL }}
+    steps:
+      - name: สร้าง URL ของ transaction pooler
+        id: url
+        run: |
+          set -euo pipefail
+          # ต้องเป็น pooler ของ Supabase พอร์ต 5432 เท่านั้น — รูปแบบอื่นไม่เดา ให้คนตรวจเอง
+          if ! printf '%s' "$DIRECT_URL" | grep -Eq '^postgres(ql)?://[^@]+@[^/:]+\.pooler\.supabase\.com:5432/[^?]+'; then
+            echo "::error::STAGING_DIRECT_URL ไม่ใช่ Supabase session pooler (:5432) — ไม่แก้อัตโนมัติ"
+            exit 1
+          fi
+          base=$(printf '%s' "$DIRECT_URL" | sed -E 's/\?.*$//; s/:5432\//:6543\//')
+          url="${base}?pgbouncer=true&connection_limit=1"
+          echo "::add-mask::$url"
+          printf '%s' "$url" > "$RUNNER_TEMP/db-url"
+          echo "สร้างแล้ว: พอร์ต 6543 · pgbouncer=true · connection_limit=1"
+      - name: เขียนทับบน Vercel (Sensitive · production)
+        run: |
+          set -euo pipefail
+          npx vercel@63.1.0 env add DATABASE_URL production --sensitive --force --yes --token="$VERCEL_TOKEN" \
+            < "$RUNNER_TEMP/db-url"
+          rm -f "$RUNNER_TEMP/db-url"
+          echo "### DATABASE_URL (staging API) → transaction pooler :6543 — deploy API ใหม่ให้มีผล" >> "$GITHUB_STEP_SUMMARY"
