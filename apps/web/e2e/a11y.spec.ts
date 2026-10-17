@@ -1119,6 +1119,7 @@ test.describe('GitHub → งานและปฏิทิน (Phase 8 ขั�
     page,
   }) => {
     let synced = false;
+    let syncCalls = 0;
     await page.route('**/api/v1/integrations/github**', async (route) => {
       const req = route.request();
       const path = new URL(req.url()).pathname;
@@ -1132,12 +1133,20 @@ test.describe('GitHub → งานและปฏิทิน (Phase 8 ขั�
           lastSyncAt: synced ? '2026-10-17T05:00:00.000Z' : null,
           lastSyncCount: synced ? 3 : null,
           lastSyncError: null,
+          projectDates: false,
+          syncInProgress: false,
           webhook: { url: null, configured: false, lastDeliveryAt: null },
         });
       }
       if (path.endsWith('/sync')) {
-        synced = true;
-        return json({ created: 2, updated: 1, completed: 0, unchanged: 4 });
+        // issue เยอะ → เซิร์ฟเวอร์แบ่งรอบ (more) · เว็บเรียกต่อเองจนครบ
+        syncCalls++;
+        synced = syncCalls >= 2;
+        return json(
+          syncCalls === 1
+            ? { created: 2, updated: 1, completed: 0, unchanged: 4, more: true }
+            : { created: 1, updated: 0, completed: 0, unchanged: 0, more: false },
+        );
       }
       if (path.endsWith('/webhook')) {
         return json(
@@ -1152,8 +1161,13 @@ test.describe('GitHub → งานและปฏิทิน (Phase 8 ขั�
     await expect(page.getByText('octocat')).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText('ยังไม่เคยดึง')).toBeVisible();
 
+    // ยังไม่ได้สิทธิ์อ่าน GitHub Project → บอกวิธีให้สิทธิ์ · คำอธิบาย webhook แสดง < > จริง (ไม่ใช่ &lt;)
+    await expect(page.getByText(/ยังอ่านช่องวันที่ของ GitHub Project ไม่ได้/)).toBeVisible();
+    await expect(page.getByText('nosion:<รหัสงาน>', { exact: true })).toBeVisible();
+
     await page.getByRole('button', { name: 'ดึงงานตอนนี้' }).click();
-    await expect(page.getByText('ดึงจาก GitHub แล้ว 3 รายการ')).toBeVisible();
+    await expect(page.getByText('ดึงจาก GitHub แล้ว 4 รายการ')).toBeVisible();
+    expect(syncCalls).toBe(2);
 
     await page.getByRole('button', { name: 'เปิด webhook' }).click();
     await expect(page.getByLabel('Payload URL', { exact: true })).toHaveValue(
@@ -1171,6 +1185,32 @@ test.describe('GitHub → งานและปฏิทิน (Phase 8 ขั�
     ).toEqual([]);
   });
 
+  test('ดึงไม่สำเร็จ: รหัสปัญหาจากเซิร์ฟเวอร์แสดงเป็นข้อความที่บอกวิธีแก้', async ({ page }) => {
+    await page.route('**/api/v1/integrations/github', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          connected: true,
+          login: 'octocat',
+          privateRepos: true,
+          projectDates: true,
+          syncInProgress: false,
+          lastSyncAt: null,
+          lastSyncCount: null,
+          lastSyncError: 'forbidden',
+          webhook: { url: null, configured: false, lastDeliveryAt: null },
+        }),
+      }),
+    );
+    await page.goto('/settings');
+    await expect(
+      page.getByRole('alert').filter({ hasText: 'org อาจยังไม่อนุมัติแอป NOSION' }),
+    ).toBeVisible({
+      timeout: 15_000,
+    });
+  });
+
   test('งานที่ดึงจาก GitHub: ป้าย repo#เลข เป็นลิงก์ไป GitHub', async ({ page }) => {
     const [first, ...rest] = ACTIVE_TASKS;
     const fromGitHub = {
@@ -1184,6 +1224,7 @@ test.describe('GitHub → งานและปฏิทิน (Phase 8 ขั�
           autoCloseOnMerge: true,
           url: 'https://github.com/jay/nosion/issues/42',
           milestoneDueOn: null,
+          dueOn: null,
           state: 'open',
         },
       },

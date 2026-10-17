@@ -20,11 +20,53 @@ export function useGitHubIntegration() {
   });
 }
 
+/** รหัสปัญหาของการดึง (lastSyncError) → ข้อความตามภาษา */
+export function syncErrorText(code: string): string {
+  return ['revoked', 'forbidden', 'rate_limited', 'unreachable'].includes(code)
+    ? tr(`github.syncError.${code}`)
+    : tr('github.syncError.other', { code });
+}
+
+/** ดึงต่อเองไม่เกินกี่ครั้งต่อการกดหนึ่งครั้ง (ครั้งละ ~40 รายการ · search ของ GitHub ให้สูงสุด 1,000) */
+const MAX_ROUNDS = 30;
+
+/**
+ * กด "ดึงตอนนี้" → เรียก sync ซ้ำจนเซิร์ฟเวอร์บอกว่าครบ (`more: false`)
+ * เซิร์ฟเวอร์แบ่งรอบเพราะเวลาของ function จำกัด — issue หลายร้อยรายการ (รวมที่ปิดแล้ว) ไม่จบในคำขอเดียว
+ */
 export function useGitHubSync() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () =>
-      apiFetch<GitHubSyncResultDto>('/integrations/github/sync', { method: 'POST' }),
+    mutationFn: async () => {
+      const total: GitHubSyncResultDto = {
+        created: 0,
+        updated: 0,
+        completed: 0,
+        unchanged: 0,
+        more: false,
+      };
+      const progress = toast.loading(tr('github.syncing'));
+      try {
+        for (let round = 0; round < MAX_ROUNDS; round++) {
+          const r = await apiFetch<GitHubSyncResultDto>('/integrations/github/sync', {
+            method: 'POST',
+          });
+          total.created += r.created;
+          total.updated += r.updated;
+          total.completed += r.completed;
+          total.unchanged += r.unchanged;
+          total.more = r.more;
+          if (!r.more) break;
+          const seen = total.created + total.updated + total.completed + total.unchanged;
+          toast.loading(tr('github.syncProgress', { count: seen }), { id: progress });
+          // งานที่ได้แล้วขึ้นรายการ/ปฏิทินระหว่างดึงรอบต่อไป
+          void queryClient.invalidateQueries({ queryKey: ['entries'] });
+        }
+      } finally {
+        toast.dismiss(progress);
+      }
+      return total;
+    },
     onSuccess: (r) => {
       const changed = r.created + r.updated + r.completed;
       toast.success(changed ? tr('github.synced', { count: changed }) : tr('github.nothingNew'), {
@@ -39,12 +81,21 @@ export function useGitHubSync() {
       void queryClient.invalidateQueries({ queryKey: KEY });
       // งานใหม่ต้องขึ้นในรายการงาน/ปฏิทิน/Today
       void queryClient.invalidateQueries({ queryKey: ['entries'] });
+      void queryClient.invalidateQueries({ queryKey: ['calendar'] });
     },
-    onError: (error) => {
+    onError: async (error) => {
+      // เหตุผลที่เจาะจงอยู่ใน lastSyncError (รหัส) — อ่านใหม่แล้วแปลตามภาษา
+      const status = await queryClient
+        .fetchQuery({
+          queryKey: KEY,
+          queryFn: () => apiFetch<GitHubIntegrationDto>('/integrations/github'),
+          staleTime: 0,
+        })
+        .catch(() => null);
       toast.error(tr('github.syncFailed'), {
-        description: errorText(error),
+        description: status?.lastSyncError ? syncErrorText(status.lastSyncError) : errorText(error),
       });
-      void queryClient.invalidateQueries({ queryKey: KEY });
+      void queryClient.invalidateQueries({ queryKey: ['entries'] });
     },
   });
 }

@@ -6,11 +6,13 @@ import { APP_CONFIG, type AppConfig } from '../src/infra/config/env';
 import { SecretBox } from '../src/infra/crypto/secret-box';
 import { PrismaService } from '../src/infra/prisma/prisma.service';
 import { RedisService } from '../src/infra/redis/redis.service';
+import { GitHubService } from '../src/integrations/github/github.service';
 import { signGitHubPayload } from '../src/integrations/github/signature';
 import { createTestApp, registerAndLogin, resetRateLimits } from './helpers';
 
 /**
- * GitHub ตัวจริงเรียกจากเทสต์ไม่ได้ — ปลอม `GET /issues` ที่ fetch · webhook ยิงเข้ามาเองพร้อมลายเซ็นจริง
+ * GitHub ตัวจริงเรียกจากเทสต์ไม่ได้ — ปลอม GraphQL search ที่ fetch (แบ่งหน้าด้วย cursor จริง) ·
+ * webhook ยิงเข้ามาเองพร้อมลายเซ็นจริง
  */
 interface FakeIssue {
   node_id: string;
@@ -23,10 +25,54 @@ interface FakeIssue {
   repository_url: string;
   assignees: Array<{ login: string }>;
   pull_request?: unknown;
+  closed_at?: string | null;
+  /** ช่อง "End Date" ของ GitHub Project */
+  project_end?: string;
 }
 
 let issues: FakeIssue[] = [];
-let lastIssuesQuery: URLSearchParams | null = null;
+let lastSearch: { q: string; after: string | null; query: string } | null = null;
+let githubStatus = 200;
+
+/** issue (รูป REST) → node ของ GraphQL search */
+function toNode(i: FakeIssue) {
+  const isPr = Boolean(i.pull_request);
+  return {
+    __typename: isPr ? 'PullRequest' : 'Issue',
+    id: i.node_id,
+    number: i.number,
+    title: i.title,
+    url: i.html_url,
+    body: i.body,
+    closedAt: i.closed_at ?? null,
+    ...(isPr ? { prState: i.state.toUpperCase() } : { state: i.state.toUpperCase() }),
+    repository: { nameWithOwner: i.repository_url.replace('https://api.github.com/repos/', '') },
+    milestone: i.milestone ? { dueOn: i.milestone.due_on } : null,
+    assignees: { nodes: i.assignees },
+    projectItems: {
+      nodes: i.project_end
+        ? [
+            {
+              fieldValues: {
+                nodes: [
+                  {
+                    __typename: 'ProjectV2ItemFieldDateValue',
+                    date: '2026-01-01',
+                    field: { name: 'Start Date' },
+                  },
+                  {
+                    __typename: 'ProjectV2ItemFieldDateValue',
+                    date: i.project_end,
+                    field: { name: 'End Date' },
+                  },
+                ],
+              },
+            },
+          ]
+        : [],
+    },
+  };
+}
 const realFetch = globalThis.fetch;
 
 const fakeIssue = (n: number, over: Partial<FakeIssue> = {}): FakeIssue => ({
@@ -88,11 +134,32 @@ describe('GitHub integration (Phase 8 ขั้น 5)', () => {
       init?: RequestInit,
     ) => {
       const url = new URL(String(input instanceof Request ? input.url : input));
-      if (url.origin === 'https://api.github.com' && url.pathname === '/issues') {
+      if (url.href === 'https://api.github.com/graphql') {
         expect(new Headers(init?.headers).get('authorization')).toBe('Bearer gho_fake');
-        lastIssuesQuery = url.searchParams;
+        if (githubStatus !== 200) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ message: 'Resource protected by organization SAML' }), {
+              status: githubStatus,
+            }),
+          );
+        }
+        const { query, variables } = JSON.parse(String(init?.body)) as {
+          query: string;
+          variables: { q: string; after: string | null; first: number };
+        };
+        lastSearch = { q: variables.q, after: variables.after, query };
+        const start = variables.after ? Number(variables.after) : 0;
+        const end = start + variables.first;
+        const body = {
+          data: {
+            search: {
+              pageInfo: { hasNextPage: end < issues.length, endCursor: String(end) },
+              nodes: issues.slice(start, end).map(toNode),
+            },
+          },
+        };
         return Promise.resolve(
-          new Response(JSON.stringify(issues), {
+          new Response(JSON.stringify(body), {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
           }),
@@ -117,16 +184,30 @@ describe('GitHub integration (Phase 8 ขั้น 5)', () => {
   const taskFor = (n: number) =>
     prisma.entry.findFirstOrThrow({ where: { userId, clientId: `gh:I_node${n}` } });
 
-  it('ดึงครั้งแรก: เฉพาะ issue ที่เปิด → งานในโปรเจกต์ GitHub · milestone = วันในปฏิทิน · ไม่มี milestone = ไม่มีกำหนด', async () => {
+  it('ดึงครั้งแรก: ทุก issue/PR ที่มอบหมาย รวมที่ปิดแล้ว · milestone = วันในปฏิทิน · ปิดแล้ว = เสร็จในวันที่ปิด', async () => {
     issues = [
       fakeIssue(1, { milestone: { due_on: '2026-10-20T07:00:00Z' } }),
       fakeIssue(2, { pull_request: {}, title: 'PR ที่ต้องรีวิว' }),
+      // ปิดไปแล้วก่อนเชื่อม — 18:30Z วันที่ 30 ก.ย. = 01:30 วันที่ 1 ต.ค. เวลาไทย
+      fakeIssue(3, { state: 'closed', closed_at: '2026-09-30T18:30:00Z' }),
     ];
     const res = await auth(api().post('/api/v1/integrations/github/sync')).expect(200);
-    expect(res.body).toEqual({ created: 2, updated: 0, completed: 0, unchanged: 0 });
-    expect(lastIssuesQuery?.get('filter')).toBe('assigned');
-    expect(lastIssuesQuery?.get('state')).toBe('open');
-    expect(lastIssuesQuery?.has('since')).toBe(false);
+    expect(res.body).toEqual({ created: 3, updated: 0, completed: 0, unchanged: 0, more: false });
+    expect(lastSearch?.q).toBe('assignee:octocat sort:updated-desc');
+    // ยังไม่ได้สิทธิ์ read:project → ไม่ขอช่องของ Project (ขอแล้ว GitHub ปฏิเสธทั้ง query)
+    expect(lastSearch?.query).not.toContain('projectItems');
+
+    const three = await taskFor(3);
+    expect(three.status).toBe('done');
+    expect(three.completedAt?.toISOString()).toBe('2026-09-30T18:30:00.000Z');
+    const old = await auth(
+      api().get('/api/v1/calendar?from=2026-09-29&to=2026-10-02&module=task'),
+    ).expect(200);
+    expect(
+      (old.body.events as Array<{ entryId: string; date: string }>).find(
+        (e) => e.entryId === three.id,
+      )?.date,
+    ).toBe('2026-10-01');
 
     const one = await taskFor(1);
     expect(one.module).toBe('task');
@@ -148,7 +229,13 @@ describe('GitHub integration (Phase 8 ขั้น 5)', () => {
     expect(event?.date).toBe('2026-10-20');
 
     const status = await auth(api().get('/api/v1/integrations/github')).expect(200);
-    expect(status.body).toMatchObject({ connected: true, login: 'octocat', lastSyncCount: 2 });
+    expect(status.body).toMatchObject({
+      connected: true,
+      login: 'octocat',
+      lastSyncCount: 3,
+      projectDates: false,
+      syncInProgress: false,
+    });
   });
 
   it('ดึงซ้ำ: ไม่สร้างซ้ำ · issue ถูกปิด → งานเสร็จ · เปลี่ยนชื่อ → ตาม · ครั้งต่อไปถามเฉพาะที่เปลี่ยนหลังรอบก่อน', async () => {
@@ -157,15 +244,63 @@ describe('GitHub integration (Phase 8 ขั้น 5)', () => {
       fakeIssue(2, { pull_request: {}, title: 'PR ที่ต้องรีวิว (แก้ชื่อ)' }),
     ];
     const res = await auth(api().post('/api/v1/integrations/github/sync')).expect(200);
-    expect(res.body).toEqual({ created: 0, updated: 1, completed: 1, unchanged: 0 });
-    expect(lastIssuesQuery?.get('state')).toBe('all');
-    expect(lastIssuesQuery?.get('since')).toBeTruthy();
+    expect(res.body).toEqual({ created: 0, updated: 1, completed: 1, unchanged: 0, more: false });
+    expect(lastSearch?.q).toMatch(
+      /^assignee:octocat sort:updated-desc updated:>=\d{4}-\d{2}-\d{2}T/,
+    );
 
     expect((await taskFor(1)).status).toBe('done');
     expect((await taskFor(2)).title).toBe('PR ที่ต้องรีวิว (แก้ชื่อ)');
     expect(await prisma.entry.count({ where: { userId, clientId: { startsWith: 'gh:' } } })).toBe(
-      2,
+      3,
     );
+  });
+
+  it('ได้สิทธิ์ read:project → วันในปฏิทินมาจากช่อง End Date ของ GitHub Project', async () => {
+    await prisma.oAuthAccount.updateMany({
+      where: { userId, provider: 'github' },
+      data: { scopes: 'read:user user:email repo read:project' },
+    });
+    issues = [fakeIssue(4, { project_end: '2026-10-16' })];
+    await auth(api().post('/api/v1/integrations/github/sync')).expect(200);
+    expect(lastSearch?.query).toContain('projectItems');
+    const four = await taskFor(4);
+    expect(four.occurredAt?.toISOString()).toBe('2026-10-15T17:00:00.000Z'); // 00:00 วันที่ 16 เวลาไทย
+    const status = await auth(api().get('/api/v1/integrations/github')).expect(200);
+    expect(status.body).toMatchObject({ projectDates: true, privateRepos: true });
+  });
+
+  it('issue เยอะ → แบ่งดึงหลายรอบ จำ cursor ไว้ ดึงต่อจากที่ค้าง (ไม่ซ้ำ ไม่ข้าม)', async () => {
+    const github = app.get(GitHubService);
+    issues = Array.from({ length: 90 }, (_, i) => fakeIssue(100 + i));
+    // งบเวลา 0 = หน้าเดียวต่อครั้ง (เหมือนเวลาของ function หมด)
+    const first = await github.sync(userId, new Date(), 0);
+    expect(first).toMatchObject({ created: 40, more: true });
+    expect(
+      (await auth(api().get('/api/v1/integrations/github')).expect(200)).body.syncInProgress,
+    ).toBe(true);
+    const second = await github.sync(userId, new Date(), 0);
+    expect(lastSearch?.after).toBe('40');
+    expect(second).toMatchObject({ created: 40, more: true });
+    const third = await github.sync(userId, new Date(), 0);
+    expect(third).toMatchObject({ created: 10, more: false });
+    expect(
+      await prisma.entry.count({ where: { userId, clientId: { startsWith: 'gh:I_node1' } } }),
+    ).toBeGreaterThanOrEqual(90);
+    const status = await auth(api().get('/api/v1/integrations/github')).expect(200);
+    expect(status.body.syncInProgress).toBe(false);
+  });
+
+  it('GitHub ปฏิเสธ (403) → 502 พร้อมเหตุผล · จำรหัสไว้ให้หน้าตั้งค่าแสดง', async () => {
+    githubStatus = 403;
+    try {
+      const res = await auth(api().post('/api/v1/integrations/github/sync')).expect(502);
+      expect(res.body.detail).toContain('org อาจยังไม่อนุมัติ');
+      const status = await auth(api().get('/api/v1/integrations/github')).expect(200);
+      expect(status.body.lastSyncError).toBe('forbidden');
+    } finally {
+      githubStatus = 200;
+    }
   });
 
   it('ผู้ใช้ลบงานแล้ว → ดึงอีกก็ไม่กลับมา', async () => {
