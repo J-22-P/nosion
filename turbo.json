@@ -31,7 +31,11 @@
         "NOTIFICATION_ACTION_SECRET",
         "MAIL_DRIVER",
         "RESEND_API_KEY",
-        "EMAIL_FROM"
+        "EMAIL_FROM",
+        "GOOGLE_CLIENT_ID",
+        "GOOGLE_CLIENT_SECRET",
+        "GITHUB_CLIENT_ID",
+        "GITHUB_CLIENT_SECRET"
       ]
     },
     "lint": {

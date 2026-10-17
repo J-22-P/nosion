@@ -17,3 +17,4 @@ export * from './habits';
 export * from './review';
 export * from './sync';
 export * from './api-keys';
+export * from './oauth';

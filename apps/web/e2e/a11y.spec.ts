@@ -1067,3 +1067,49 @@ test.describe('Settings · API key (Phase 8 ขั้น 4)', () => {
     await expect.poll(() => revoked).toBe('key-1');
   });
 });
+
+test.describe('OAuth · Google / GitHub (Phase 8 ขั้น 4b)', () => {
+  test('หน้า login มีปุ่มทั้งสองเป็นลิงก์ไป API พร้อมโซนเวลา · กลับมาพร้อม oauth_error → แจ้งเป็นภาษาคน', async ({
+    page,
+  }) => {
+    await page.goto('/login?oauth_error=email_conflict');
+    // Next มี route announcer เป็น role=alert อีกตัว — หาจากข้อความแทน
+    await expect(
+      page.getByText('อีเมลนี้มีบัญชีที่ยังไม่ได้ยืนยันอยู่แล้ว', { exact: false }),
+    ).toBeVisible({
+      timeout: 15_000,
+    });
+    const google = page.getByRole('link', { name: 'ดำเนินการต่อด้วย Google' });
+    await expect(google).toBeVisible();
+    await expect(page.getByRole('link', { name: 'ดำเนินการต่อด้วย GitHub' })).toBeVisible();
+
+    // กดแล้ว href ถูกเติมโซนเวลาก่อนเปิดหน้า — ดักการเปิดหน้าไว้ไม่ให้ออกไปข้างนอกจริง
+    await page.route('**/api/v1/auth/oauth/google**', (route) =>
+      route.fulfill({ status: 200, body: 'redirected' }),
+    );
+    await google.click();
+    await expect(page).toHaveURL(/\/api\/v1\/auth\/oauth\/google\?tz=Asia%2FBangkok/);
+  });
+
+  test('ตั้งค่า: เห็นบัญชีที่เชื่อม · GitHub ยังไม่เชื่อม → เลือกรวม repo ส่วนตัวแล้วเชื่อม', async ({
+    page,
+  }) => {
+    let linkBody: unknown = null;
+    await page.route('**/api/v1/auth/oauth/github/link', async (route) => {
+      linkBody = route.request().postDataJSON();
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ url: 'http://localhost:3000/settings?connected=github' }),
+      });
+    });
+    await page.goto('/settings');
+    await expect(page.getByText('jay@example.com')).toBeVisible({ timeout: 15_000 });
+    await page.getByRole('checkbox', { name: 'รวม repo ส่วนตัว' }).click();
+    await page.getByRole('button', { name: 'เชื่อม GitHub' }).click();
+    await expect.poll(() => linkBody).toEqual({ includePrivateRepos: true });
+    // กลับมาจาก GitHub → แจ้งผลแล้วล้าง query
+    await expect(page.getByText('เชื่อม GitHub แล้ว')).toBeVisible();
+    await expect(page).toHaveURL(/\/settings$/);
+  });
+});

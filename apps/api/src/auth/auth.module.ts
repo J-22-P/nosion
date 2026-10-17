@@ -4,6 +4,8 @@ import { APP_CONFIG, type AppConfig } from '../infra/config/env';
 import { ApiKeysController } from './api-keys/api-keys.controller';
 import { ApiKeysService } from './api-keys/api-keys.service';
 import { AuthController } from './auth.controller';
+import { OAuthAccountsController, OAuthController } from './oauth/oauth.controller';
+import { OAuthService } from './oauth/oauth.service';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RateLimitGuard } from './guards/rate-limit.guard';
@@ -22,10 +24,11 @@ import { TokenService } from './token.service';
       }),
     }),
   ],
-  controllers: [AuthController, ApiKeysController],
+  controllers: [AuthController, ApiKeysController, OAuthController, OAuthAccountsController],
   providers: [
     AuthService,
     ApiKeysService,
+    OAuthService,
     TokenService,
     PasswordService,
     SessionRevocationService,

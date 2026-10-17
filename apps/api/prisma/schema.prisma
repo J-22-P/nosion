@@ -191,15 +191,25 @@ model VerificationToken {
   @@map("verification_tokens")
 }
 
+/// บัญชีภายนอกที่ผูกไว้ (Google · GitHub) — ใช้เข้าสู่ระบบ และ (GitHub) ดึง issue ลงปฏิทิน
 model OAuthAccount {
   id             String   @id @default(cuid(2))
   userId         String
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   provider       String
   providerUserId String
+  /// ชื่อที่ผู้ใช้จำได้ (อีเมลของ Google · username ของ GitHub) — แสดงในหน้าตั้งค่า
+  login          String?
+  /// access token ของผู้ให้บริการ เข้ารหัส AES-256-GCM ด้วย ENCRYPTION_KEY — null = ไม่เก็บ (Google ใช้แค่ยืนยันตัวตน)
+  accessTokenEnc String?
+  /// scope ที่ผู้ใช้อนุญาตจริง (คั่นด้วยช่องว่าง) — GitHub บอกใน response ของการแลก token
+  scopes         String?
   createdAt      DateTime @default(now())
+  updatedAt      DateTime @default(now()) @updatedAt
 
   @@unique([provider, providerUserId])
+  /// ผู้ใช้หนึ่งคนผูกผู้ให้บริการเดียวกันได้บัญชีเดียว
+  @@unique([userId, provider])
   @@map("oauth_accounts")
 }
 

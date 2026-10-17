@@ -1,11 +1,13 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useSession } from '@/features/auth/use-session';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ThemeSwitcher } from '@/components/shared/theme-switcher';
 import { NotificationsCard } from '@/features/notifications/notifications-card';
 import { PreferencesCard } from '@/features/notifications/preferences-card';
 import { ApiKeysCard } from '@/features/settings/api-keys-card';
+import { ConnectedAccountsCard } from '@/features/settings/connected-accounts-card';
 import { ModulesCard } from '@/features/settings/modules-card';
 
 export default function SettingsPage() {
@@ -45,6 +47,9 @@ export default function SettingsPage() {
       <ModulesCard />
       <NotificationsCard />
       {settings ? <PreferencesCard settings={settings} /> : null}
+      <Suspense fallback={null}>
+        <ConnectedAccountsCard isDemo={user?.isDemo ?? false} />
+      </Suspense>
       <ApiKeysCard />
     </div>
   );
