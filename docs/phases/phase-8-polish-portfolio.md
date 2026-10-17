@@ -32,7 +32,7 @@
 | 6   | i18n: dictionary ไทย/อังกฤษ · สลับภาษาในตั้งค่า · วันที่/เงินตาม locale | `d44bd34` | ✅                          |
 | 7   | `deploy-production.yml` จาก tag + rollback                              | `a97209f` | ✅                          |
 | 8   | ให้คนที่ไม่ใช่ dev ใช้เองได้: onboarding/empty state · README + diagram | `66a4b99` | ✅                          |
-| 9   | บท learn 21 + ADR                                                       | —         | ⬜                          |
+| 9   | บท learn 21 + ADR                                                       | —         | ✅                          |
 
 **วิธีทำงาน (ตั้งแต่ขั้น 4):** แตก `develop` จาก `main` · หนึ่งฟีเจอร์ = หนึ่ง branch `feature/…` จาก `develop` · เสร็จแล้ว merge กลับ `develop` (`--no-ff`)
 
@@ -429,3 +429,34 @@ schema ของ body ใน Swagger ยังว่าง (validate ด้ว�
 **ค้าง:** วิดีโอสาธิต 2 นาที (เจ้าของอัด) · ให้เพื่อนที่ไม่ใช่ dev ลองจริงแล้วจดว่าติดตรงไหน (DoD วัดด้วยคนจริงได้ดีกว่าเทสต์)
 
 📚 บท learn 21 (ขั้น 9)
+
+## ขั้น 9 · บท learn 21 + ADR-015–019 — branch `feature/learn-adr`
+
+**สิ่งที่เปลี่ยน**
+
+- 📁 `docs/learn/21-phase8-integrations-i18n-and-release.md` — วัดก่อนตั้งเกณฑ์ (ขั้น 1–2) · API key · OAuth + PKCE + การผูกบัญชีด้วยอีเมล ·
+  GitHub เป็นเจ้าของตาม "การเปลี่ยน" · webhook จากไบต์ดิบ · i18n ที่ยัง static · production ที่ย้อนเองได้ · onboarding ที่วัดได้ · แบบฝึกหัด 8 ข้อ
+- ADR ใหม่ 5 ฉบับ (รวม 17):
+  [015](../adr/015-public-api-keys.md) API key ·
+  [016](../adr/016-oauth-sign-in.md) OAuth sign-in ·
+  [017](../adr/017-github-issues-to-tasks.md) GitHub → งาน ·
+  [018](../adr/018-i18n-cookie-rewrite.md) i18n ·
+  [019](../adr/019-production-release-and-rollback.md) production release + rollback
+- การ์ดบท 21 ใน `docs/learn/index.html` · ตาราง ADR · สถานะ Phase 8 ใน `docs/phases/README.md`
+
+**วิธีตรวจ:** ทุกไฟล์/ฟังก์ชันที่บทอ้าง (📁) มีอยู่จริงตามชื่อ · `pnpm format:check`
+
+## ปิด Phase 8
+
+| ข้อในสเปก                          | ผล                                                                                    |
+| ---------------------------------- | ------------------------------------------------------------------------------------- |
+| axe 0 serious ทั้ง dark/light      | ✅ (+ ภาษาอังกฤษ)                                                                     |
+| Visual regression ใน CI            | ✅ 0.2% · ⚠️ ต้องสร้าง baseline ใหม่หลัง push (ข้อความ/ปี พ.ศ. เปลี่ยน)               |
+| Lighthouse ≥ 90                    | ✅ ทุกหน้าหลัก มือถือ + desktop                                                       |
+| i18n ไทย + อังกฤษ                  | ✅                                                                                    |
+| Import CSV / Todoist               | ⏭ เจ้าของสั่งข้าม                                                                     |
+| Public API + Swagger + API key     | ✅                                                                                    |
+| GitHub integration                 | ✅ + ล็อกอิน Google/GitHub (เพิ่มตามที่เจ้าของขอ) · ⚠️ ยังไม่ได้ลองกับ OAuth app จริง |
+| `deploy-production.yml` + rollback | ✅ เขียนแล้ว · ⚠️ ยังไม่เคยรัน (ไม่มีโปรเจกต์ production)                             |
+| README + diagram + video           | ✅ README + C4 · ⬜ video (เจ้าของอัด)                                                |
+| ADR ≥ 9                            | ✅ 17 ฉบับ                                                                            |
