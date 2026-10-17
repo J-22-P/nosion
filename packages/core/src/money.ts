@@ -1,3 +1,5 @@
+import { numberFormat } from './intl';
+
 /**
  * เงินเก็บเป็น "หน่วยย่อย" integer เสมอ (สตางค์) — 125.50 บาท = 12550
  * ไม่ใช้ float เพราะ 0.1 + 0.2 !== 0.3 → ยอดรวมหลายร้อยรายการจะคลาดทีละสตางค์
@@ -6,8 +8,7 @@
 /** ทศนิยมของสกุลเงิน — THB/USD = 2, JPY = 0 (อ่านจาก Intl ไม่ต้องดูแลตารางเอง) */
 export function currencyDigits(currency: string): number {
   return (
-    new Intl.NumberFormat('en', { style: 'currency', currency }).resolvedOptions()
-      .maximumFractionDigits ?? 2
+    numberFormat('en', { style: 'currency', currency }).resolvedOptions().maximumFractionDigits ?? 2
   );
 }
 
@@ -37,7 +38,7 @@ export function formatMoney(
 ): string {
   const digits = currencyDigits(currency);
   const major = amountMinor / 10 ** digits;
-  return new Intl.NumberFormat(locale, {
+  return numberFormat(locale, {
     style: 'currency',
     currency,
     // ฿ ทั้งสองภาษา — en-US ค่าเริ่มต้นแสดง "THB 1,200"

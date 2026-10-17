@@ -1,5 +1,6 @@
 import type { Priority } from '@nosion/contracts';
 import { dateFormat, tr } from '@/i18n/current';
+import { dateTimeFormat } from '@nosion/core/intl';
 
 /**
  * โซนเวลาที่ใช้ตีความ "วัน" บนหน้าจอ — ยังตายตัวเป็นเวลาไทยเหมือนเดิม
@@ -10,7 +11,7 @@ export const DEFAULT_TIME_ZONE = 'Asia/Bangkok';
 
 /** 'YYYY-MM-DD' ของจุดเวลานั้นตามโซนที่กำหนด */
 function ymd(date: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone }).format(date);
+  return dateTimeFormat('en-CA', { timeZone }).format(date);
 }
 
 /** ต่างกันกี่วันตามปฏิทิน (ไม่ขึ้นกับเวลาในวัน) */

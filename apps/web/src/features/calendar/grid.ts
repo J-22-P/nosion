@@ -1,6 +1,7 @@
 import type { CalendarEventDto } from '@nosion/contracts';
 import { zonedTimeToUtc } from '@nosion/core/time';
 import { dateFormat, tr } from '@/i18n/current';
+import { dateTimeFormat } from '@nosion/core/intl';
 
 /**
  * คำนวณของหน้าปฏิทิน (สเปก 8.11.4) — pure ทั้งไฟล์ ทำงานกับ 'YYYY-MM-DD' ล้วน
@@ -38,7 +39,7 @@ export function isoWeek(ymd: string): number {
 
 /** 'YYYY-MM-DD' ของวันนี้ตามโซน */
 export function todayIn(timeZone: string, now = new Date()): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone }).format(now);
+  return dateTimeFormat('en-CA', { timeZone }).format(now);
 }
 
 /** grid เดือน 6 สัปดาห์ (42 วัน) เริ่มที่ต้นสัปดาห์ของวันที่ 1 — ความสูงคงที่ทุกเดือน ไม่กระโดด */
@@ -98,7 +99,7 @@ export function longDayLabel(ymd: string): string {
 
 /** 'HH:mm' ของ event ตามโซนผู้ใช้ */
 export function timeOf(iso: string, timeZone: string): string {
-  return new Intl.DateTimeFormat('en-GB', {
+  return dateTimeFormat('en-GB', {
     timeZone,
     hour: '2-digit',
     minute: '2-digit',
