@@ -1,0 +1,312 @@
+import type { INestApplication } from '@nestjs/common';
+import { nosionRef } from '@nosion/contracts';
+import request from 'supertest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { APP_CONFIG, type AppConfig } from '../src/infra/config/env';
+import { SecretBox } from '../src/infra/crypto/secret-box';
+import { PrismaService } from '../src/infra/prisma/prisma.service';
+import { RedisService } from '../src/infra/redis/redis.service';
+import { signGitHubPayload } from '../src/integrations/github/signature';
+import { createTestApp, registerAndLogin, resetRateLimits } from './helpers';
+
+/**
+ * GitHub ตัวจริงเรียกจากเทสต์ไม่ได้ — ปลอม `GET /issues` ที่ fetch · webhook ยิงเข้ามาเองพร้อมลายเซ็นจริง
+ */
+interface FakeIssue {
+  node_id: string;
+  number: number;
+  title: string;
+  state: 'open' | 'closed';
+  html_url: string;
+  body: string | null;
+  milestone: { due_on: string | null } | null;
+  repository_url: string;
+  assignees: Array<{ login: string }>;
+  pull_request?: unknown;
+}
+
+let issues: FakeIssue[] = [];
+let lastIssuesQuery: URLSearchParams | null = null;
+const realFetch = globalThis.fetch;
+
+const fakeIssue = (n: number, over: Partial<FakeIssue> = {}): FakeIssue => ({
+  node_id: `I_node${n}`,
+  number: n,
+  title: `Issue ${n}`,
+  state: 'open',
+  html_url: `https://github.com/jay/nosion/issues/${n}`,
+  body: `รายละเอียด ${n}`,
+  milestone: null,
+  repository_url: 'https://api.github.com/repos/jay/nosion',
+  assignees: [{ login: 'octocat' }],
+  ...over,
+});
+
+describe('GitHub integration (Phase 8 ขั้น 5)', () => {
+  let app: INestApplication;
+  let prisma: PrismaService;
+  let redis: RedisService;
+  let token: string;
+  let userId: string;
+
+  beforeAll(async () => {
+    process.env.API_URL = 'http://web.test';
+    const ctx = await createTestApp();
+    app = ctx.app;
+    prisma = ctx.prisma;
+    redis = ctx.redis;
+    token = await registerAndLogin(app, 'github');
+    const me = await api().get('/api/v1/me').set('Authorization', `Bearer ${token}`).expect(200);
+    userId = me.body.user.id as string;
+
+    // ผูก GitHub แบบที่ OAuth ทำ (ทางเดินเต็มของ OAuth อยู่ใน oauth.int-spec.ts)
+    const account = await prisma.oAuthAccount.create({
+      data: {
+        userId,
+        provider: 'github',
+        providerUserId: '583231',
+        login: 'octocat',
+        scopes: 'read:user user:email',
+      },
+    });
+    const config = app.get<AppConfig>(APP_CONFIG);
+    await prisma.oAuthAccount.update({
+      where: { id: account.id },
+      data: {
+        accessTokenEnc: new SecretBox(config.ENCRYPTION_KEY).seal(
+          'gho_fake',
+          `oauth-token:${account.id}`,
+        ),
+      },
+    });
+  });
+
+  beforeEach(async () => {
+    await resetRateLimits(redis);
+    vi.spyOn(globalThis, 'fetch').mockImplementation(((
+      input: string | URL | Request,
+      init?: RequestInit,
+    ) => {
+      const url = new URL(String(input instanceof Request ? input.url : input));
+      if (url.origin === 'https://api.github.com' && url.pathname === '/issues') {
+        expect(new Headers(init?.headers).get('authorization')).toBe('Bearer gho_fake');
+        lastIssuesQuery = url.searchParams;
+        return Promise.resolve(
+          new Response(JSON.stringify(issues), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        );
+      }
+      return realFetch(input, init);
+    }) as typeof fetch);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  afterAll(async () => {
+    await app.close();
+    delete process.env.API_URL;
+  });
+
+  const api = () => request(app.getHttpServer());
+  const auth = (r: request.Test) => r.set('Authorization', `Bearer ${token}`);
+
+  const taskFor = (n: number) =>
+    prisma.entry.findFirstOrThrow({ where: { userId, clientId: `gh:I_node${n}` } });
+
+  it('ดึงครั้งแรก: เฉพาะ issue ที่เปิด → งานในโปรเจกต์ GitHub · milestone = วันในปฏิทิน · ไม่มี milestone = ไม่มีกำหนด', async () => {
+    issues = [
+      fakeIssue(1, { milestone: { due_on: '2026-10-20T07:00:00Z' } }),
+      fakeIssue(2, { pull_request: {}, title: 'PR ที่ต้องรีวิว' }),
+    ];
+    const res = await auth(api().post('/api/v1/integrations/github/sync')).expect(200);
+    expect(res.body).toEqual({ created: 2, updated: 0, completed: 0, unchanged: 0 });
+    expect(lastIssuesQuery?.get('filter')).toBe('assigned');
+    expect(lastIssuesQuery?.get('state')).toBe('open');
+    expect(lastIssuesQuery?.has('since')).toBe(false);
+
+    const one = await taskFor(1);
+    expect(one.module).toBe('task');
+    expect(one.isAllDay).toBe(true);
+    expect(one.payload).toMatchObject({
+      github: { repo: 'jay/nosion', issueNumber: 1, state: 'open' },
+    });
+    const project = await prisma.project.findUniqueOrThrow({ where: { id: one.projectId! } });
+    expect(project.name).toBe('GitHub');
+    expect((await taskFor(2)).occurredAt).toBeNull();
+
+    // ขึ้นปฏิทินวันที่ 20 ตามโซนผู้ใช้
+    const cal = await auth(
+      api().get('/api/v1/calendar?from=2026-10-19&to=2026-10-21&module=task'),
+    ).expect(200);
+    const event = (cal.body.events as Array<{ entryId: string; date: string }>).find(
+      (e) => e.entryId === one.id,
+    );
+    expect(event?.date).toBe('2026-10-20');
+
+    const status = await auth(api().get('/api/v1/integrations/github')).expect(200);
+    expect(status.body).toMatchObject({ connected: true, login: 'octocat', lastSyncCount: 2 });
+  });
+
+  it('ดึงซ้ำ: ไม่สร้างซ้ำ · issue ถูกปิด → งานเสร็จ · เปลี่ยนชื่อ → ตาม · ครั้งต่อไปถามเฉพาะที่เปลี่ยนหลังรอบก่อน', async () => {
+    issues = [
+      fakeIssue(1, { state: 'closed', milestone: { due_on: '2026-10-20T07:00:00Z' } }),
+      fakeIssue(2, { pull_request: {}, title: 'PR ที่ต้องรีวิว (แก้ชื่อ)' }),
+    ];
+    const res = await auth(api().post('/api/v1/integrations/github/sync')).expect(200);
+    expect(res.body).toEqual({ created: 0, updated: 1, completed: 1, unchanged: 0 });
+    expect(lastIssuesQuery?.get('state')).toBe('all');
+    expect(lastIssuesQuery?.get('since')).toBeTruthy();
+
+    expect((await taskFor(1)).status).toBe('done');
+    expect((await taskFor(2)).title).toBe('PR ที่ต้องรีวิว (แก้ชื่อ)');
+    expect(await prisma.entry.count({ where: { userId, clientId: { startsWith: 'gh:' } } })).toBe(
+      2,
+    );
+  });
+
+  it('ผู้ใช้ลบงานแล้ว → ดึงอีกก็ไม่กลับมา', async () => {
+    const two = await taskFor(2);
+    await auth(api().delete(`/api/v1/entries/${two.id}`)).expect(204);
+    issues = [fakeIssue(2, { pull_request: {}, title: 'ชื่อใหม่อีก' })];
+    const res = await auth(api().post('/api/v1/integrations/github/sync')).expect(200);
+    expect(res.body).toMatchObject({ created: 0, unchanged: 1 });
+  });
+
+  describe('webhook', () => {
+    let hookUrl: string;
+    let secret: string;
+
+    beforeAll(async () => {
+      const res = await auth(api().post('/api/v1/integrations/github/webhook')).expect(201);
+      hookUrl = new URL(res.body.url as string).pathname;
+      secret = res.body.secret as string;
+      expect(res.body.url).toMatch(/^http:\/\/web\.test\/api\/v1\/webhooks\/github\//);
+    });
+
+    function deliver(event: string, payload: unknown, sign = secret) {
+      const body = JSON.stringify(payload);
+      return api()
+        .post(hookUrl)
+        .set('Content-Type', 'application/json')
+        .set('X-GitHub-Event', event)
+        .set('X-Hub-Signature-256', signGitHubPayload(sign, body))
+        .send(body);
+    }
+
+    it('ลายเซ็นผิด / id มั่ว → 404 · ping → pong', async () => {
+      await deliver('ping', { zen: 'hi' }, 'wrong-secret').expect(404);
+      await api()
+        .post('/api/v1/webhooks/github/not-a-real-id')
+        .set('X-Hub-Signature-256', signGitHubPayload(secret, '{}'))
+        .send({})
+        .expect(404);
+      const ping = await deliver('ping', { zen: 'hi' }).expect(200);
+      expect(ping.body.handled).toBe('pong');
+    });
+
+    it('PR merged ที่อ้าง nosion:<id> → ปิดงานนั้น · งานของผู้ใช้อื่นไม่ถูกแตะ (IDOR)', async () => {
+      const mine = await auth(api().post('/api/v1/entries'))
+        .send({ module: 'task', title: 'งานที่ PR จะปิด' })
+        .expect(201);
+      const otherToken = await registerAndLogin(app, 'github-other');
+      const theirs = await api()
+        .post('/api/v1/entries')
+        .set('Authorization', `Bearer ${otherToken}`)
+        .send({ module: 'task', title: 'งานของคนอื่น' })
+        .expect(201);
+
+      const pr = {
+        action: 'closed',
+        repository: { full_name: 'jay/nosion' },
+        pull_request: {
+          number: 77,
+          merged: true,
+          title: 'แก้บั๊ก',
+          body: `ปิด ${nosionRef(mine.body.id)} และ ${nosionRef(theirs.body.id)}`,
+          head: { ref: 'fix/x' },
+        },
+      };
+      // ยังไม่ merge (แค่ปิด) → ไม่ปิดงาน
+      await deliver('pull_request', {
+        ...pr,
+        pull_request: { ...pr.pull_request, merged: false },
+      }).expect(200);
+      expect((await prisma.entry.findUniqueOrThrow({ where: { id: mine.body.id } })).status).toBe(
+        'pending',
+      );
+
+      const res = await deliver('pull_request', pr).expect(200);
+      expect(res.body.handled).toContain('ปิด 1 งาน');
+      expect((await prisma.entry.findUniqueOrThrow({ where: { id: mine.body.id } })).status).toBe(
+        'done',
+      );
+      expect((await prisma.entry.findUniqueOrThrow({ where: { id: theirs.body.id } })).status).toBe(
+        'pending',
+      );
+    });
+
+    it('PR merged → งานที่ดึงมาจาก PR ตัวนั้นเองก็ปิด', async () => {
+      issues = [fakeIssue(9, { pull_request: {}, title: 'PR #9' })];
+      await auth(api().post('/api/v1/integrations/github/sync')).expect(200);
+      await deliver('pull_request', {
+        action: 'closed',
+        repository: { full_name: 'jay/nosion' },
+        pull_request: { number: 9, merged: true, title: 'PR #9', body: null, head: { ref: 'x' } },
+      }).expect(200);
+      expect((await taskFor(9)).status).toBe('done');
+    });
+
+    it('event issues: มอบหมายให้เรา → สร้างงานทันที · ของคนอื่นใน repo เดียวกัน → ไม่สนใจ', async () => {
+      const { repository_url: _, ...assigned } = fakeIssue(20, { title: 'มาจาก webhook' });
+      const created = await deliver('issues', {
+        action: 'assigned',
+        repository: { full_name: 'jay/nosion' },
+        issue: assigned,
+      }).expect(200);
+      expect(created.body.handled).toBe('issues.assigned: create');
+      expect((await taskFor(20)).title).toBe('มาจาก webhook');
+
+      const { repository_url: __, ...others } = fakeIssue(21, {
+        assignees: [{ login: 'someone-else' }],
+      });
+      const ignored = await deliver('issues', {
+        action: 'opened',
+        repository: { full_name: 'jay/nosion' },
+        issue: others,
+      }).expect(200);
+      expect(ignored.body.handled).toContain('ไม่ใช่ issue ของผู้ใช้นี้');
+
+      // ปิด issue บน GitHub (เช่น PR "Closes #20" ถูก merge) → งานเสร็จ
+      await deliver('issues', {
+        action: 'closed',
+        repository: { full_name: 'jay/nosion' },
+        issue: { ...assigned, state: 'closed' },
+      }).expect(200);
+      expect((await taskFor(20)).status).toBe('done');
+    });
+
+    it('หมุน secret → ลายเซ็นด้วย secret เดิมใช้ไม่ได้ · ปิด webhook → 404', async () => {
+      const old = secret;
+      const rotated = await auth(api().post('/api/v1/integrations/github/webhook')).expect(201);
+      secret = rotated.body.secret as string;
+      await deliver('ping', {}, old).expect(404);
+      await deliver('ping', {}).expect(200);
+
+      await auth(api().delete('/api/v1/integrations/github/webhook')).expect(204);
+      await deliver('ping', {}).expect(404);
+    });
+  });
+
+  it('ยังไม่เชื่อม GitHub → ดึงไม่ได้ (409)', async () => {
+    const other = await registerAndLogin(app, 'no-github');
+    const res = await api()
+      .post('/api/v1/integrations/github/sync')
+      .set('Authorization', `Bearer ${other}`)
+      .expect(409);
+    expect(res.body.detail).toContain('ยังไม่ได้เชื่อม GitHub');
+  });
+});

@@ -9,6 +9,7 @@ import {
   type OAuthProvidersDto,
 } from '@nosion/contracts';
 import type { User } from '@prisma/client';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { APP_CONFIG, type AppConfig } from '../../infra/config/env';
 import { SecretBox } from '../../infra/crypto/secret-box';
@@ -31,6 +32,14 @@ import {
 export const OAUTH_STATE_COOKIE = 'nosion_oauth';
 export const OAUTH_STATE_TTL_MS = 10 * 60_000;
 const LINK_INTENT_TTL_MS = 2 * 60_000;
+
+/**
+ * เชื่อม GitHub สำเร็จ (ล็อกอินหรือผูกจากหน้าตั้งค่า) — integrations/github ฟังแล้วดึง issue รอบแรก
+ * ใช้ event แทนการเรียกตรง: auth ไม่ต้องรู้จัก integrations (ไม่งั้น module วนกัน)
+ */
+export const GITHUB_CONNECTED_EVENT = 'oauth.github.connected';
+/** รอการดึงรอบแรกไม่เกินนี้ก่อน redirect — ไม่ทันก็ได้จาก cron/ปุ่มทีหลัง (ฟังก์ชันมีเวลารวม 10 วิ) */
+const FIRST_SYNC_BUDGET_MS = 3_000;
 
 /** ข้อมูลที่ต้องจำข้ามการ redirect — เข้ารหัสทั้งก้อนในคุกกี้ (ไม่ต้องพึ่ง Redis · serverless ไม่มี memory ร่วม) */
 interface OAuthFlowState {
@@ -73,6 +82,7 @@ export class OAuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auth: AuthService,
+    private readonly events: EventEmitter2,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {
     this.box = new SecretBox(config.ENCRYPTION_KEY);
@@ -180,9 +190,11 @@ export class OAuthService {
 
     if (flow.linkUserId) {
       await this.link(flow.linkUserId, provider, profile);
+      await this.announceConnected(provider, flow.linkUserId);
       return { kind: 'linked', provider };
     }
     const user = await this.findOrCreateUser(provider, profile, flow.timezone);
+    await this.announceConnected(provider, user.id);
     return { kind: 'login', issued: await this.auth.startSession(user, meta) };
   }
 
@@ -234,6 +246,14 @@ export class OAuthService {
   }
 
   // ── ภายใน ────────────────────────────────────────────
+
+  private async announceConnected(provider: OAuthProvider, userId: string): Promise<void> {
+    if (provider !== 'github') return;
+    const work = this.events.emitAsync(GITHUB_CONNECTED_EVENT, { userId }).catch((err: unknown) => {
+      this.logger.warn(`ดึง issue รอบแรกไม่สำเร็จ: ${(err as Error).message}`);
+    });
+    await Promise.race([work, new Promise((r) => setTimeout(r, FIRST_SYNC_BUDGET_MS))]);
+  }
 
   /**
    * กติกาการจับคู่บัญชี (เรียงตามลำดับ):

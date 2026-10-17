@@ -15,6 +15,7 @@ import { RegistryModule } from './core/registry/registry.module';
 import { TodayModule } from './entries/today/today.module';
 import { EntriesModule } from './entries/entries.module';
 import { HealthModule } from './health/health.module';
+import { IntegrationsModule } from './integrations/integrations.module';
 import { ConfigModule } from './infra/config/config.module';
 import { MailModule } from './infra/mail/mail.module';
 import { PrismaModule } from './infra/prisma/prisma.module';
@@ -43,6 +44,7 @@ import { UsersModule } from './users/users.module';
     ParseModule,
     CalendarModule,
     SyncModule,
+    IntegrationsModule,
 
     // ── โมดูลโดเมน: เพิ่มบรรทัดเดียวต่อโมดูลใหม่ ──
     TaskModule,

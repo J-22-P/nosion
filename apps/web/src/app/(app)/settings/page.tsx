@@ -8,6 +8,7 @@ import { NotificationsCard } from '@/features/notifications/notifications-card';
 import { PreferencesCard } from '@/features/notifications/preferences-card';
 import { ApiKeysCard } from '@/features/settings/api-keys-card';
 import { ConnectedAccountsCard } from '@/features/settings/connected-accounts-card';
+import { GitHubCard } from '@/features/settings/github-card';
 import { ModulesCard } from '@/features/settings/modules-card';
 
 export default function SettingsPage() {
@@ -50,6 +51,7 @@ export default function SettingsPage() {
       <Suspense fallback={null}>
         <ConnectedAccountsCard isDemo={user?.isDemo ?? false} />
       </Suspense>
+      <GitHubCard />
       <ApiKeysCard />
     </div>
   );

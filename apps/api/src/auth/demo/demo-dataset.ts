@@ -137,7 +137,15 @@ export function buildDemoDataset(now: Date, timeZone: string): DemoDataset {
       payload: {
         estimateMinutes: 240,
         checklist: checklist(4, 5),
-        github: { repo: 'jay/nosion', issueNumber: null, prNumber: 104, autoCloseOnMerge: true },
+        github: {
+          repo: 'jay/nosion',
+          issueNumber: null,
+          prNumber: 104,
+          autoCloseOnMerge: true,
+          url: null,
+          milestoneDueOn: null,
+          state: null,
+        },
         branchName: 'feat/auth-refresh',
         deferCount: 2,
       },
@@ -162,7 +170,15 @@ export function buildDemoDataset(now: Date, timeZone: string): DemoDataset {
       project: 'web',
       tags: ['blocked'], // → กลุ่ม Blocked ใน standup
       payload: {
-        github: { repo: 'jay/nosion', issueNumber: null, prNumber: 108, autoCloseOnMerge: true },
+        github: {
+          repo: 'jay/nosion',
+          issueNumber: null,
+          prNumber: 108,
+          autoCloseOnMerge: true,
+          url: null,
+          milestoneDueOn: null,
+          state: null,
+        },
       },
     }),
     task({
@@ -187,7 +203,15 @@ export function buildDemoDataset(now: Date, timeZone: string): DemoDataset {
       payload: {
         estimateMinutes: 180,
         checklist: checklist(1, 4),
-        github: { repo: 'jay/nosion', issueNumber: null, prNumber: 112, autoCloseOnMerge: true },
+        github: {
+          repo: 'jay/nosion',
+          issueNumber: null,
+          prNumber: 112,
+          autoCloseOnMerge: true,
+          url: null,
+          milestoneDueOn: null,
+          state: null,
+        },
         branchName: 'perf/sqlite-wal',
         deferCount: 1,
       },
