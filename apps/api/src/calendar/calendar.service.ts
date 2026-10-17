@@ -112,6 +112,16 @@ export class CalendarService {
     return buildIcal(events, { name: 'NOSION', timeZone: settings.timezone, now });
   }
 
+  /** .ics ของช่วงวันที่ — สำหรับนำเข้าครั้งเดียว (UID เดียวกับ feed → นำเข้าซ้ำแล้วทับของเดิม ไม่เบิ้ล) */
+  async exportRange(userId: string, query: CalendarQuery, now = new Date()): Promise<string> {
+    const { events, timezone } = await this.range(userId, query, now);
+    return buildIcal(events, {
+      name: `NOSION ${query.from} – ${query.to}`,
+      timeZone: timezone,
+      now,
+    });
+  }
+
   private feedUrls(token: string): CalendarFeedDto {
     const url = `${this.config.API_URL}/api/v1/calendar/${token}.ics`;
     return { url, webcalUrl: url.replace(/^https?:/, 'webcal:') };

@@ -21,6 +21,8 @@ export const parseCommitSchema = parseRequestSchema.extend({
    * merge ทับ payload ที่ parse ได้ แล้วตรวจด้วย payloadSchema ของโมดูลเหมือน POST /entries
    */
   payloadPatch: z.record(z.unknown()).optional(),
+  /** รายละเอียดของรายการ (markdown ได้) — parser ไม่แตะ ใช้ตามที่พิมพ์มา */
+  description: z.string().max(20_000).optional(),
 });
 export type ParseCommitInput = z.infer<typeof parseCommitSchema>;
 
