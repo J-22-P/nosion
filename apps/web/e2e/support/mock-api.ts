@@ -133,6 +133,10 @@ export async function mockApi(page: Page, options: { authenticated?: boolean } =
     if (method === 'PATCH' && path === '/me/settings') {
       return json({ ...SETTINGS, ...(route.request().postDataJSON() as object) });
     }
+    // บัญชีใน mock ใช้งานมานานแล้ว — ทำครบทุกขั้น การ์ด "เริ่มต้นใช้งาน" จึงไม่แสดง (ภาพ baseline ของ Today ไม่เปลี่ยน)
+    if (method === 'GET' && path === '/me/onboarding') {
+      return json({ task: true, expense: true, habit: true, push: true });
+    }
     if (method === 'GET' && path === '/auth/oauth/providers') {
       return json({ google: true, github: true });
     }

@@ -3,8 +3,16 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { DemoButton } from '@/features/auth/demo-button';
 import { Button } from '@/components/ui/button';
 import { LocaleSwitcher } from '@/components/shared/locale-switcher';
+import { CalendarDays, Keyboard, Repeat, Wallet } from 'lucide-react';
 
 const HIGHLIGHTS = ['plugin', 'recurrence', 'reminders', 'offline'] as const;
+/** สำหรับคนทั่วไป (ไม่ใช่ dev) — บอก "ได้อะไร" ก่อน "สร้างอย่างไร" */
+const FEATURES = [
+  { key: 'capture', Icon: Keyboard },
+  { key: 'money', Icon: Wallet },
+  { key: 'habits', Icon: Repeat },
+  { key: 'oneView', Icon: CalendarDays },
+] as const;
 
 export default async function LandingPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
@@ -23,7 +31,10 @@ export default async function LandingPage({ params }: { params: Promise<{ locale
       </header>
 
       <div className="flex flex-wrap items-center gap-3">
-        <DemoButton />
+        <div className="space-y-1.5">
+          <DemoButton />
+          <p className="text-xs text-fg-secondary">{t('tryHint')}</p>
+        </div>
         <Link href="/login">
           <Button variant="secondary" size="lg">
             {t('signIn')}
@@ -33,6 +44,33 @@ export default async function LandingPage({ params }: { params: Promise<{ locale
           {t('register')}
         </Link>
       </div>
+
+      <section aria-labelledby="features" className="space-y-4">
+        <h2 id="features" className="text-xl font-semibold">
+          {t('featuresTitle')}
+        </h2>
+        <ul className="grid gap-4 sm:grid-cols-2">
+          {FEATURES.map(({ key, Icon }) => (
+            <li
+              key={key}
+              className="flex gap-3 rounded-card border border-hairline bg-surface p-5 shadow-card"
+            >
+              <span
+                aria-hidden="true"
+                className="flex size-10 shrink-0 items-center justify-center rounded-control bg-sunken"
+              >
+                <Icon size={18} />
+              </span>
+              <span>
+                <span className="block font-medium">{t(`features.${key}.title`)}</span>
+                <span className="mt-1 block text-sm text-fg-secondary">
+                  {t(`features.${key}.detail`)}
+                </span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       <section aria-labelledby="highlights" className="space-y-4">
         <h2

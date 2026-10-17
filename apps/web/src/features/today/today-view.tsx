@@ -25,6 +25,7 @@ import { copyText, useToday } from './use-today';
 import { WidgetCard } from './widgets';
 import { useTranslations } from 'next-intl';
 import { dateFormat, moduleLabel } from '@/i18n/current';
+import { OnboardingCard } from './onboarding-card';
 
 const SPAN = { 5: 'lg:col-span-5', 7: 'lg:col-span-7', 12: 'lg:col-span-12' } as const;
 
@@ -160,6 +161,8 @@ export function TodayView() {
           </div>
         </div>
       </Card>
+
+      <OnboardingCard />
 
       {/* การ์ดของแต่ละโมดูล — ลำดับและจำนวนมาจาก API (registry) */}
       {query.isPending ? (

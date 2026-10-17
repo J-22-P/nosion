@@ -62,3 +62,13 @@ export interface TagDto {
   name: string;
   color: string;
 }
+
+/** ขั้นเริ่มต้นใช้งานของบัญชีใหม่ (Phase 8 ขั้น 8) — การ์ด "เริ่มต้นใช้งาน" ในหน้า Today */
+export interface OnboardingDto {
+  /** มีงานอย่างน้อย 1 ชิ้น (รวมที่ทำเสร็จแล้ว) */
+  task: boolean;
+  expense: boolean;
+  habit: boolean;
+  /** เปิดการแจ้งเตือนบนอุปกรณ์ใดอุปกรณ์หนึ่งแล้ว */
+  push: boolean;
+}

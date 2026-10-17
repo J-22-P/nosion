@@ -79,3 +79,50 @@ describe('i18n ของ API', () => {
     expect(thai.body.greeting).toMatch(/^สวัสดีตอน/);
   });
 });
+
+describe('GET /me/onboarding (Phase 8 ขั้น 8)', () => {
+  let app: INestApplication;
+
+  beforeAll(async () => {
+    app = (await createTestApp()).app;
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('บัญชีใหม่ยังไม่ได้ทำอะไร → ทุกขั้น false · ทำแล้วขั้นนั้นเป็น true ทันที · ลบทิ้งแล้วกลับเป็น false', async () => {
+    const api = () => request(app.getHttpServer());
+    const res = await api()
+      .post('/api/v1/auth/register')
+      .send({ email: uniqueEmail('onboard'), password: STRONG_PASSWORD, displayName: 'New' })
+      .expect(201);
+    const auth = { Authorization: `Bearer ${res.body.accessToken}` };
+
+    const before = await api().get('/api/v1/me/onboarding').set(auth).expect(200);
+    expect(before.body).toEqual({ task: false, expense: false, habit: false, push: false });
+
+    const task = await api()
+      .post('/api/v1/entries')
+      .set(auth)
+      .send({ module: 'task', title: 'งานแรก' })
+      .expect(201);
+    await api()
+      .post('/api/v1/entries')
+      .set(auth)
+      .send({ module: 'expense', title: 'กาแฟ', payload: { amountMinor: 6500 } })
+      .expect(201);
+    await api()
+      .post('/api/v1/push/subscribe')
+      .set(auth)
+      .send({ endpoint: 'https://push.example.com/abc', keys: { p256dh: 'p', auth: 'a' } })
+      .expect(204);
+
+    const after = await api().get('/api/v1/me/onboarding').set(auth).expect(200);
+    expect(after.body).toEqual({ task: true, expense: true, habit: false, push: true });
+
+    await api().delete(`/api/v1/entries/${task.body.id}`).set(auth).expect(204);
+    const deleted = await api().get('/api/v1/me/onboarding').set(auth).expect(200);
+    expect(deleted.body.task).toBe(false);
+  });
+});

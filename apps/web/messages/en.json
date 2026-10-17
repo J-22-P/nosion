@@ -39,7 +39,27 @@
         "title": "Offline-first",
         "detail": "Save while offline, sync later with conflict resolution"
       }
-    }
+    },
+    "featuresTitle": "What you can do",
+    "features": {
+      "capture": {
+        "title": "Capture as fast as chatting",
+        "detail": "Type “meeting tomorrow 10am” or “coffee 65” and press Enter — dates, times and amounts are understood for you"
+      },
+      "money": {
+        "title": "Know where your money goes",
+        "detail": "Monthly budgets, recurring bills and a month-end forecast, with reminders before bills are due"
+      },
+      "habits": {
+        "title": "Build habits that stick",
+        "detail": "Water, running, sleeping on time — count them on one page and watch your streak"
+      },
+      "oneView": {
+        "title": "Your whole day in one view",
+        "detail": "Today's tasks, bills and habits on one page and one calendar — works on your phone, installs as an app, even offline"
+      }
+    },
+    "tryHint": "No sign-up — get a demo account with sample data instantly"
   },
   "common": {
     "language": "Language",
@@ -1121,5 +1141,35 @@
     "due": "Due",
     "done": "Done",
     "before": "Before {time}"
+  },
+  "onboarding": {
+    "title": "Get started",
+    "description": "{done} of {total} done — one step at a time, under 2 minutes",
+    "dismiss": "Hide this card",
+    "progress": "Getting-started progress",
+    "done": "done",
+    "step": {
+      "task": {
+        "title": "Add your first task",
+        "hint": "Type it like you'd say it, e.g. “send report tomorrow 5pm”"
+      },
+      "expense": {
+        "title": "Record an expense",
+        "hint": "Type “coffee 65” — category and date are filled in for you"
+      },
+      "habit": {
+        "title": "Create a habit",
+        "hint": "e.g. “drink water 8 glasses every day”, then count it on Today"
+      },
+      "push": {
+        "title": "Turn on reminders",
+        "hint": "Get bill and task reminders on this device"
+      }
+    },
+    "tip": "Tip: press <kbd>⌘K</kbd> (or Ctrl+K) anywhere to create or search by typing"
+  },
+  "demoBanner": {
+    "text": "You're using a demo account — its data is deleted after 24 hours",
+    "cta": "Sign up free to keep your own data"
   }
 }
