@@ -27,6 +27,8 @@ import { Menu } from '@/components/ui/menu';
 import { Progress } from '@/components/ui/progress';
 import { copyText } from '@/features/today/use-today';
 import { formatDueDate, isOverdueDate, PRIORITY_TONE } from '@/lib/format';
+import { isLocalId } from '@/lib/sync';
+import { openTaskDetail } from './task-detail-dialog';
 import { PRIORITY_BY_DIGIT } from '@/lib/shortcuts/keymap';
 import { useTranslations } from 'next-intl';
 
@@ -102,7 +104,8 @@ export const TaskCard = memo(function TaskCard({
     if (event.target !== event.currentTarget) return;
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     const digit = PRIORITY_BY_DIGIT[event.key as keyof typeof PRIORITY_BY_DIGIT];
-    if (event.key === 'e') onToggle();
+    if (event.key === 'Enter' && !isLocalId(entry.id)) openTaskDetail(entry.id);
+    else if (event.key === 'e') onToggle();
     else if (event.key === 't' && !done) onDefer('tomorrow');
     else if (event.key === 'x' && onSelect) onSelect();
     else if (digit && onPriority && !done) onPriority(digit);
@@ -148,15 +151,21 @@ export const TaskCard = memo(function TaskCard({
               {priorityChip}
             </Badge>
           ) : null}
-          <p
+          {/* กดชื่อ = เปิดรายละเอียด (งานที่ยังรอซิงก์ยังไม่มีที่ server → ไม่มีให้เปิด) */}
+          <button
+            type="button"
+            disabled={isLocalId(entry.id)}
+            onClick={() => openTaskDetail(entry.id)}
+            aria-label={t('openDetail', { title: entry.title })}
             className={cn(
-              'min-w-0 text-[15px] font-medium leading-snug transition-colors duration-200',
+              'min-w-0 rounded-[4px] text-left text-[15px] font-medium leading-snug transition-colors duration-200',
+              'enabled:hover:underline focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]',
               // สเปกให้ใช้ text-tertiary แต่ contrast ไม่ถึง 4.5:1 → ใช้ secondary + ขีดฆ่า (ADR-009)
               done && 'text-fg-secondary line-through',
             )}
           >
             {entry.title}
-          </p>
+          </button>
           {looksLikeMarkdown(entry.description) ? (
             <Badge tone="outline" mono className="h-5 px-1.5">
               MD

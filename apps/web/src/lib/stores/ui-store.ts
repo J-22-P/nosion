@@ -17,6 +17,9 @@ interface UIState {
   /** หน้าต่างปุ่มลัด "?" (สเปก 8.4) */
   shortcutsOpen: boolean;
   setShortcutsOpen: (open: boolean) => void;
+  /** id ของงานที่เปิดหน้าต่างรายละเอียดอยู่ — เปิดได้จาก Tasks / Today / Calendar */
+  taskDetailId: string | null;
+  openTaskDetail: (id: string | null) => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -29,6 +32,8 @@ export const useUIStore = create<UIState>()(
       setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
       shortcutsOpen: false,
       setShortcutsOpen: (shortcutsOpen) => set({ shortcutsOpen }),
+      taskDetailId: null,
+      openTaskDetail: (taskDetailId) => set({ taskDetailId }),
     }),
     {
       name: 'nosion:ui',

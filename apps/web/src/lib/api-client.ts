@@ -69,12 +69,14 @@ export interface RequestOptions extends Omit<RequestInit, 'body'> {
   body?: unknown;
   /** ข้ามการแนบ access token (ใช้กับ endpoint สาธารณะ) */
   anonymous?: boolean;
+  /** 'text' = คืนเนื้อหาดิบ (เช่น .ics) แทน JSON */
+  responseType?: 'json' | 'text';
   /** ใช้ภายใน กันวนลูป refresh ไม่รู้จบ */
   _retried?: boolean;
 }
 
 export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { body, anonymous, _retried, headers, ...rest } = options;
+  const { body, anonymous, _retried, headers, responseType, ...rest } = options;
   const token = anonymous ? null : getToken();
 
   const res = await fetch(`${BASE}${path}`, {
@@ -99,6 +101,7 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
   }
 
   if (res.status === 204) return undefined as T;
+  if (responseType === 'text') return (await res.text()) as T;
   return (await res.json()) as T;
 }
 
