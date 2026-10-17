@@ -58,7 +58,7 @@
 
 **วิธีตรวจ:** comparator ของ Playwright (ตารางบน) · CI รอบ push ท้าย phase
 
-## ขั้น 2 · Lighthouse ≥ 90 ทุกหน้าหลัก — (รอ commit)
+## ขั้น 2 · Lighthouse ≥ 90 ทุกหน้าหลัก — `86b7ecb` (+ ต่อท้ายด้านล่าง)
 
 **วิธีวัด:** 📁 `apps/web/scripts/lighthouse.mjs` — Lighthouse user flow (puppeteer + Chromium ของ Playwright) · หน้าสาธารณะ 2 หน้า →
 demo login ครั้งเดียว → หน้าแอป 6 หน้า โดยไม่ล้าง storage (refresh cookie ต้องอยู่) · ตรวจว่า **หน้าที่ไปถึงจริง** ตรงกับที่ตั้งใจ (หลุดไป `/login` = วัดผิดหน้า) ·
@@ -105,3 +105,31 @@ perf มือถือแกว่ง ±3 ตามโหลดของเค�
 (Finder/iCloud) → `rmdir` ล้ม → Next ลองใหม่ไม่รู้จบ · ลบ `.next` เองก่อน build แล้วผ่านใน 30 วิ
 
 **วิธีตรวจ:** unit (+1 PrismaService) · integration auth (grace 20 วิ / พ้นแล้วเพิกถอน) · API 118 + worker 19 · ui 55 · `pnpm verify` exit 0
+
+### ขั้น 2 (ต่อ) · หลัง push: ต้นเหตุจริงของ staging + วิธีวัดที่เชื่อได้
+
+**1. `DATABASE_URL` ของ staging เป็น session pooler** — ค่าตั้งเป็น Sensitive บน Vercel (อ่านกลับไม่ได้แม้ใช้ token: `[SENSITIVE]`)
+→ ดูจาก runtime log แทน: workflow ใหม่ **Check staging config** (`vercel logs --status-code 5xx` · ลบ connection string/อีเมล/token ก่อนพิมพ์)
+→ ทุก 5xx คือ `EMAXCONNSESSION ... session mode - pool_size: 15` · ทุก instance ถือ connection จริง 1 เส้น เกิน 15 = ล้ม
+(refresh ล้ม → ผู้ใช้ถูกพาไป `/login` · demo login · cron การเตือน) · แก้ด้วย workflow **Fix staging DATABASE_URL**:
+สร้างจาก secret `STAGING_DIRECT_URL` (ตรวจรูปแบบก่อน) → พอร์ต 6543 + `?pgbouncer=true&connection_limit=1` → `vercel env add --sensitive --force` → deploy ใหม่ ·
+ไม่มีค่าใดถูกพิมพ์ (`::add-mask::`) · หลังแก้ ทุกหน้าใน Lighthouse ไปถึงหน้าที่ตั้งใจ, best-practices 100
+
+**2. CLS หน้า Today (desktop) 0.39** — skeleton คำทักทาย `h-11 + h-4` เตี้ยกว่าข้อความจริง 38px → การ์ดทั้งแถวถูกดันลง ·
+แก้: skeleton อยู่ในบรรทัดที่ใช้ class ตัวอักษรชุดเดียวกับของจริง (`inline-block h-[0.85em]`) → สูงเท่ากันพอดี
+
+**3. คะแนน perf ของการวัดรอบเดียวเชื่อไม่ได้** — เครื่องเดียวกันหน้าเดียวกัน หน้าแรกได้ 68 / 95 / 99 ตามโหลดของเครื่อง
+และวัดหลายรอบใน tab เดียว คะแนนหน้าแอป **ตกทุกรอบ** (100 → 90 → 82) · พิสูจน์ว่าไม่ใช่แอป: เปิดทุกหน้า 3 รอบใน session เดียว
+แล้ววัด long task ของ `/review` ด้วย CPU ช้า 4 เท่า = 0ms ทุกรอบ · แคชใน IndexedDB หยุดโตที่ 99KB/15 query ·
+แก้สคริปต์: **3 รอบ ตัดสินด้วยมัธยฐาน** · tab ใหม่ทุกรอบ (cookie ของ context เดิม — ล็อกอิน demo ครั้งเดียว) · หน้าสาธารณะใน context ที่ไม่ได้ล็อกอิน
+
+| หน้า (มือถือ · ในเครื่อง)      | perf มัธยฐาน (3 รอบ) |
+| ------------------------------ | -------------------- |
+| `/`                            | 97 (97/98/97)        |
+| `/login`                       | 100                  |
+| `/today`                       | 93 (93/94/93)        |
+| `/tasks` `/expenses` `/review` | 99                   |
+| `/calendar`                    | 99 (100/99/96)       |
+| `/habits`                      | 100 (100/100/96)     |
+
+a11y · best-practices · SEO = 100 ทุกหน้า
