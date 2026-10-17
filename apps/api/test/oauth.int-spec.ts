@@ -37,6 +37,8 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
+let lastSearchQuery = '';
+
 function fakeFetch(input: string | URL | Request, init?: RequestInit): Promise<Response> {
   const url = String(input instanceof Request ? input.url : input);
   if (url.includes('oauth2.googleapis.com/token') || url.includes('github.com/login/oauth')) {
@@ -63,6 +65,7 @@ function fakeFetch(input: string | URL | Request, init?: RequestInit): Promise<R
   }
   if (url === 'https://api.github.com/graphql') {
     issuesFetched++;
+    lastSearchQuery = (JSON.parse(String(init?.body)) as { variables: { q: string } }).variables.q;
     return Promise.resolve(
       json({ data: { search: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: [] } } }),
     );
@@ -316,6 +319,23 @@ describe('OAuth: Google / GitHub (Phase 8 ขั้น 4b)', () => {
         { provider: 'github', login: 'octocat', scopes: ['read:user', 'repo', 'user:email'] },
       ],
     });
+
+    // ดึงแล้วรอบหนึ่ง (ครั้งต่อไปจะถามเฉพาะที่เปลี่ยน) → ให้สิทธิ์เพิ่ม (read:project) → ต้องดึงใหม่ทั้งหมด
+    // ไม่งั้น issue เก่าที่เพิ่งมองเห็นไม่มีวันมา (มันไม่ได้ "เปลี่ยน" หลังรอบก่อน)
+    const me = await api().get('/api/v1/me').set('Authorization', `Bearer ${token}`).expect(200);
+    await prisma.gitHubIntegration.upsert({
+      where: { userId: me.body.user.id as string },
+      create: { userId: me.body.user.id as string, lastSyncAt: new Date() },
+      update: { lastSyncAt: new Date() },
+    });
+    const relink = await api()
+      .post('/api/v1/auth/oauth/github/link')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ includePrivateRepos: true })
+      .expect(200);
+    fake = { ...fake, scope: 'read:user,repo,user:email,read:project' };
+    await callback('github', await begin('github', new URL(relink.body.url as string).search));
+    expect(lastSearchQuery).toBe('assignee:octocat sort:updated-desc');
 
     const row = await prisma.oAuthAccount.findFirstOrThrow({ where: { providerUserId: '6006' } });
     expect(row.accessTokenEnc).toBeTruthy();

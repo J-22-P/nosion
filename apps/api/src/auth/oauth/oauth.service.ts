@@ -337,10 +337,10 @@ export class OAuthService {
         login: profile.login,
         scopes: profile.scopes.join(' '),
       },
+      // scopes เขียนใน saveToken — ต้องเทียบกับของเดิมก่อน (สิทธิ์เปลี่ยน = ดึง GitHub ใหม่ทั้งหมด)
       update: {
         providerUserId: profile.providerUserId,
         login: profile.login,
-        scopes: profile.scopes.join(' '),
       },
     });
     await this.saveToken(account.id, provider, profile);
@@ -355,17 +355,30 @@ export class OAuthService {
     provider: OAuthProvider,
     profile: OAuthProfile,
   ): Promise<void> {
+    const scopes = profile.scopes.join(' ');
+    const before = await this.prisma.oAuthAccount.findUnique({
+      where: { id: accountId },
+      select: { scopes: true, userId: true },
+    });
     await this.prisma.oAuthAccount.update({
       where: { id: accountId },
       data: {
         login: profile.login,
-        scopes: profile.scopes.join(' '),
+        scopes,
         accessTokenEnc:
           provider === 'github'
             ? this.box.seal(profile.accessToken, `oauth-token:${accountId}`)
             : null,
       },
     });
+    // สิทธิ์ GitHub เปลี่ยน (เช่น ได้ repo ส่วนตัว / read:project) → issue ที่เคยมองไม่เห็นต้องถูกดึง
+    // ดึงแบบ "เฉพาะที่เปลี่ยนหลังรอบก่อน" จะไม่เจอ (issue เก่าไม่ได้เปลี่ยน) จึงล้างจุดเริ่มให้รอบหน้าดึงใหม่ทั้งหมด
+    if (provider === 'github' && before && before.scopes !== scopes) {
+      await this.prisma.gitHubIntegration.updateMany({
+        where: { userId: before.userId },
+        data: { lastSyncAt: null, syncCursor: null, syncRunStartedAt: null },
+      });
+    }
   }
 
   private readFlow(sealed: string | undefined, provider: OAuthProvider): OAuthFlowState | null {
