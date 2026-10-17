@@ -175,6 +175,7 @@ wizard ทำ 10 ขั้น: ติดตั้ง/ล็อกอิน flyct
 `GOOGLE_CLIENT_ID` · `GOOGLE_CLIENT_SECRET` · `GITHUB_CLIENT_ID` · `GITHUB_CLIENT_SECRET` → Redeploy
 
 - `ENCRYPTION_KEY` **ต้องตั้งแล้ว** (หัวข้อ 3) — ใช้เข้ารหัสคุกกี้ state และ token ของ GitHub · เปลี่ยนค่า = token ที่เก็บไว้ถอดไม่ได้ (ผู้ใช้กดเชื่อม GitHub ใหม่)
+  · ไม่ได้ตั้ง = ปุ่มไม่ขึ้นแม้ใส่ client ครบ (production ไม่ยอมใช้กุญแจศูนย์ล้วนจากค่าเริ่มต้น · log: `ENCRYPTION_KEY ยังเป็นค่าเริ่มต้น`)
 - ทดสอบ: เปิด `/login` → "ดำเนินการต่อด้วย Google" → กลับมาที่ `/today` ล็อกอินแล้ว
 - **GitHub → ปฏิทิน (ขั้น 5):** เชื่อมแล้วดึงรอบแรกทันที · ดึงซ้ำทุกชั่วโมงด้วยงาน `internal/cron/github` บน cron-job.org (หัวข้อ 5b) ·
   webhook ต่อ repo (ไม่บังคับ) ผู้ใช้เปิดเองที่ ตั้งค่า → GitHub → เปิด webhook
