@@ -9,7 +9,10 @@
  *   NOSION_API_KEY=nos_… DRY_RUN=1 pnpm exec tsx scripts/import-github.mts  # ดูก่อนว่าจะได้อะไร
  *
  * ตัวแปรอื่น (ไม่บังคับ): NOSION_URL (ค่าเริ่มต้น staging) · NOSION_TIMEZONE (Asia/Bangkok) · GITHUB_LOGIN (จาก gh) ·
- *   LIMIT=5 (ลองไม่กี่รายการก่อน)
+ *   LIMIT=5 (ลองไม่กี่รายการก่อน) · IMAGES=0 (ไม่ส่งรูปย่อ)
+ *
+ * รูปใน issue ของ repo ส่วนตัวฝังในหน้า NOSION ไม่ได้ (เบราว์เซอร์ไม่ส่งคุกกี้ GitHub) → สคริปต์เปิดรูปด้วยสิทธิ์ `gh`
+ * ย่อเป็น WebP กว้าง ≤ 800px (ราว 10–60 KB) แล้วเก็บไว้ที่ NOSION · รูปที่ส่งแล้วไม่ส่งซ้ำ · รูปที่ถูกเอาออกจาก issue ถูกลบ
  *
  * ใช้ตัวค้นและกติกาเดียวกับการดึงอัตโนมัติ (github-search.ts · issue-plan.ts) — clientId `gh:<node_id>` ตัวเดียวกัน:
  *  • รันซ้ำได้ ไม่สร้างซ้ำ · งานที่เปลี่ยนบน GitHub ถูกอัปเดต · งานที่คุณลบใน NOSION ไม่กลับมา
@@ -18,11 +21,13 @@
  */
 import { taskPayloadSchema, type EntryDto } from '@nosion/contracts';
 import { execFileSync } from 'node:child_process';
+import sharp from 'sharp';
 import {
   fetchSearchPage,
   searchQuery,
   type SearchPage,
 } from '../src/integrations/github/github-search';
+import { githubImageUrls } from '../src/integrations/github/issue-images';
 import {
   issueClientId,
   planIssue,
@@ -36,6 +41,9 @@ const TZ = process.env.NOSION_TIMEZONE ?? 'Asia/Bangkok';
 const DRY_RUN = Boolean(process.env.DRY_RUN);
 /** ลองกับไม่กี่รายการก่อน (เช่น LIMIT=5) */
 const LIMIT = process.env.LIMIT ? Number(process.env.LIMIT) : Infinity;
+const IMAGES = process.env.IMAGES !== '0';
+/** รูปย่อ: กว้างไม่เกินเท่านี้ (รูปหน้าจอ 800px ยังอ่านตัวหนังสือได้) */
+const THUMB_WIDTH = 800;
 
 if (!KEY?.startsWith('nos_')) {
   console.error(
@@ -154,6 +162,8 @@ do {
 // ── 3. ส่งเข้า NOSION ────────────────────────────────────
 const count = { created: 0, updated: 0, completed: 0, unchanged: 0, deleted: 0 };
 const todo = issues.slice(0, LIMIT);
+/** งานใน NOSION ของแต่ละ issue (ไม่รวมที่ผู้ใช้ลบ) + description ที่ใช้หารูป */
+const entryOf = new Map<string, { id: string; description: string }>();
 for (const [n, issue] of todo.entries()) {
   const fields = taskFieldsFor(issue, TZ);
   const known = existingByUrl.get(issue.html_url);
@@ -182,6 +192,7 @@ for (const [n, issue] of todo.entries()) {
         count.completed++;
       } else count.updated++;
     } else count.unchanged++;
+    entryOf.set(issue.html_url, { id: known.id, description: fields.description });
     process.stdout.write(`  ${n + 1}/${todo.length}\r`);
     continue;
   }
@@ -207,14 +218,84 @@ for (const [n, issue] of todo.entries()) {
     continue;
   }
   count.created++;
+  entryOf.set(issue.html_url, { id: entry.id, description: fields.description });
   if (issue.state === 'closed' && entry.status !== 'done') {
     await nosion('POST', `/entries/${entry.id}/complete`);
   }
   process.stdout.write(`  ${n + 1}/${todo.length}\r`);
 }
 
+// ── 4. รูปย่อของรูปใน issue ──────────────────────────────
+const images = { uploaded: 0, removed: 0, failed: 0, bytes: 0 };
+if (IMAGES) {
+  const stored = await nosion<Array<{ entryId: string; sourceUrl: string }>>(
+    'GET',
+    '/entry-images',
+  );
+  const storedBy = new Map<string, Set<string>>();
+  for (const i of stored.data) {
+    storedBy.set(i.entryId, (storedBy.get(i.entryId) ?? new Set()).add(i.sourceUrl));
+  }
+  const withImages = [...entryOf.values()].filter(
+    (e) => githubImageUrls(e.description).length > 0 || storedBy.has(e.id),
+  );
+  if (withImages.length) console.log(`\nรูปใน issue: ${withImages.length} งาน`);
+  for (const [n, entry] of withImages.entries()) {
+    const urls = githubImageUrls(entry.description);
+    const have = storedBy.get(entry.id) ?? new Set<string>();
+    for (const url of urls.filter((u) => !have.has(u))) {
+      try {
+        const thumb = await thumbnail(url);
+        await nosion('PUT', `/entries/${entry.id}/images`, {
+          sourceUrl: url,
+          data: thumb.data.toString('base64'),
+          width: thumb.width,
+          height: thumb.height,
+        });
+        images.uploaded++;
+        images.bytes += thumb.data.length;
+      } catch (error) {
+        images.failed++;
+        console.warn(`\n  ข้ามรูป ${url}: ${(error as Error).message}`);
+      }
+    }
+    if ([...have].some((u) => !urls.includes(u))) {
+      const res = await nosion<{ deleted: number }>('POST', `/entries/${entry.id}/images/prune`, {
+        keep: urls,
+      });
+      images.removed += res.data.deleted;
+    }
+    process.stdout.write(`  ${n + 1}/${withImages.length}\r`);
+  }
+}
+
 console.log(
   `\nเสร็จ — ใหม่ ${count.created} · อัปเดต ${count.updated} · ปิด ${count.completed} · ` +
     `ไม่เปลี่ยน ${count.unchanged} · ข้าม (ลบไปแล้ว) ${count.deleted}`,
 );
+if (IMAGES) {
+  console.log(
+    `รูปย่อ — ส่งใหม่ ${images.uploaded} (${Math.round(images.bytes / 1024)} KB) · ลบ ${images.removed}` +
+      (images.failed ? ` · ข้าม ${images.failed}` : ''),
+  );
+}
 console.log(`ดูได้ที่ ${BASE}/calendar · งานอยู่ในโปรเจกต์ "GitHub"`);
+
+/**
+ * เปิดรูปด้วยสิทธิ์ของ `gh` (GitHub redirect ไปลิงก์ S3 ที่มีอายุ 5 นาที — fetch ตัด Authorization ทิ้งเองเมื่อข้ามโดเมน)
+ * แล้วย่อเป็น WebP · ใหญ่เกินเพดานของ API (400 KB) ลดคุณภาพลงอีกรอบ
+ */
+async function thumbnail(url: string): Promise<{ data: Buffer; width: number; height: number }> {
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error(`GitHub ตอบ ${res.status}`);
+  const original = Buffer.from(await res.arrayBuffer());
+  for (const quality of [72, 50]) {
+    const { data, info } = await sharp(original, { animated: false })
+      .rotate()
+      .resize({ width: THUMB_WIDTH, withoutEnlargement: true })
+      .webp({ quality })
+      .toBuffer({ resolveWithObject: true });
+    if (data.length <= 400 * 1024) return { data, width: info.width, height: info.height };
+  }
+  throw new Error('ย่อแล้วยังใหญ่เกิน 400 KB');
+}

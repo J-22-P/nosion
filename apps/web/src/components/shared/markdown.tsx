@@ -3,7 +3,7 @@
 import { cn } from '@nosion/ui';
 import { ImageOff } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { useState, type ElementType, type HTMLAttributes } from 'react';
+import { createContext, useContext, useState, type ElementType, type HTMLAttributes } from 'react';
 import ReactMarkdown, { type Components, type ExtraProps } from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize from 'rehype-sanitize';
@@ -92,8 +92,18 @@ const COMPONENTS: Components = {
   ),
 };
 
+export interface MarkdownImageSource {
+  url: string;
+  width: number;
+  height: number;
+}
+
+/** sourceUrl → รูปย่อที่ NOSION เก็บไว้ (รูปของ repo ส่วนตัวที่ฝังตรง ๆ ไม่ได้) */
+const ImagesContext = createContext<Record<string, MarkdownImageSource>>({});
+
 /**
- * รูปใน Markdown — โหลดไม่ได้ (เช่น รูปแนบของ repo ส่วนตัวบน GitHub: เบราว์เซอร์ไม่ส่งคุกกี้ GitHub ไปกับ <img>
+ * รูปใน Markdown — มีรูปย่อที่เก็บไว้ → แสดงรูปย่อ กดแล้วเปิดรูปเต็มบน GitHub
+ * โหลดไม่ได้ (เช่น รูปแนบของ repo ส่วนตัวบน GitHub: เบราว์เซอร์ไม่ส่งคุกกี้ GitHub ไปกับ <img>
  * ที่ฝังในเว็บอื่น จึงได้ 404) → แสดงกล่องลิงก์ "เปิดดูบน GitHub" แทนไอคอนรูปเสีย
  * กดลิงก์ = เปิดหน้าใหม่ซึ่งเบราว์เซอร์ส่งคุกกี้ไปด้วย → ถ้าล็อกอิน GitHub และมีสิทธิ์ใน repo ก็เห็นรูป
  */
@@ -109,8 +119,35 @@ function MarkdownImage({
   height?: number | string;
 }) {
   const t = useTranslations('markdown');
-  const [failed, setFailed] = useState(false);
+  const thumbnail = useContext(ImagesContext)[src ?? ''];
+  // จำว่า URL ไหนโหลดพัง (ไม่ใช่แค่ true/false) — รูปต้นฉบับอาจพังก่อนรายการรูปย่อมาถึง
+  // แล้วสถานะพังต้องไม่ติดไปถึงรูปย่อที่มาทีหลัง
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
   if (!src) return null;
+  const shown = thumbnail?.url ?? src;
+  const failed = failedUrl === shown;
+  if (thumbnail && !failed) {
+    return (
+      <a
+        href={src}
+        target="_blank"
+        rel="noreferrer noopener"
+        title={t('thumbnailHint')}
+        className="my-2 inline-block max-w-full rounded-control focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element -- รูปย่อจาก API (URL มีลายเซ็น) */}
+        <img
+          src={thumbnail.url}
+          alt={alt ?? ''}
+          width={thumbnail.width}
+          height={thumbnail.height}
+          loading="lazy"
+          onError={() => setFailedUrl(shown)}
+          className="h-auto max-w-full rounded-control border border-hairline"
+        />
+      </a>
+    );
+  }
   if (failed) {
     const fromGitHub = /^https:\/\/(github\.com|[\w-]+\.githubusercontent\.com)\//.test(src);
     return (
@@ -138,22 +175,33 @@ function MarkdownImage({
       width={width}
       height={height}
       loading="lazy"
-      onError={() => setFailed(true)}
+      onError={() => setFailedUrl(shown)}
       className="my-2 inline-block h-auto max-w-full rounded-control"
     />
   );
 }
 
-export function Markdown({ children, className }: { children: string; className?: string }) {
+export function Markdown({
+  children,
+  className,
+  images = {},
+}: {
+  children: string;
+  className?: string;
+  /** รูปย่อที่เก็บไว้ ตาม URL ต้นฉบับใน Markdown */
+  images?: Record<string, MarkdownImageSource>;
+}) {
   return (
-    <div className={cn('min-w-0 break-words text-sm text-fg', className)}>
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeRaw, rehypeSanitize]}
-        components={COMPONENTS}
-      >
-        {children}
-      </ReactMarkdown>
-    </div>
+    <ImagesContext.Provider value={images}>
+      <div className={cn('min-w-0 break-words text-sm text-fg', className)}>
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          rehypePlugins={[rehypeRaw, rehypeSanitize]}
+          components={COMPONENTS}
+        >
+          {children}
+        </ReactMarkdown>
+      </div>
+    </ImagesContext.Provider>
   );
 }
