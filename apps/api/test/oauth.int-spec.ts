@@ -61,9 +61,11 @@ function fakeFetch(input: string | URL | Request, init?: RequestInit): Promise<R
       json({ id: Number(fake.id), login: fake.login ?? 'octo', name: fake.name, avatar_url: null }),
     );
   }
-  if (url.includes('api.github.com/issues')) {
+  if (url === 'https://api.github.com/graphql') {
     issuesFetched++;
-    return Promise.resolve(json([]));
+    return Promise.resolve(
+      json({ data: { search: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: [] } } }),
+    );
   }
   if (url.endsWith('api.github.com/user/emails')) {
     return Promise.resolve(
@@ -283,7 +285,9 @@ describe('OAuth: Google / GitHub (Phase 8 ขั้น 4b)', () => {
 
     const started = await begin('github', linkUrl.search);
     expect(started.location.origin).toBe('https://github.com');
-    expect(started.location.searchParams.get('scope')).toBe('read:user user:email repo');
+    expect(started.location.searchParams.get('scope')).toBe(
+      'read:user user:email repo read:project',
+    );
 
     fake = {
       provider: 'github',

@@ -161,6 +161,8 @@ export async function mockApi(page: Page, options: { authenticated?: boolean } =
         lastSyncAt: null,
         lastSyncCount: null,
         lastSyncError: null,
+        projectDates: false,
+        syncInProgress: false,
         webhook: { url: null, configured: false, lastDeliveryAt: null },
       });
     }

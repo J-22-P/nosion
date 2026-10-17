@@ -451,7 +451,7 @@
       "github": "เข้าสู่ระบบ + ดึง issue ที่ได้รับมอบหมายลงปฏิทิน"
     },
     "privateRepos": "รวม repo ส่วนตัว",
-    "privateReposHint": "รวม repo ส่วนตัว (GitHub ขอสิทธิ์ repo เต็ม — ไม่มีแบบอ่านอย่างเดียว)",
+    "privateReposHint": "รวม repo ส่วนตัว + วันที่จาก GitHub Project (GitHub ขอสิทธิ์ repo เต็ม — ไม่มีแบบอ่านอย่างเดียว)",
     "connected": "เชื่อมแล้ว",
     "lastWay": "ทางเข้าระบบทางเดียว — ตั้งรหัสผ่านก่อน",
     "disconnect": "ยกเลิกการเชื่อม",
@@ -463,7 +463,7 @@
   },
   "github": {
     "title": "GitHub → งานและปฏิทิน",
-    "description": "ดึง issue และ PR ที่มอบหมายให้คุณมาเป็นงาน · issue ที่อยู่ใน milestone ขึ้นปฏิทินตามวันกำหนด",
+    "description": "ดึง issue และ PR ที่มอบหมายให้คุณ (รวมงานที่ปิดไปแล้ว) มาเป็นงาน · วันในปฏิทินมาจากช่องวันที่ของ GitHub Project หรือ milestone · งานที่ปิดแล้วลงวันที่ปิด",
     "loadFailed": "โหลดสถานะ GitHub ไม่สำเร็จ",
     "serverDisabled": "เซิร์ฟเวอร์นี้ยังไม่ได้เปิดการเชื่อม GitHub",
     "connectFirst": "เชื่อม GitHub ในการ์ด “บัญชีที่เชื่อม” ด้านบนก่อน — เชื่อมแล้วดึงงานให้ทันที",
@@ -477,7 +477,7 @@
     "syncing": "กำลังดึง…",
     "syncNow": "ดึงงานตอนนี้",
     "webhook": "Webhook (ไม่บังคับ)",
-    "webhookHint": "ให้ GitHub แจ้งทันทีเมื่อ issue เปลี่ยน · PR ที่ merge แล้วปิดงานที่อ้างถึงด้วย <code>nosion:&lt;รหัสงาน&gt;</code> (เมนู ⋯ ของงาน → คัดลอกรหัสอ้างอิง)",
+    "webhookHint": "ให้ GitHub แจ้งทันทีเมื่อ issue เปลี่ยน · PR ที่ merge แล้วปิดงานที่อ้างถึงด้วย <code>{ref}</code> (เมนู ⋯ ของงาน → คัดลอกรหัสอ้างอิง)",
     "webhookSteps": "ใส่ใน repo → Settings → Webhooks → Add webhook · Content type <code>application/json</code> · เลือก event Issues และ Pull requests",
     "payloadUrl": "Payload URL",
     "secretOnce": "Secret (แสดงครั้งเดียว)",
@@ -496,7 +496,18 @@
     "nothingNew": "ไม่มีอะไรใหม่บน GitHub",
     "syncFailed": "ดึงจาก GitHub ไม่สำเร็จ",
     "webhookFailed": "สร้าง webhook ไม่สำเร็จ",
-    "webhookDisabled": "ปิด webhook แล้ว"
+    "webhookDisabled": "ปิด webhook แล้ว",
+    "refPlaceholder": "รหัสงาน",
+    "syncProgress": "กำลังดึงจาก GitHub… {count} รายการ",
+    "syncInProgress": "ดึงยังไม่ครบ — กดดึงต่อได้ (ระบบดึงต่อเองทุกชั่วโมงด้วย)",
+    "noProjectDates": "ยังอ่านช่องวันที่ของ GitHub Project ไม่ได้ — กด “ให้สิทธิ์ repo ส่วนตัว” ในการ์ดบัญชีที่เชื่อมด้านบน",
+    "syncError": {
+      "revoked": "สิทธิ์เข้าถึง GitHub ถูกเพิกถอนหรือหมดอายุ — เชื่อม GitHub ใหม่",
+      "forbidden": "GitHub ไม่อนุญาตให้อ่านข้อมูล — org อาจยังไม่อนุมัติแอป NOSION (ขอ owner ของ org อนุมัติ)",
+      "rate_limited": "เรียก GitHub ถี่เกินไป — รอสักครู่แล้วลองใหม่",
+      "unreachable": "ติดต่อ GitHub ไม่สำเร็จ — ลองใหม่อีกครั้ง",
+      "other": "GitHub ตอบผิดปกติ ({code}) — ลองใหม่อีกครั้ง"
+    }
   },
   "tasks": {
     "view": {
