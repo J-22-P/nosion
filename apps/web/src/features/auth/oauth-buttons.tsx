@@ -50,7 +50,7 @@ function ProviderLink({ provider }: { provider: OAuthProvider }) {
 /** ข้อความเมื่อกลับมาจากผู้ให้บริการแล้วล้ม (`/login?oauth_error=…`) */
 export function OAuthErrorAlert() {
   const params = useSearchParams();
-  const message = useOAuthErrorMessage()(params.get('oauth_error'));
+  const message = useOAuthErrorMessage()(params.get('oauth_error'), params.get('oauth_reason'));
   if (!message) return null;
   return (
     <p role="alert" className="rounded-control bg-danger-soft px-4 py-3 text-sm text-danger">

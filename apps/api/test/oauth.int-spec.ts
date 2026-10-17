@@ -44,6 +44,9 @@ function fakeFetch(input: string | URL | Request, init?: RequestInit): Promise<R
     if (lastTokenRequest.get('code') === 'bad-code') {
       return Promise.resolve(json({ error: 'bad_verification_code' }));
     }
+    if (lastTokenRequest.get('code') === 'wrong-secret') {
+      return Promise.resolve(json({ error: 'incorrect_client_credentials' }));
+    }
     return Promise.resolve(
       json({ access_token: `tok-${fake.id}`, scope: fake.scope ?? 'read:user,user:email' }),
     );
@@ -259,6 +262,13 @@ describe('OAuth: Google / GitHub (Phase 8 ขั้น 4b)', () => {
 
     const bad = await callback('google', await begin('google'), 'bad-code');
     expect(bad.headers.location).toContain('oauth_error=exchange_failed');
+    expect(bad.headers.location).toContain('oauth_reason=bad_verification_code');
+
+    // client secret ผิดบนเซิร์ฟเวอร์ — บอกให้ชัดว่าเป็นปัญหาการตั้งค่า ไม่ใช่ "ลองใหม่"
+    const misconfigured = await callback('github', await begin('github'), 'wrong-secret');
+    expect(misconfigured.headers.location).toBe(
+      'http://web.test/login?oauth_error=provider_misconfigured&oauth_reason=incorrect_client_credentials',
+    );
   });
 
   it('ผูก GitHub จากหน้าตั้งค่า (ขอ repo ส่วนตัว) → เก็บ token แบบเข้ารหัส · ยกเลิกการเชื่อมได้', async () => {
