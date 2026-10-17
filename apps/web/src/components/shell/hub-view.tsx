@@ -7,7 +7,8 @@ import { ThemeSwitcher } from '@/components/shared/theme-switcher';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader } from '@/components/ui/card';
 import { useSession } from '@/features/auth/use-session';
-import { HUB_ITEMS } from './nav';
+import type { ModuleKey } from '@nosion/contracts';
+import { HUB_ITEMS, visibleNav } from './nav';
 import { Avatar, useLogout } from './profile-menu';
 import { useTranslations } from 'next-intl';
 
@@ -16,7 +17,7 @@ import { useTranslations } from 'next-intl';
  * เป็นแท็บที่ 5 ของ bottom tab bar บนมือถือ · บน desktop เข้าได้จาก URL แต่ไม่อยู่ใน sidebar
  */
 export function HubView() {
-  const { user } = useSession();
+  const { user, settings } = useSession();
   const logout = useLogout();
   const name = user?.displayName ?? '';
   const t = useTranslations('shell');
@@ -37,47 +38,49 @@ export function HubView() {
 
       <Card className="p-2">
         <ul>
-          {HUB_ITEMS.map((item) => {
-            const Icon = item.icon;
-            const inner = (
-              <>
-                <span className="flex size-10 items-center justify-center rounded-control bg-sunken">
-                  <Icon size={18} strokeWidth={1.75} aria-hidden="true" />
-                </span>
-                <span className="flex-1">
-                  <span className="block text-sm font-medium">{tNav(item.key)}</span>
-                  <span className="block text-xs text-fg-secondary" lang="en">
-                    {item.en}
+          {visibleNav(HUB_ITEMS, settings?.enabledModules as ModuleKey[] | undefined).map(
+            (item) => {
+              const Icon = item.icon;
+              const inner = (
+                <>
+                  <span className="flex size-10 items-center justify-center rounded-control bg-sunken">
+                    <Icon size={18} strokeWidth={1.75} aria-hidden="true" />
                   </span>
-                </span>
-                {item.ready ? (
-                  <ChevronRight size={18} className="text-fg-tertiary" aria-hidden="true" />
-                ) : (
-                  <Badge tone="outline">{tNav('soon')}</Badge>
-                )}
-              </>
-            );
-            const rowClass = 'flex items-center gap-3 rounded-row p-3';
-            return (
-              <li key={item.href}>
-                {item.ready ? (
-                  <Link
-                    href={item.href}
-                    className={cn(
-                      rowClass,
-                      'transition-colors hover:bg-wash focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]',
-                    )}
-                  >
-                    {inner}
-                  </Link>
-                ) : (
-                  <div aria-disabled="true" className={cn(rowClass, 'opacity-60')}>
-                    {inner}
-                  </div>
-                )}
-              </li>
-            );
-          })}
+                  <span className="flex-1">
+                    <span className="block text-sm font-medium">{tNav(item.key)}</span>
+                    <span className="block text-xs text-fg-secondary" lang="en">
+                      {item.en}
+                    </span>
+                  </span>
+                  {item.ready ? (
+                    <ChevronRight size={18} className="text-fg-tertiary" aria-hidden="true" />
+                  ) : (
+                    <Badge tone="outline">{tNav('soon')}</Badge>
+                  )}
+                </>
+              );
+              const rowClass = 'flex items-center gap-3 rounded-row p-3';
+              return (
+                <li key={item.href}>
+                  {item.ready ? (
+                    <Link
+                      href={item.href}
+                      className={cn(
+                        rowClass,
+                        'transition-colors hover:bg-wash focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]',
+                      )}
+                    >
+                      {inner}
+                    </Link>
+                  ) : (
+                    <div aria-disabled="true" className={cn(rowClass, 'opacity-60')}>
+                      {inner}
+                    </div>
+                  )}
+                </li>
+              );
+            },
+          )}
         </ul>
       </Card>
 

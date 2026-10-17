@@ -574,7 +574,8 @@
     "copiedHint": "ใส่ {ref} ใน PR — merge แล้วงานนี้ปิดเอง",
     "copyFailed": "คัดลอกไม่ได้",
     "delete": "ลบงาน",
-    "openOnGitHub": "เปิด {kind} {ref} บน GitHub"
+    "openOnGitHub": "เปิด {kind} {ref} บน GitHub",
+    "openDetail": "ดูรายละเอียด: {title}"
   },
   "taskSidebar": {
     "all": "ทั้งหมด",
@@ -609,7 +610,9 @@
     "create": "สร้างงาน",
     "add": "เพิ่ม",
     "hint1": "พิมพ์วันเวลาได้ เช่น พรุ่งนี้ 5 โมง, ศุกร์หน้า, ทุกจันทร์ · !urgent !high !medium !low",
-    "hint2": "กำหนดความสำคัญ · #ชื่อแท็ก +ชื่อโปรเจกต์ · กดที่ chip เพื่อแก้ · Escape เพื่อล้าง"
+    "hint2": "กำหนดความสำคัญ · #ชื่อแท็ก +ชื่อโปรเจกต์ · กดที่ chip เพื่อแก้ · Escape เพื่อล้าง",
+    "details": "เพิ่มรายละเอียด",
+    "detailsPlaceholder": "รายละเอียดงาน (ไม่บังคับ) · ⌘↵ เพื่อสร้าง"
   },
   "focus": {
     "title": "Focus วันนี้",
@@ -646,7 +649,8 @@
     "materializeHint": "สร้างรอบที่เกิดซ้ำล่วงหน้า 7 วันทันที",
     "copiedStandup": "คัดลอก Standup Markdown แล้ว",
     "standupFailed": "สร้าง Standup ไม่สำเร็จ",
-    "completed": "ทำเสร็จแล้ว"
+    "completed": "ทำเสร็จแล้ว",
+    "reopened": "ยกเลิกทำเสร็จแล้ว"
   },
   "standup": {
     "copied": "คัดลอก Standup แล้ว",
@@ -672,7 +676,9 @@
     "left": "เหลือ",
     "budgetUse": "การใช้งานงบประมาณ ({pct}%)",
     "budgetProgress": "ยอดใช้เดือนนี้เทียบงบ",
-    "nextBill": "บิลถัดไป"
+    "nextBill": "บิลถัดไป",
+    "reopenLabel": "ยกเลิกทำเสร็จ: \"{title}\"",
+    "openDetail": "ดูรายละเอียด: {title}"
   },
   "sync": {
     "waiting": " · รอซิงก์ {count}",
@@ -937,7 +943,10 @@
     "moved": "ย้ายวันแล้ว",
     "undoMove": "ย้ายวัน: {title}",
     "moveConflict": "รายการนี้ถูกแก้จากที่อื่น — โหลดข้อมูลล่าสุดแล้ว ลองอีกครั้ง",
-    "moveFailed": "ย้ายวันไม่สำเร็จ"
+    "moveFailed": "ย้ายวันไม่สำเร็จ",
+    "reopened": "ยกเลิกทำเสร็จแล้ว",
+    "fullscreen": "ขยายเต็มจอ",
+    "exitFullscreen": "ออกจากเต็มจอ (Esc)"
   },
   "dayPanel": {
     "reminder": {
@@ -961,7 +970,9 @@
     "billsDue": "บิลครบกำหนด",
     "noBills": "ไม่มีบิลค้างจ่าย",
     "nextToday": "ถัดไป: วันนี้",
-    "nextInDays": "ถัดไปอีก {days} วัน"
+    "nextInDays": "ถัดไปอีก {days} วัน",
+    "reopen": "ยกเลิกทำเสร็จ: {title}",
+    "openDetail": "ดูรายละเอียด: {title}"
   },
   "feed": {
     "title": "Subscribe ปฏิทิน (iCal)",
@@ -975,7 +986,17 @@
     "loadFailed": "โหลดลิงก์ไม่สำเร็จ",
     "warning": "ใครมีลิงก์นี้อ่านปฏิทินของคุณได้ — ถ้าเผลอแชร์ให้สร้างลิงก์ใหม่ ลิงก์เดิมจะใช้ไม่ได้ทันที",
     "confirmRotate": "ยืนยัน: ยกเลิกลิงก์เดิม",
-    "rotate": "สร้างลิงก์ใหม่"
+    "rotate": "สร้างลิงก์ใหม่",
+    "modeLabel": "รูปแบบการส่งออก",
+    "modeSubscribe": "Subscribe · ทั้งหมด (อัปเดตเอง)",
+    "modeMonth": "เฉพาะเดือนนี้ (.ics)",
+    "alreadyTitle": "Apple แจ้ง \"This is a duplicate calendar\"?",
+    "alreadyBody": "แปลว่า subscribe ไว้แล้ว — ไม่ต้องเพิ่มซ้ำ ปฏิทินเดิมจะดึงงานใหม่มาเอง ถ้าอยากให้อัปเดตทันที: ในแอป Calendar เลือก View → Refresh Calendars (⌘R) · ถ้าอยากให้อัปเดตถี่ขึ้น: คลิกขวาที่ปฏิทิน NOSION → Get Info → Auto-refresh → Every 5 minutes",
+    "exportFailed": "ดาวน์โหลดไฟล์ไม่สำเร็จ",
+    "monthIntro": "ดาวน์โหลดทุกรายการของ {month} เป็นไฟล์ .ics แล้วเปิดไฟล์เพื่อนำเข้า Apple / Google Calendar — เป็นสำเนาครั้งเดียว",
+    "monthFiltered": "รวมเฉพาะโมดูลที่เลือกไว้ในหน้าปฏิทิน",
+    "downloadMonth": "ดาวน์โหลด {month} (.ics)",
+    "monthNote": "งานที่เพิ่ม/แก้ทีหลังจะไม่ตามไป — ดาวน์โหลดใหม่ได้ (นำเข้าไฟล์ซ้ำ Apple Calendar จะทับรายการเดิม ไม่เบิ้ล) หรือใช้ Subscribe ถ้าต้องการให้อัปเดตเอง"
   },
   "review": {
     "title": "สรุปสัปดาห์",
@@ -1185,5 +1206,32 @@
   "demoBanner": {
     "text": "คุณกำลังใช้บัญชีทดลอง — ข้อมูลจะถูกลบใน 24 ชั่วโมง",
     "cta": "สมัครฟรีเพื่อเก็บข้อมูลของคุณ"
+  },
+  "taskDetail": {
+    "title": "รายละเอียดงาน",
+    "close": "ปิด",
+    "notFound": "ไม่พบงานนี้แล้ว — อาจถูกลบไป",
+    "loadFailed": "โหลดงานไม่สำเร็จ — ลองใหม่อีกครั้ง",
+    "saved": "บันทึกแล้ว",
+    "conflict": "งานนี้ถูกแก้จากที่อื่น — โหลดข้อมูลล่าสุดแล้ว ตรวจแล้วกดบันทึกอีกครั้ง",
+    "saveFailed": "บันทึกไม่สำเร็จ",
+    "reopened": "ยกเลิกทำเสร็จแล้ว",
+    "completed": "ทำเสร็จแล้ว",
+    "reopenFailed": "ยกเลิกทำเสร็จไม่สำเร็จ",
+    "completeFailed": "ทำเสร็จไม่สำเร็จ",
+    "markNotDone": "ยกเลิกทำเสร็จ",
+    "markDone": "ทำเสร็จ",
+    "statusDone": "เสร็จแล้ว",
+    "statusOpen": "ยังไม่เสร็จ",
+    "completedAt": "เสร็จเมื่อ {when}",
+    "createdAt": "สร้างเมื่อ {when}",
+    "reopen": "ยกเลิกทำเสร็จ",
+    "name": "ชื่องาน",
+    "description": "รายละเอียด",
+    "descriptionPlaceholder": "บันทึก ลิงก์ ขั้นตอน… (ใช้ Markdown ได้)",
+    "due": "วันครบกำหนด",
+    "priority": "ความสำคัญ",
+    "cancel": "ยกเลิก",
+    "save": "บันทึก"
   }
 }

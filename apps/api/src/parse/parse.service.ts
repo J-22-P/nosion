@@ -91,6 +91,7 @@ export class ParseService {
     const fields = {
       module: chosen.module,
       title: chosen.title,
+      description: input.description?.trim() || null,
       priority: chosen.priority ?? 'none',
       isAllDay: chosen.isAllDay,
       payload: { ...chosen.payload, ...input.payloadPatch },

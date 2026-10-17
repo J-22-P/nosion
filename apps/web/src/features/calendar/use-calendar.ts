@@ -140,6 +140,38 @@ export function useCompleteFromCalendar(from: string, to: string) {
   });
 }
 
+/** ยกเลิก "ทำเสร็จ" ของงานในปฏิทิน (กดผิด) — กลับเป็นค้างทันทีในแคช แล้ว PATCH ด้วย version ของ event */
+export function useReopenFromCalendar(from: string, to: string) {
+  const queryClient = useQueryClient();
+  const key = calendarKey(from, to);
+  return useMutation({
+    mutationFn: (event: CalendarEventDto) =>
+      entriesApi.update(event.entryId!, { status: 'pending', version: event.version! }),
+    onMutate: async (event) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<CalendarDto>(key);
+      if (previous) {
+        queryClient.setQueryData<CalendarDto>(key, {
+          ...previous,
+          events: previous.events.map((e) => (e.id === event.id ? { ...e, status: 'pending' } : e)),
+        });
+      }
+      return { previous };
+    },
+    onSuccess: (entry) => toast.success(tr('calendar.reopened'), { description: entry.title }),
+    onError: (error, _event, context) => {
+      if (context?.previous) queryClient.setQueryData(key, context.previous);
+      const conflict = error instanceof ApiError && error.status === 409;
+      toast.error(conflict ? tr('calendar.moveConflict') : tr('entries.reopenFailed'), {
+        description: !conflict && errorText(error),
+      });
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ['entries'] });
+    },
+  });
+}
+
 export function useCalendarFeed(enabled: boolean) {
   return useQuery({
     queryKey: ['calendar-feed'],

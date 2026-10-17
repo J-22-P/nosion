@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
 import { baht } from '@/features/expenses/format';
+import { openTaskDetail } from '@/features/tasks/task-detail-dialog';
 import { canMove, longDayLabel, timeOf, type WeekSnapshot } from './grid';
 import { MODULE_ICON } from './views';
 import { tr } from '@/i18n/current';
@@ -44,6 +45,7 @@ export function DayPanel({
   reminders,
   timeZone,
   onComplete,
+  onReopen,
   onMove,
 }: {
   day: string;
@@ -51,6 +53,7 @@ export function DayPanel({
   reminders: CalendarReminderDto[];
   timeZone: string;
   onComplete: (entryId: string) => void;
+  onReopen: (event: CalendarEventDto) => void;
   onMove: (event: CalendarEventDto, toDate: string) => void;
 }) {
   return (
@@ -85,6 +88,7 @@ export function DayPanel({
                 event={event}
                 timeZone={timeZone}
                 onComplete={onComplete}
+                onReopen={onReopen}
                 onMove={onMove}
               />
             ))}
@@ -99,11 +103,13 @@ function DayEvent({
   event,
   timeZone,
   onComplete,
+  onReopen,
   onMove,
 }: {
   event: CalendarEventDto;
   timeZone: string;
   onComplete: (entryId: string) => void;
+  onReopen: (event: CalendarEventDto) => void;
   onMove: (event: CalendarEventDto, toDate: string) => void;
 }) {
   const theme = MODULE_THEME[event.module];
@@ -111,6 +117,9 @@ function DayEvent({
   const done = event.status === 'done';
   const badge = badgeOf(event);
   const deepLink = typeof event.meta.deepLink === 'string' ? event.meta.deepLink : null;
+  /** งานจริง (ไม่ใช่รอบ projected) — เปิดรายละเอียดได้ และงานที่เสร็จแล้วยกเลิกได้ (กดผิด) */
+  const isTask = event.module === 'task' && event.entryId !== null && !event.projected;
+  const canReopen = isTask && done && event.version !== null;
   const title = (
     <span className={done ? 'text-fg-secondary line-through' : undefined}>{event.title}</span>
   );
@@ -123,6 +132,14 @@ function DayEvent({
         style={{ background: theme.cssVar }}
       />
       <div className="flex items-start gap-3">
+        {canReopen ? (
+          <Checkbox
+            checked
+            aria-label={tr('dayPanel.reopen', { title: event.title })}
+            onCheckedChange={() => onReopen(event)}
+            className="mt-0.5"
+          />
+        ) : null}
         {event.actions
           .filter((a) => a.kind === 'complete' && a.presentation === 'checkbox')
           .map((a) => (
@@ -145,7 +162,16 @@ function DayEvent({
             {event.ruleId ? <span title={tr('dayPanel.recurring')}>↻</span> : null}
           </p>
           <p className="mt-0.5 text-sm font-medium">
-            {deepLink && !event.projected ? (
+            {isTask ? (
+              <button
+                type="button"
+                onClick={() => openTaskDetail(event.entryId!)}
+                aria-label={tr('dayPanel.openDetail', { title: event.title })}
+                className="rounded-[4px] text-left hover:underline focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
+              >
+                {title}
+              </button>
+            ) : deepLink && !event.projected ? (
               <Link href={deepLink} className="hover:underline">
                 {title}
               </Link>

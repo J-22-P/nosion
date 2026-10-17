@@ -5,6 +5,7 @@ import { cn, MODULE_THEME } from '@nosion/ui';
 import { CircleCheck, Dumbbell, Repeat, Wallet, type LucideIcon } from 'lucide-react';
 import * as React from 'react';
 import { canMove, longDayLabel, sameMonth, weekdayShort, timeOf, weekdayOf } from './grid';
+import { openTaskDetail } from '@/features/tasks/task-detail-dialog';
 import { tr } from '@/i18n/current';
 
 export const MODULE_ICON: Record<ModuleKey, LucideIcon> = {
@@ -13,6 +14,16 @@ export const MODULE_ICON: Record<ModuleKey, LucideIcon> = {
   workout: Dumbbell,
   habit: Repeat,
 };
+
+/** งานจริง (ไม่ใช่รอบ projected) เปิดหน้าต่างรายละเอียดได้ */
+const isOpenableTask = (e: CalendarEventDto) =>
+  e.module === 'task' && e.entryId !== null && !e.projected;
+
+/** คลิกรายการบน grid: เลือกวัน + ถ้าเป็นงาน เปิดรายละเอียดด้วย */
+function selectAndOpen(e: CalendarEventDto, day: string, onSelect?: (day: string) => void) {
+  onSelect?.(day);
+  if (isOpenableTask(e)) openTaskDetail(e.entryId!);
+}
 
 /** MIME ของข้อมูลที่ลาก — กันรับของที่ลากมาจากที่อื่น (ข้อความ / ไฟล์) */
 const DRAG_TYPE = 'application/x-nosion-event';
@@ -73,6 +84,7 @@ function EventLine({
         'flex min-w-0 items-center gap-1 rounded-[6px] px-1.5 py-0.5 text-[11px] leading-tight',
         event.status === 'done' ? 'text-fg-secondary line-through' : 'text-fg',
         event.projected ? 'border border-dashed border-hairline-strong' : 'bg-wash',
+        props.onClick && isOpenableTask(event) && 'cursor-pointer hover:bg-wash-active',
         props.draggable && 'cursor-grab active:cursor-grabbing',
         className,
       )}
@@ -92,6 +104,7 @@ function EventLine({
 }
 
 const MAX_IN_CELL = 3;
+const MAX_IN_CELL_TALL = 6;
 
 interface MonthGridProps {
   days: string[];
@@ -103,6 +116,8 @@ interface MonthGridProps {
   timeZone: string;
   onSelect: (day: string) => void;
   onMove?: MoveHandler;
+  /** โหมดเต็มจอ — ช่องสูงตามจอ แสดงรายการต่อวันได้มากขึ้น */
+  tall?: boolean;
 }
 
 export function MonthGrid(props: MonthGridProps) {
@@ -137,8 +152,10 @@ function MonthCell({
   timeZone,
   onSelect,
   onMove,
+  tall = false,
 }: MonthGridProps & { day: string }) {
   const items = byDate.get(day) ?? [];
+  const maxInCell = tall ? MAX_IN_CELL_TALL : MAX_IN_CELL;
   const isToday = day === today;
   const drop = useDropZone(day, onMove);
   return (
@@ -146,6 +163,8 @@ function MonthCell({
       {...drop.props}
       className={cn(
         'relative flex min-h-[104px] flex-col gap-1 rounded-row p-1.5 transition-colors duration-[180ms]',
+        // 6 แถวเต็มความสูงจอ (หักหัวหน้า + แถบชื่อวัน)
+        tall && 'min-h-[max(104px,calc((100dvh_-_260px)/6))]',
         isToday ? 'bg-surface shadow-card' : 'hover:bg-wash',
         day === selected && 'ring-1 ring-hairline-strong',
         drop.over && 'bg-accent-soft ring-2 ring-accent',
@@ -177,18 +196,18 @@ function MonthCell({
       ) : null}
       {/* รายการเป็นแค่ภาพ (ข้อมูลเดียวกันอยู่ใน aria-label ของปุ่ม + day panel) */}
       <span aria-hidden="true" className="relative flex flex-col gap-0.5">
-        {items.slice(0, MAX_IN_CELL).map((e) => (
+        {items.slice(0, maxInCell).map((e) => (
           <EventLine
             key={e.id}
             event={e}
             timeZone={timeZone}
-            onClick={() => onSelect(day)}
+            onClick={() => selectAndOpen(e, day, onSelect)}
             {...dragProps(e, onMove)}
           />
         ))}
-        {items.length > MAX_IN_CELL ? (
+        {items.length > maxInCell ? (
           <span className="pointer-events-none px-1.5 text-[11px] text-fg-secondary">
-            +{items.length - MAX_IN_CELL}
+            +{items.length - maxInCell}
           </span>
         ) : null}
       </span>
@@ -313,7 +332,13 @@ function WeekAllDay({ day, events, timeZone, onMove }: WeekCellProps) {
       {events
         .filter((e) => e.allDay)
         .map((e) => (
-          <EventLine key={e.id} event={e} timeZone={timeZone} {...dragProps(e, onMove)} />
+          <EventLine
+            key={e.id}
+            event={e}
+            timeZone={timeZone}
+            onClick={() => selectAndOpen(e, day)}
+            {...dragProps(e, onMove)}
+          />
         ))}
     </div>
   );
@@ -351,7 +376,7 @@ function WeekColumn({
               key={e.id}
               event={e}
               timeZone={timeZone}
-              onClick={() => onSelect(day)}
+              onClick={() => selectAndOpen(e, day, onSelect)}
               className="absolute inset-x-1"
               style={{ top: `${(offset / DAY_SPAN_MIN) * 100}%` }}
               {...dragProps(e, onMove)}
@@ -443,7 +468,18 @@ export function AgendaList({
           <ul className="space-y-1">
             {byDate.get(day)!.map((e) => (
               <li key={e.id}>
-                <EventLine event={e} timeZone={timeZone} />
+                {isOpenableTask(e) ? (
+                  <button
+                    type="button"
+                    onClick={() => openTaskDetail(e.entryId!)}
+                    aria-label={tr('dayPanel.openDetail', { title: e.title })}
+                    className="block w-full rounded-[6px] text-left focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
+                  >
+                    <EventLine event={e} timeZone={timeZone} className="hover:bg-wash-active" />
+                  </button>
+                ) : (
+                  <EventLine event={e} timeZone={timeZone} />
+                )}
               </li>
             ))}
           </ul>

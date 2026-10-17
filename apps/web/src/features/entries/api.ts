@@ -83,6 +83,8 @@ export const entriesApi = {
   list: (filters: EntryFilters) =>
     apiFetch<Paginated<EntryDto>>(`/entries${toQuery({ ...filters })}`),
 
+  get: (id: string) => apiFetch<EntryDto>(`/entries/${id}`),
+
   create: (input: CreateEntryInput) => {
     const clientId = input.clientId ?? `c-${crypto.randomUUID()}`;
     return offlineCapable({

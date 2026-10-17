@@ -60,6 +60,23 @@ export class CalendarController {
   }
 
   /**
+   * ดาวน์โหลด .ics ครั้งเดียวของช่วงวันที่ (เช่น เดือนที่เปิดดูอยู่) — ต่างจาก feed ที่ subscribe แล้วอัปเดตเอง
+   * นำเข้าแล้วเป็นสำเนา: งานที่เพิ่มทีหลังไม่ตามไป · ประกาศก่อน `:token.ics`
+   */
+  @Get('export')
+  @RateLimit({ limit: 30, windowSeconds: 60, by: 'user' })
+  @Header('Content-Type', 'text/calendar; charset=utf-8')
+  @Header('Cache-Control', 'no-store')
+  async export(
+    @CurrentUser('userId') userId: string,
+    @Query(zodQuery(calendarQuerySchema)) query: CalendarQuery,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<string> {
+    res.setHeader('Content-Disposition', `attachment; filename="nosion-${query.from}.ics"`);
+    return this.calendar.exportRange(userId, query);
+  }
+
+  /**
    * iCal feed — ไม่ต้องล็อกอิน: token ใน URL คือ credential (สเปก 7.3)
    * Google/Apple ดึงจาก server ของเขาเอง จึงนับ rate limit ต่อ IP แบบหลวม ๆ
    */

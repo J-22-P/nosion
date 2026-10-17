@@ -4,7 +4,6 @@ import { Bell, Search } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Kbd } from '@/components/ui/kbd';
-import { StatusPill } from '@/components/ui/status-pill';
 import { useUIStore } from '@/lib/stores/ui-store';
 import { useConnection } from '@/features/sync/use-sync';
 import { LogoMark } from './logo';
@@ -19,10 +18,10 @@ function openCommandPalette() {
 
 /**
  * Top bar desktop/tablet (8.2) — sticky, glass
- * ช่องค้นหาคือ "ปุ่ม" เปิด ⌘K ไม่ใช่ input · Connection pill · กระดิ่ง · โปรไฟล์
+ * ช่องค้นหาคือ "ปุ่ม" เปิด ⌘K ไม่ใช่ input · กระดิ่ง · โปรไฟล์
+ * (เอา pill สถานะการเชื่อมต่อออกแล้ว — สถานะซิงก์ดูได้ที่ท้าย sidebar)
  */
 export function TopBar({ displayName, isDemo }: { displayName: string; isDemo: boolean }) {
-  const connection = useConnection();
   const t = useTranslations('shell');
 
   return (
@@ -39,11 +38,6 @@ export function TopBar({ displayName, isDemo }: { displayName: string; isDemo: b
       </button>
 
       <div className="ml-auto flex items-center gap-2">
-        <StatusPill
-          status={connection.status}
-          label={connection.label}
-          className="hidden lg:inline-flex"
-        />
         <Button variant="ghost" size="icon" shape="circle" aria-label={t('notifications')}>
           <Bell size={18} strokeWidth={1.75} />
         </Button>

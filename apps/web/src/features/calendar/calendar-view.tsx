@@ -2,8 +2,8 @@
 
 import { MODULE_KEYS, type CalendarEventDto, type ModuleKey } from '@nosion/contracts';
 import { cn, MODULE_THEME } from '@nosion/ui';
-import { ChevronLeft, ChevronRight, Link2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { ChevronLeft, ChevronRight, Link2, Maximize2, Minimize2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { ErrorState } from '@/components/shared/states';
 import { Chip } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -31,6 +31,7 @@ import {
   useCalendarState,
   useCompleteFromCalendar,
   useMoveEvent,
+  useReopenFromCalendar,
   useServerTiming,
 } from './use-calendar';
 import { AgendaList, MonthGrid, WeekGrid, WeekStrip } from './views';
@@ -50,6 +51,7 @@ export function CalendarView() {
   const state = useCalendarState(zoneGuess);
   const calendar = useCalendar(state.view, state.date, weekStartsOn);
   const complete = useCompleteFromCalendar(calendar.range.from, calendar.range.to);
+  const reopen = useReopenFromCalendar(calendar.range.from, calendar.range.to);
   const latency = useServerTiming(calendar.dataUpdatedAt);
   const move = useMoveEvent(
     calendar.range.from,
@@ -57,6 +59,22 @@ export function CalendarView() {
     calendar.data?.timezone ?? zoneGuess,
   );
   const [feedOpen, setFeedOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  // เต็มจอ: ล็อกการเลื่อนของหน้าข้างหลัง · Esc ออก (ถ้า dialog เปิดอยู่ Esc ปิด dialog ก่อน)
+  useEffect(() => {
+    if (!expanded) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !document.querySelector('dialog[open]')) setExpanded(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = previous;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [expanded]);
 
   const data = calendar.data;
   const timeZone = data?.timezone ?? zoneGuess;
@@ -102,7 +120,13 @@ export function CalendarView() {
   };
 
   return (
-    <div className="space-y-5">
+    <div
+      className={cn(
+        'space-y-5',
+        // เต็มจอ: ทับ sidebar/top bar ทั้งหมด (dialog ของ <dialog> อยู่ top layer จึงยังเปิดทับได้)
+        expanded && 'fixed inset-0 z-40 overflow-y-auto bg-canvas px-4 py-5 md:px-8 md:py-6',
+      )}
+    >
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0">
           <h1 className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[28px] font-semibold leading-tight md:text-[34px]">
@@ -156,6 +180,20 @@ export function CalendarView() {
           >
             <Link2 size={14} aria-hidden="true" /> Subscribe iCal
           </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-pressed={expanded}
+            aria-label={expanded ? tr('calendar.exitFullscreen') : tr('calendar.fullscreen')}
+            title={expanded ? tr('calendar.exitFullscreen') : tr('calendar.fullscreen')}
+            onClick={() => setExpanded((v) => !v)}
+          >
+            {expanded ? (
+              <Minimize2 size={16} aria-hidden="true" />
+            ) : (
+              <Maximize2 size={16} aria-hidden="true" />
+            )}
+          </Button>
         </div>
       </header>
 
@@ -193,7 +231,13 @@ export function CalendarView() {
         </Card>
       ) : (
         <div className="grid gap-4 lg:grid-cols-12">
-          <Card className={cn('p-3 md:p-4 lg:col-span-8', calendar.isFetching && 'opacity-90')}>
+          <Card
+            className={cn(
+              'p-3 md:p-4',
+              expanded ? 'lg:col-span-9' : 'lg:col-span-8',
+              calendar.isFetching && 'opacity-90',
+            )}
+          >
             {!data ? (
               <Skeleton className="h-[480px] w-full rounded-row" />
             ) : (
@@ -209,6 +253,7 @@ export function CalendarView() {
                       days={calendar.range.days}
                       anchor={selected}
                       reminderDays={reminderDays}
+                      tall={expanded}
                       onMove={moveById}
                       {...gridProps}
                     />
@@ -227,7 +272,7 @@ export function CalendarView() {
             )}
           </Card>
 
-          <div className="space-y-4 lg:col-span-4">
+          <div className={cn('space-y-4', expanded ? 'lg:col-span-3' : 'lg:col-span-4')}>
             {data ? (
               <>
                 <DayPanel
@@ -236,6 +281,7 @@ export function CalendarView() {
                   reminders={data.reminders.filter((r) => r.date === selected)}
                   timeZone={timeZone}
                   onComplete={(id) => complete.mutate(id)}
+                  onReopen={(event) => reopen.mutate(event)}
                   onMove={moveEvent}
                 />
                 <QuickSnapshot snapshot={snapshot} week={`W${isoWeek(selected)}`} />
@@ -276,7 +322,12 @@ export function CalendarView() {
         ) : null}
       </footer>
 
-      <FeedDialog open={feedOpen} onClose={() => setFeedOpen(false)} />
+      <FeedDialog
+        open={feedOpen}
+        onClose={() => setFeedOpen(false)}
+        month={selected.slice(0, 7)}
+        modules={state.modules}
+      />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSession } from '@/features/auth/use-session';
 import { CommandPalette } from '@/features/command-palette/command-palette';
+import { TaskDetailDialog } from '@/features/tasks/task-detail-dialog';
 import { useGlobalShortcuts } from '@/lib/shortcuts/use-global-shortcuts';
 import { MobileTabBar } from './mobile-tab-bar';
 import { ShortcutsDialog } from './shortcuts-dialog';
@@ -62,6 +63,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <MobileTabBar pathname={pathname} />
       <CommandPalette />
       <ShortcutsDialog />
+      <TaskDetailDialog />
     </div>
   );
 }

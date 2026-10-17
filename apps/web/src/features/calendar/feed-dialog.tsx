@@ -1,20 +1,42 @@
 'use client';
 
-import { Copy, RefreshCw, X } from 'lucide-react';
+import type { ModuleKey } from '@nosion/contracts';
+import { Copy, Download, Info, RefreshCw, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { Skeleton } from '@/components/ui/skeleton';
 import { copyText } from '@/features/today/use-today';
+import { errorText } from '@/i18n/errors';
+import { calendarApi } from './api';
+import { monthTitle } from './grid';
 import { useCalendarFeed, useRotateFeed } from './use-calendar';
 import { tr } from '@/i18n/current';
 
+type Mode = 'subscribe' | 'month';
+
 /**
- * "Subscribe iCal" (สเปก 8.11.4) — คัดลอกลิงก์ไปใส่ Google / Apple Calendar + ปุ่มสร้างลิงก์ใหม่
- * ลิงก์คือ credential: ใครได้ลิงก์ไปอ่านปฏิทินได้ → สร้างใหม่ได้ทันทีถ้าหลุด (ต้องกดยืนยันสองครั้ง)
+ * "Subscribe iCal" (สเปก 8.11.4) — สองทางเลือก
+ *  - subscribe: ลิงก์ที่ Google / Apple ดึงซ้ำเอง (งานทุกชิ้น ย้อน 30 วัน–ล่วงหน้า 180 วัน) + ปุ่มสร้างลิงก์ใหม่
+ *    ลิงก์คือ credential: ใครได้ลิงก์ไปอ่านปฏิทินได้ → สร้างใหม่ได้ทันทีถ้าหลุด (ต้องกดยืนยันสองครั้ง)
+ *  - month: ดาวน์โหลด .ics ของเดือนที่เปิดดูอยู่ (ตามตัวกรองโมดูล) นำเข้าครั้งเดียว ไม่อัปเดตตาม
  */
-export function FeedDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function FeedDialog({
+  open,
+  onClose,
+  month,
+  modules,
+}: {
+  open: boolean;
+  onClose: () => void;
+  /** 'YYYY-MM' ของเดือนที่เปิดดูอยู่ */
+  month: string;
+  /** ตัวกรองโมดูลบนหน้า (null = ทุกโมดูล) */
+  modules: ModuleKey[] | null;
+}) {
+  const [mode, setMode] = useState<Mode>('subscribe');
   const ref = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -39,7 +61,26 @@ export function FeedDialog({ open, onClose }: { open: boolean; onClose: () => vo
           <X size={16} aria-hidden="true" />
         </Button>
       </div>
-      {open ? <FeedBody /> : null}
+      {open ? (
+        <div className="px-5 pt-4">
+          <SegmentedControl<Mode>
+            label={tr('feed.modeLabel')}
+            value={mode}
+            onChange={setMode}
+            options={[
+              { value: 'subscribe', label: tr('feed.modeSubscribe') },
+              { value: 'month', label: tr('feed.modeMonth') },
+            ]}
+          />
+        </div>
+      ) : null}
+      {open ? (
+        mode === 'subscribe' ? (
+          <FeedBody />
+        ) : (
+          <MonthExport month={month} modules={modules} />
+        )
+      ) : null}
     </dialog>
   );
 }
@@ -75,6 +116,14 @@ function FeedBody() {
           <a href={feed.data.webcalUrl} className="inline-block text-accent hover:underline">
             {tr('feed.openApple')}
           </a>
+          {/* Apple ไม่ยอมให้ subscribe URL เดิมซ้ำ ("This is a duplicate calendar") — ของเดิมอัปเดตเองอยู่แล้ว */}
+          <div className="flex gap-2.5 rounded-row bg-sunken p-3 text-xs text-fg-secondary">
+            <Info size={14} aria-hidden="true" className="mt-0.5 shrink-0" />
+            <div className="space-y-1">
+              <p className="font-medium text-fg">{tr('feed.alreadyTitle')}</p>
+              <p>{tr('feed.alreadyBody')}</p>
+            </div>
+          </div>
         </>
       ) : feed.isError ? (
         <p role="alert" className="text-danger">
@@ -100,6 +149,44 @@ function FeedBody() {
           {confirming ? tr('feed.confirmRotate') : tr('feed.rotate')}
         </Button>
       </div>
+    </div>
+  );
+}
+
+/** ดาวน์โหลด .ics ของทั้งเดือน — เปิดไฟล์แล้ว Apple/Google ถามว่าจะนำเข้าปฏิทินไหน */
+function MonthExport({ month, modules }: { month: string; modules: ModuleKey[] | null }) {
+  const [busy, setBusy] = useState(false);
+  const from = `${month}-01`;
+  const [y, m] = month.split('-').map(Number);
+  // วันที่ 0 ของเดือนถัดไป = วันสุดท้ายของเดือนนี้
+  const to = `${month}-${String(new Date(Date.UTC(y!, m!, 0)).getUTCDate()).padStart(2, '0')}`;
+
+  async function download() {
+    setBusy(true);
+    try {
+      const ics = await calendarApi.exportIcs(from, to, modules ?? undefined);
+      const url = URL.createObjectURL(new Blob([ics], { type: 'text/calendar;charset=utf-8' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `nosion-${month}.ics`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      toast.error(tr('feed.exportFailed'), { description: errorText(error) });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4 p-5 text-sm">
+      <p className="text-fg-secondary">{tr('feed.monthIntro', { month: monthTitle(from) })}</p>
+      {modules ? <p className="text-xs text-fg-secondary">{tr('feed.monthFiltered')}</p> : null}
+      <Button onClick={() => void download()} disabled={busy} className="gap-1.5">
+        <Download size={14} aria-hidden="true" />
+        {tr('feed.downloadMonth', { month: monthTitle(from) })}
+      </Button>
+      <p className="text-xs text-fg-secondary">{tr('feed.monthNote')}</p>
     </div>
   );
 }

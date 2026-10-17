@@ -175,6 +175,22 @@ describe('NL Parser (/parse)', () => {
     expect(preview.body.best).toMatchObject({ module: 'expense', status: 'pending' });
   });
 
+  it('description ส่งมาพร้อมข้อความ → บันทึกตามที่พิมพ์ (parser ไม่แตะ) · ว่างล้วน = null', async () => {
+    const res = await api()
+      .post('/api/v1/parse/commit')
+      .set(as(alice))
+      .send({ text: 'เตรียมสไลด์ พรุ่งนี้', module: 'task', description: '- ข้อ 1\n- ข้อ 2' })
+      .expect(201);
+    expect(res.body.entry).toMatchObject({ title: 'เตรียมสไลด์', description: '- ข้อ 1\n- ข้อ 2' });
+
+    const blank = await api()
+      .post('/api/v1/parse/commit')
+      .set(as(alice))
+      .send({ text: 'งานไม่มีรายละเอียด', module: 'task', description: '   ' })
+      .expect(201);
+    expect(blank.body.entry.description).toBeNull();
+  });
+
   it('ต้องล็อกอิน', async () => {
     await api().post('/api/v1/parse').send({ text: 'กาแฟ 65' }).expect(401);
   });

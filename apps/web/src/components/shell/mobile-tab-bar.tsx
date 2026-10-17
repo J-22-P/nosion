@@ -2,7 +2,9 @@
 
 import Link from 'next/link';
 import { cn } from '@nosion/ui';
-import { HUB_NAV, MOBILE_TABS, isActive, isInHub } from './nav';
+import type { ModuleKey } from '@nosion/contracts';
+import { useSession } from '@/features/auth/use-session';
+import { HUB_NAV, MOBILE_TABS, isActive, isInHub, visibleNav } from './nav';
 import { useTranslations } from 'next-intl';
 
 /**
@@ -12,13 +14,15 @@ import { useTranslations } from 'next-intl';
 export function MobileTabBar({ pathname }: { pathname: string }) {
   const t = useTranslations('shell');
   const tNav = useTranslations('nav');
+  const { settings } = useSession();
+  const tabs = visibleNav(MOBILE_TABS, settings?.enabledModules as ModuleKey[] | undefined);
   return (
     <nav
       aria-label={t('mobileNav')}
       className="glass fixed inset-x-0 bottom-0 z-20 border-t border-hairline pb-[env(safe-area-inset-bottom)] md:hidden"
     >
       <ul className="flex">
-        {MOBILE_TABS.map((item) => {
+        {tabs.map((item) => {
           const Icon = item.icon;
           const active =
             item.href === HUB_NAV.href ? isInHub(pathname) : isActive(pathname, item.href);
