@@ -1397,6 +1397,8 @@ test.describe('Tasks · หน้าต่างรายละเอียด�
     '- [x] ไล่โค้ด',
     '- [ ] แก้ฟอร์ม PDF',
     '',
+    '<img width="846" alt="Image" src="https://github.com/user-attachments/assets/private-123" />',
+    '',
     '<script>window.__xss = 1</script>',
   ].join('\n');
 
@@ -1413,6 +1415,10 @@ test.describe('Tasks · หน้าต่างรายละเอียด�
         await page.route(`**/api/v1/entries/${task.id}`, (route) =>
           route.request().method() === 'GET' ? route.fulfill({ json: task }) : route.fallback(),
         );
+        // รูปแนบของ repo ส่วนตัว: <img> ข้ามโดเมนไม่มีคุกกี้ GitHub → 404
+        await page.route('https://github.com/user-attachments/**', (route) =>
+          route.fulfill({ status: 404, body: 'Not Found' }),
+        );
         await page.goto('/tasks');
         await page.getByRole('button', { name: `ดูรายละเอียด: ${task.title}` }).click();
 
@@ -1426,6 +1432,11 @@ test.describe('Tasks · หน้าต่างรายละเอียด�
           '_blank',
         );
         expect(await page.evaluate(() => (window as { __xss?: number }).__xss)).toBeUndefined();
+        // รูปโหลดไม่ได้ → ลิงก์ไปเปิดบน GitHub แทนไอคอนรูปเสีย
+        await expect(dialog.getByRole('link', { name: /เปิดดูรูปบน GitHub/ })).toHaveAttribute(
+          'href',
+          'https://github.com/user-attachments/assets/private-123',
+        );
         await settle(page);
 
         const results = await new AxeBuilder({ page })

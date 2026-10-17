@@ -1,8 +1,15 @@
+import { NextIntlClientProvider } from 'next-intl';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import messages from '../../../messages/th.json';
 import { Markdown } from './markdown';
 
-const html = (md: string) => renderToStaticMarkup(<Markdown>{md}</Markdown>);
+const html = (md: string) =>
+  renderToStaticMarkup(
+    <NextIntlClientProvider locale="th" timeZone="Asia/Bangkok" messages={messages}>
+      <Markdown>{md}</Markdown>
+    </NextIntlClientProvider>,
+  );
 
 describe('Markdown', () => {
   it('GFM แบบ GitHub: หัวข้อ · ตัวหนา · ตาราง · checklist · ลิงก์เปิดแท็บใหม่', () => {
