@@ -23,6 +23,7 @@ export const parseApi = {
         module: input.module,
         clientId,
         payloadPatch: input.payloadPatch,
+        description: input.description,
       }),
       local: () => {
         const now = new Date().toISOString();
@@ -30,7 +31,7 @@ export const parseApi = {
           id: localId(clientId),
           module: input.module ?? 'task',
           title: input.text.trim(),
-          description: null,
+          description: input.description ?? null,
           status: 'pending',
           priority: 'none',
           occurredAt: null,

@@ -73,6 +73,7 @@ export const syncOperationSchema = z.discriminatedUnion('op', [
     module: moduleKeySchema.optional(),
     clientId: z.string().min(1).max(64),
     payloadPatch: z.record(z.unknown()).optional(),
+    description: z.string().max(20_000).optional(),
   }),
 ]);
 export type SyncOperation = z.infer<typeof syncOperationSchema>;

@@ -574,7 +574,8 @@
     "copiedHint": "Put {ref} in a PR — this task closes when it merges",
     "copyFailed": "Couldn't copy",
     "delete": "Delete task",
-    "openOnGitHub": "Open {kind} {ref} on GitHub"
+    "openOnGitHub": "Open {kind} {ref} on GitHub",
+    "openDetail": "Open details: {title}"
   },
   "taskSidebar": {
     "all": "All",
@@ -609,7 +610,9 @@
     "create": "Create task",
     "add": "Add",
     "hint1": "Type dates naturally, e.g. tomorrow 5pm, next Friday, every Monday · !urgent !high !medium !low",
-    "hint2": "set priority · #tag +project · tap a chip to edit · Escape to clear"
+    "hint2": "set priority · #tag +project · tap a chip to edit · Escape to clear",
+    "details": "Add details",
+    "detailsPlaceholder": "Task details (optional) · ⌘↵ to create"
   },
   "focus": {
     "title": "Focus today",
@@ -646,7 +649,8 @@
     "materializeHint": "Generate recurring items for the next 7 days now",
     "copiedStandup": "Standup Markdown copied",
     "standupFailed": "Couldn't create the standup",
-    "completed": "Completed"
+    "completed": "Completed",
+    "reopened": "Marked as not done"
   },
   "standup": {
     "copied": "Standup copied",
@@ -672,7 +676,9 @@
     "left": "left",
     "budgetUse": "Budget used ({pct}%)",
     "budgetProgress": "This month's spending vs budget",
-    "nextBill": "Next bill"
+    "nextBill": "Next bill",
+    "reopenLabel": "Undo done: \"{title}\"",
+    "openDetail": "Open details: {title}"
   },
   "sync": {
     "waiting": " · {count} waiting",
@@ -937,7 +943,10 @@
     "moved": "Moved",
     "undoMove": "Moved: {title}",
     "moveConflict": "This item changed elsewhere — reloaded the latest data, try again",
-    "moveFailed": "Couldn't move"
+    "moveFailed": "Couldn't move",
+    "reopened": "Marked as not done",
+    "fullscreen": "Full screen",
+    "exitFullscreen": "Exit full screen (Esc)"
   },
   "dayPanel": {
     "reminder": {
@@ -961,7 +970,9 @@
     "billsDue": "Bills due",
     "noBills": "No unpaid bills",
     "nextToday": "Next: today",
-    "nextInDays": "Next in {days, plural, one {# day} other {# days}}"
+    "nextInDays": "Next in {days, plural, one {# day} other {# days}}",
+    "reopen": "Undo done: {title}",
+    "openDetail": "Open details: {title}"
   },
   "feed": {
     "title": "Subscribe to calendar (iCal)",
@@ -975,7 +986,17 @@
     "loadFailed": "Couldn't load the link",
     "warning": "Anyone with this link can read your calendar — if you shared it by accident, create a new one and the old link stops working",
     "confirmRotate": "Confirm: revoke the old link",
-    "rotate": "Create new link"
+    "rotate": "Create new link",
+    "modeLabel": "Export type",
+    "modeSubscribe": "Subscribe · all (live)",
+    "modeMonth": "This month only (.ics)",
+    "alreadyTitle": "Apple says \"This is a duplicate calendar\"?",
+    "alreadyBody": "You're already subscribed — no need to add it again. The existing calendar picks up new tasks on its own. To update now: in Calendar choose View → Refresh Calendars (⌘R). To refresh more often: right-click the NOSION calendar → Get Info → Auto-refresh → Every 5 minutes.",
+    "exportFailed": "Couldn't download the file",
+    "monthIntro": "Download every item in {month} as an .ics file, then open it to import into Apple / Google Calendar. This is a one-time copy.",
+    "monthFiltered": "Only the modules selected on the calendar page are included",
+    "downloadMonth": "Download {month} (.ics)",
+    "monthNote": "Tasks added or changed later won't follow — download again (importing the same file again updates the existing events instead of duplicating them in Apple Calendar), or use Subscribe for live updates."
   },
   "review": {
     "title": "Weekly review",
@@ -1185,5 +1206,32 @@
   "demoBanner": {
     "text": "You're using a demo account — its data is deleted after 24 hours",
     "cta": "Sign up free to keep your own data"
+  },
+  "taskDetail": {
+    "title": "Task details",
+    "close": "Close",
+    "notFound": "This task no longer exists — it may have been deleted",
+    "loadFailed": "Couldn't load the task — try again",
+    "saved": "Saved",
+    "conflict": "This task changed elsewhere — reloaded the latest version, check and save again",
+    "saveFailed": "Couldn't save changes",
+    "reopened": "Marked as not done",
+    "completed": "Marked as done",
+    "reopenFailed": "Couldn't undo done",
+    "completeFailed": "Couldn't mark as done",
+    "markNotDone": "Mark as not done",
+    "markDone": "Mark as done",
+    "statusDone": "Done",
+    "statusOpen": "Not done yet",
+    "completedAt": "Completed {when}",
+    "createdAt": "Created {when}",
+    "reopen": "Undo done",
+    "name": "Name",
+    "description": "Details",
+    "descriptionPlaceholder": "Notes, links, steps… (Markdown supported)",
+    "due": "Due date",
+    "priority": "Priority",
+    "cancel": "Cancel",
+    "save": "Save"
   }
 }

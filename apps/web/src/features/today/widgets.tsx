@@ -23,7 +23,8 @@ import { baht, bahtExact } from '@/features/expenses/format';
 import { ToneBadge } from '@/features/expenses/kpi-cards';
 import { PRIORITY_TONE } from '@/lib/format';
 import { HabitAside, HabitBody } from '@/features/habits/today-habit-body';
-import { useCompleteFromToday } from './use-today';
+import { openTaskDetail } from '@/features/tasks/task-detail-dialog';
+import { useToggleFromToday } from './use-today';
 import { tr } from '@/i18n/current';
 
 /**
@@ -207,7 +208,7 @@ const PRIORITY_TAG: Record<string, string> = {
 };
 
 function TaskBody({ widget }: { widget: TodayWidgetDto }) {
-  const complete = useCompleteFromToday();
+  const toggle = useToggleFromToday();
   return (
     <>
       <ul className="space-y-2">
@@ -221,25 +222,29 @@ function TaskBody({ widget }: { widget: TodayWidgetDto }) {
             >
               <Checkbox
                 checked={done}
-                disabled={done || complete.isPending}
-                onCheckedChange={() => complete.mutate(item.entryId)}
+                disabled={toggle.isPending}
+                onCheckedChange={() => toggle.mutate({ id: item.entryId, done })}
                 aria-label={
                   done
-                    ? tr('widgets.doneLabel', { title: item.title })
+                    ? tr('widgets.reopenLabel', { title: item.title })
                     : tr('widgets.completeLabel', { title: item.title })
                 }
                 className="mt-0.5"
               />
               <div className="min-w-0 flex-1">
                 <p className="flex min-w-0 items-center gap-2">
-                  <span
+                  <button
+                    type="button"
+                    onClick={() => openTaskDetail(item.entryId)}
+                    aria-label={tr('widgets.openDetail', { title: item.title })}
                     className={cn(
-                      'truncate text-[15px] font-medium',
+                      'truncate rounded-[4px] text-left text-[15px] font-medium hover:underline',
+                      'focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]',
                       done && 'font-normal text-fg-secondary line-through',
                     )}
                   >
                     {item.title}
-                  </span>
+                  </button>
                   {!done && tone && item.priority && item.priority !== 'none' ? (
                     <Badge tone={tone} mono className="h-5 px-2">
                       {PRIORITY_TAG[item.priority]}

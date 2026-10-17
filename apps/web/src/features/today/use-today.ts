@@ -25,17 +25,24 @@ export const useToday = () =>
 export const useStandup = (enabled: boolean) =>
   useQuery({ queryKey: STANDUP_KEY, queryFn: todayApi.standup, enabled, staleTime: 0 });
 
-/** ติ๊กงานเสร็จจากการ์ด Today */
-export function useCompleteFromToday() {
+/**
+ * ติ๊กงานเสร็จ / ยกเลิกเสร็จ (กดผิด) จากการ์ด Today
+ * การ์ดไม่มี version ของงาน → ตอนยกเลิกต้องอ่านงานล่าสุดก่อนเพื่อส่ง version ที่ถูกต้อง
+ */
+export function useToggleFromToday() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => entriesApi.complete(id),
-    onSuccess: (entry) =>
-      toast.success(tr('today.completed'), {
+    mutationFn: async ({ id, done }: { id: string; done: boolean }) => {
+      if (!done) return entriesApi.complete(id);
+      const current = await entriesApi.get(id);
+      return entriesApi.update(id, { status: 'pending', version: current.version });
+    },
+    onSuccess: (entry, { done }) =>
+      toast.success(done ? tr('today.reopened') : tr('today.completed'), {
         description: isQueued(entry) ? `${entry.title} · ${queuedNote()}` : entry.title,
       }),
-    onError: (error) =>
-      toast.error(tr('entries.completeFailed'), {
+    onError: (error, { done }) =>
+      toast.error(done ? tr('entries.reopenFailed') : tr('entries.completeFailed'), {
         description: errorText(error),
       }),
     onSettled: () => void queryClient.invalidateQueries({ queryKey: ['entries'] }),

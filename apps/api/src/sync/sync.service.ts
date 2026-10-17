@@ -101,6 +101,7 @@ export class SyncService {
           module: op.module,
           clientId: op.clientId,
           payloadPatch: op.payloadPatch,
+          description: op.description,
         });
         return ok(entry, { clientId: op.clientId });
       }

@@ -2,7 +2,7 @@
 
 import { parseNaturalText, remainingText } from '@nosion/core/nl';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { CirclePlus } from 'lucide-react';
+import { AlignLeft, CirclePlus } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -39,6 +39,9 @@ const newClientId = () => `qc-${crypto.randomUUID()}`;
  */
 export function QuickCapture() {
   const [text, setText] = useState('');
+  /** รายละเอียดของงาน — ซ่อนไว้จนกดปุ่ม "รายละเอียด" (ช่องหลักยังเป็นบรรทัดเดียวแบบ NL) */
+  const [description, setDescription] = useState('');
+  const [showDetails, setShowDetails] = useState(false);
   const [clientId, setClientId] = useState(newClientId);
   const { settings } = useSession();
   const timeZone = settings?.timezone ?? DEFAULT_TIME_ZONE;
@@ -57,7 +60,13 @@ export function QuickCapture() {
   const dateToken = nl.tokens.find((t) => t.kind === 'date');
 
   const create = useMutation({
-    mutationFn: () => parseApi.commit({ text: text.trim(), module: 'task', clientId }),
+    mutationFn: () =>
+      parseApi.commit({
+        text: text.trim(),
+        module: 'task',
+        clientId,
+        ...(description.trim() ? { description } : {}),
+      }),
     onSuccess: (result) => {
       const { entry, rule } = result;
       toast.success(rule ? tr('quickCapture.addedRecurring') : tr('quickCapture.added'), {
@@ -68,6 +77,8 @@ export function QuickCapture() {
       void queryClient.invalidateQueries({ queryKey: ['tags'] });
       void queryClient.invalidateQueries({ queryKey: ['projects'] });
       setText('');
+      setDescription('');
+      setShowDetails(false);
       setClientId(newClientId());
     },
     onError: (error) =>
@@ -118,6 +129,18 @@ export function QuickCapture() {
             className="h-9 rounded-control border border-hairline bg-wash px-2 font-mono text-xs text-fg-secondary outline-none focus-visible:shadow-[var(--focus-ring)]"
           />
         </label>
+        <Button
+          type="button"
+          variant={showDetails ? 'secondary' : 'ghost'}
+          size="icon-sm"
+          className="shrink-0"
+          aria-pressed={showDetails}
+          aria-label={tr('quickCapture.details')}
+          title={tr('quickCapture.details')}
+          onClick={() => setShowDetails((v) => !v)}
+        >
+          <AlignLeft size={16} aria-hidden="true" />
+        </Button>
         <Button type="submit" disabled={!canSubmit} className="shrink-0 gap-2">
           <span className="hidden sm:inline">{tr('quickCapture.create')}</span>
           <span className="sm:hidden">{tr('quickCapture.add')}</span>
@@ -126,6 +149,25 @@ export function QuickCapture() {
           </Kbd>
         </Button>
       </div>
+
+      {showDetails ? (
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          onKeyDown={(e) => {
+            // ⌘/Ctrl + Enter = สร้างงาน (Enter เฉย ๆ ขึ้นบรรทัดใหม่)
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && canSubmit) {
+              e.preventDefault();
+              create.mutate();
+            }
+          }}
+          rows={4}
+          maxLength={20_000}
+          placeholder={tr('quickCapture.detailsPlaceholder')}
+          aria-label={tr('quickCapture.details')}
+          className="mt-2 w-full resize-y rounded-control border border-hairline bg-wash px-3.5 py-2.5 text-sm text-fg outline-none placeholder:text-fg-tertiary focus-visible:shadow-[var(--focus-ring)]"
+        />
+      ) : null}
 
       <p id={hintId} className="sr-only">
         {tr('quickCapture.hint1')} {tr('quickCapture.hint2')}

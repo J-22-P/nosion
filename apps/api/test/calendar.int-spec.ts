@@ -181,6 +181,27 @@ describe('Calendar (/calendar)', () => {
       await api().get('/api/v1/calendar/x.ics').expect(404);
     });
 
+    it('export ช่วงวันที่ → .ics ดาวน์โหลดครั้งเดียว · ต้องล็อกอิน · มีแค่รายการในช่วง', async () => {
+      const res = await api()
+        .get(`/api/v1/calendar/export?from=${bkk(1)}&to=${bkk(1)}`)
+        .set(as(alice))
+        .expect(200);
+      expect(res.headers['content-type']).toMatch(/^text\/calendar/);
+      expect(res.headers['content-disposition']).toMatch(/^attachment; filename="nosion-/);
+      expect(res.text.startsWith('BEGIN:VCALENDAR\r\n')).toBe(true);
+      expect(res.text).toContain('SUMMARY:ส่งรายงาน');
+
+      const empty = await api()
+        .get(`/api/v1/calendar/export?from=${bkk(-20)}&to=${bkk(-15)}`)
+        .set(as(alice))
+        .expect(200);
+      expect(empty.text).not.toContain('ส่งรายงาน');
+
+      await api()
+        .get(`/api/v1/calendar/export?from=${bkk(1)}&to=${bkk(1)}`)
+        .expect(401);
+    });
+
     it('feed ของ bob ไม่มีรายการของ alice', async () => {
       const feed = await api().get('/api/v1/calendar/feed').set(as(bob)).expect(200);
       const res = await api().get(new URL(feed.body.url).pathname).expect(200);

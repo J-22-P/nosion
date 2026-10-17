@@ -20,7 +20,8 @@ const PAGES = [
   { path: '/calendar', ready: 'Quick Snapshot' },
   { path: '/habits', ready: 'ดื่มน้ำ' },
   { path: '/review', ready: 'ทำสม่ำเสมอที่สุด' },
-  { path: '/hub', ready: 'Workouts' },
+  // Workouts ปิดอยู่ใน mock (enabledModules) → ไม่อยู่ใน hub แล้ว
+  { path: '/hub', ready: 'Habits' },
   { path: '/settings', ready: 'การแสดงผล' },
 ] as const;
 
@@ -865,7 +866,8 @@ test.describe('ออฟไลน์ (Phase 7)', () => {
       ['parse', 'ออฟไลน์ 3'],
     ]);
     await expect(page.getByText('ซิงก์แล้ว 4 รายการ')).toBeVisible();
-    await expect(page.getByRole('status').filter({ hasText: /^Online$/ })).toBeVisible();
+    // top bar ไม่มี pill สถานะแล้ว — สถานะซิงก์อยู่ที่ท้าย sidebar
+    await expect(page.getByText(/^Sync · v/)).toBeVisible();
   });
 
   test('แก้ชนกับอุปกรณ์อื่น: toast บอกช่องที่ชน → "ดูรายละเอียด" เปิด dialog ค่าของคุณ vs ค่าที่ใช้ · Sync Status ใน sidebar', async ({
@@ -900,7 +902,7 @@ test.describe('ออฟไลน์ (Phase 7)', () => {
     await context.setOffline(false);
 
     await expect(page.getByText('แก้ชนกับอุปกรณ์อื่น — ใช้ค่าบนเซิร์ฟเวอร์')).toBeVisible();
-    await page.getByRole('button', { name: 'ดูรายละเอียด' }).click();
+    await page.getByRole('button', { name: 'ดูรายละเอียด', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'แก้ชนกับอุปกรณ์อื่น' });
     await expect(dialog).toBeVisible();
     await expect(dialog.getByRole('row', { name: 'ความสำคัญ low urgent' })).toBeVisible();
