@@ -27,6 +27,11 @@ export const taskPayloadSchema = z.object({
       url: z.string().url().max(500).nullable().default(null),
       /** วันกำหนดจาก milestone ที่ซิงก์ครั้งล่าสุด — วันเปลี่ยนบน GitHub ถึงจะเขียนทับวันที่ผู้ใช้ตั้งเอง */
       milestoneDueOn: z.string().max(40).nullable().default(null),
+      /**
+       * วันกำหนดจาก GitHub ที่ซิงก์ครั้งล่าสุด (YYYY-MM-DD) — ช่องวันที่ของ GitHub Project (End/Due) ก่อน แล้วค่อย milestone
+       * ใช้ตัดสินว่า "วันเปลี่ยนบน GitHub" เหมือน milestoneDueOn (งานที่ซิงก์ก่อนมีช่องนี้ใช้ milestoneDueOn แทน)
+       */
+      dueOn: z.string().max(40).nullable().default(null),
       /** สถานะบน GitHub ที่ซิงก์ครั้งล่าสุด — ปิด/เปิดงานตาม "การเปลี่ยน" บน GitHub ไม่ทับที่ผู้ใช้ติ๊กเอง */
       state: z.enum(['open', 'closed']).nullable().default(null),
     })

@@ -23,7 +23,7 @@ import {
   BASE_SCOPES,
   createPkce,
   fetchProfile,
-  GITHUB_PRIVATE_REPO_SCOPE,
+  GITHUB_PRIVATE_REPO_SCOPES,
   OAuthExchangeError,
   type OAuthProfile,
   type ProviderCredentials,
@@ -131,7 +131,8 @@ export class OAuthService {
       expiresAt: Date.now() + OAUTH_STATE_TTL_MS,
     };
     const scopes = [...BASE_SCOPES[provider]];
-    if (provider === 'github' && link?.includePrivateRepos) scopes.push(GITHUB_PRIVATE_REPO_SCOPE);
+    if (provider === 'github' && link?.includePrivateRepos)
+      scopes.push(...GITHUB_PRIVATE_REPO_SCOPES);
 
     return {
       url: authorizationUrl(provider, {

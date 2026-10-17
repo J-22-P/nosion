@@ -8,7 +8,15 @@ export interface GitHubIntegrationDto {
   privateRepos: boolean;
   lastSyncAt: string | null;
   lastSyncCount: number | null;
+  /**
+   * รหัสปัญหาของการดึงครั้งล่าสุด — `revoked` · `forbidden` · `rate_limited` · `unreachable` · `http_<status>`
+   * (เว็บแปลเป็นข้อความตามภาษา) · null = สำเร็จ
+   */
   lastSyncError: string | null;
+  /** ได้สิทธิ์ `read:project` = อ่านวันจากช่องวันที่ของ GitHub Project ได้ */
+  projectDates: boolean;
+  /** ดึงค้างอยู่ (issue เยอะ แบ่งหลายรอบ) */
+  syncInProgress: boolean;
   webhook: {
     /** URL ที่ใส่ใน repo → Settings → Webhooks (มีเสมอเมื่อเปิดใช้) */
     url: string | null;
@@ -24,6 +32,8 @@ export interface GitHubSyncResultDto {
   completed: number;
   /** issue ที่ดูแล้วไม่ต้องทำอะไร */
   unchanged: number;
+  /** ยังดึงไม่ครบ (แบ่งรอบเพราะเวลาของ function จำกัด) — เรียก sync ซ้ำเพื่อดึงต่อ */
+  more: boolean;
 }
 
 export interface GitHubWebhookSecretDto {

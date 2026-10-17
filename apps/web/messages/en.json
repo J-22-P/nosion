@@ -451,7 +451,7 @@
       "github": "Sign in + pull assigned issues into your calendar"
     },
     "privateRepos": "Include private repos",
-    "privateReposHint": "Include private repos (GitHub asks for full repo access — there's no read-only option)",
+    "privateReposHint": "Include private repos + GitHub Project dates (GitHub asks for full repo access — there's no read-only option)",
     "connected": "Connected",
     "lastWay": "Your only way to sign in — set a password first",
     "disconnect": "Disconnect",
@@ -463,7 +463,7 @@
   },
   "github": {
     "title": "GitHub → tasks & calendar",
-    "description": "Pulls issues and PRs assigned to you in as tasks · issues in a milestone land on the calendar on its due date",
+    "description": "Pulls issues and PRs assigned to you (including closed ones) in as tasks · calendar dates come from your GitHub Project date fields or milestone · closed items land on the day they were closed",
     "loadFailed": "Couldn't load GitHub status",
     "serverDisabled": "This server hasn't enabled GitHub",
     "connectFirst": "Connect GitHub in “Connected accounts” above first — your tasks are pulled right away",
@@ -477,7 +477,7 @@
     "syncing": "Pulling…",
     "syncNow": "Pull now",
     "webhook": "Webhook (optional)",
-    "webhookHint": "GitHub notifies instantly when issues change · merged PRs close tasks referenced with <code>nosion:&lt;task id&gt;</code> (task ⋯ menu → copy reference)",
+    "webhookHint": "GitHub notifies instantly when issues change · merged PRs close tasks referenced with <code>{ref}</code> (task ⋯ menu → copy reference)",
     "webhookSteps": "In your repo → Settings → Webhooks → Add webhook · Content type <code>application/json</code> · events: Issues and Pull requests",
     "payloadUrl": "Payload URL",
     "secretOnce": "Secret (shown once)",
@@ -496,7 +496,18 @@
     "nothingNew": "Nothing new on GitHub",
     "syncFailed": "Couldn't pull from GitHub",
     "webhookFailed": "Couldn't set up the webhook",
-    "webhookDisabled": "Webhook disabled"
+    "webhookDisabled": "Webhook disabled",
+    "refPlaceholder": "task id",
+    "syncProgress": "Pulling from GitHub… {count, plural, one {# item} other {# items}}",
+    "syncInProgress": "Not finished pulling — press Pull to continue (it also continues hourly)",
+    "noProjectDates": "Can't read GitHub Project date fields yet — press “Grant private repo access” in Connected accounts above",
+    "syncError": {
+      "revoked": "GitHub access was revoked or expired — reconnect GitHub",
+      "forbidden": "GitHub refused access — the organization may not have approved NOSION yet (ask an org owner)",
+      "rate_limited": "Too many requests to GitHub — wait a moment and try again",
+      "unreachable": "Couldn't reach GitHub — try again",
+      "other": "GitHub responded unexpectedly ({code}) — try again"
+    }
   },
   "tasks": {
     "view": {

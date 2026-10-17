@@ -46,7 +46,12 @@ export const BASE_SCOPES: Record<OAuthProvider, string[]> = {
   google: ['openid', 'email', 'profile'],
   github: ['read:user', 'user:email'],
 };
-export const GITHUB_PRIVATE_REPO_SCOPE = 'repo';
+/**
+ * ติ๊ก "รวม repo ส่วนตัว" ในหน้าตั้งค่า → ขอเพิ่ม:
+ *  • `repo` — เห็น issue ของ repo ส่วนตัว/ของ org
+ *  • `read:project` — อ่านช่องวันที่ของ GitHub Project (Start/End Date) มาเป็นวันในปฏิทิน · ทีมส่วนใหญ่ไม่ใช้ milestone
+ */
+export const GITHUB_PRIVATE_REPO_SCOPES = ['repo', 'read:project'] as const;
 
 /** PKCE (RFC 7636) — code ที่ถูกดักกลางทางเอาไปแลก token ไม่ได้ถ้าไม่มี verifier ที่อยู่ในคุกกี้ของเรา */
 export function createPkce(): { verifier: string; challenge: string } {

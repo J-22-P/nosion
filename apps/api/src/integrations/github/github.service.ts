@@ -1,4 +1,11 @@
-import { ConflictException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadGatewayException,
+  ConflictException,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   findNosionRefs,
   ProblemType,
@@ -8,12 +15,15 @@ import {
   type GitHubWebhookSecretDto,
 } from '@nosion/contracts';
 import { OnEvent } from '@nestjs/event-emitter';
+import { Prisma } from '@prisma/client';
 import { randomBytes } from 'node:crypto';
 import { GITHUB_CONNECTED_EVENT, OAuthService } from '../../auth/oauth/oauth.service';
 import { EntriesService } from '../../entries/entries.service';
 import { APP_CONFIG, type AppConfig } from '../../infra/config/env';
 import { SecretBox } from '../../infra/crypto/secret-box';
 import { PrismaService } from '../../infra/prisma/prisma.service';
+import { UserContextService } from '../../users/user-context.service';
+import { fetchSearchPage, GitHubSyncError, searchQuery } from './github-search';
 import {
   issueClientId,
   planIssue,
@@ -23,14 +33,15 @@ import {
 } from './issue-plan';
 import { verifyGitHubSignature } from './signature';
 
-/** ดึงครั้งแรกเอาเฉพาะ issue ที่เปิดอยู่ · ครั้งต่อไปดึงทุกสถานะที่เปลี่ยนหลังรอบก่อน (เผื่อ 1 ชม. กันนาฬิกาเหลื่อม) */
+/** ครั้งแรกดึงทุก issue/PR ที่มอบหมาย (รวมที่ปิดแล้ว) · ครั้งต่อไปเฉพาะที่เปลี่ยนหลังรอบก่อน (เผื่อ 1 ชม. กันนาฬิกาเหลื่อม) */
 const SINCE_OVERLAP_MS = 60 * 60_000;
-/** 3 หน้า × 100 — ผู้ใช้ทั่วไปมี issue ที่ได้รับมอบหมายไม่ถึงนี้ · กันวนดึงไม่จบในฟังก์ชันที่มีเวลา 10 วิ */
-const MAX_PAGES = 3;
+/**
+ * เริ่มหน้าใหม่เฉพาะเมื่อเพิ่งใช้เวลาไปไม่ถึงนี้ — หน้าละ ~2 วิ (GraphQL + ช่องของ Project) + สร้างงาน ~40 รายการ
+ * ไม่ให้เกิน 10 วิของ Vercel Function · ที่เหลือจำ cursor ไว้ ดึงต่อในคำขอถัดไป (เว็บเรียกต่อเองจน more = false)
+ */
+const SYNC_BUDGET_MS = 3_500;
 const PROJECT_NAME = 'GitHub';
 const PROJECT_COLOR = '#24292f';
-
-export class GitHubTokenError extends Error {}
 
 @Injectable()
 export class GitHubService {
@@ -41,6 +52,7 @@ export class GitHubService {
     private readonly prisma: PrismaService,
     private readonly oauth: OAuthService,
     private readonly entries: EntriesService,
+    private readonly userContext: UserContextService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {
     this.box = new SecretBox(config.ENCRYPTION_KEY);
@@ -53,11 +65,13 @@ export class GitHubService {
       }),
       this.prisma.gitHubIntegration.findUnique({ where: { userId } }),
     ]);
-    const scopes = account?.scopes?.split(' ') ?? [];
+    const scopes = account?.scopes?.split(/[ ,]/) ?? [];
     return {
       connected: Boolean(account?.accessTokenEnc),
       login: account?.login ?? null,
       privateRepos: scopes.includes('repo'),
+      projectDates: hasProjectScope(scopes),
+      syncInProgress: Boolean(integration?.syncCursor),
       lastSyncAt: integration?.lastSyncAt?.toISOString() ?? null,
       lastSyncCount: integration?.lastSyncCount ?? null,
       lastSyncError: integration?.lastSyncError ?? null,
@@ -71,9 +85,24 @@ export class GitHubService {
 
   // ── ดึง issue ที่ได้รับมอบหมาย ──────────────────────────
 
-  async sync(userId: string, now = new Date()): Promise<GitHubSyncResultDto> {
-    const credentials = await this.oauth.accessToken(userId, 'github');
-    if (!credentials) {
+  /**
+   * ดึง issue/PR ที่มอบหมายให้ผู้ใช้ — ทีละหน้าจนหมดเวลาที่ให้ (budgetMs) แล้วจำ cursor ไว้ · `more` = ยังมีต่อ
+   * รอบหนึ่ง (run) ใช้คำค้นเดียวกันทุกหน้า: `since` มาจาก lastSyncAt ซึ่งไม่เปลี่ยนจนกว่ารอบจะจบ
+   * จบรอบ → lastSyncAt = เวลาที่รอบเริ่ม (issue ที่แก้ระหว่างรอบ ถูกดึงในรอบหน้า)
+   */
+  async sync(
+    userId: string,
+    now = new Date(),
+    budgetMs = SYNC_BUDGET_MS,
+  ): Promise<GitHubSyncResultDto> {
+    const [credentials, account] = await Promise.all([
+      this.oauth.accessToken(userId, 'github'),
+      this.prisma.oAuthAccount.findUnique({
+        where: { userId_provider: { userId, provider: 'github' } },
+        select: { login: true },
+      }),
+    ]);
+    if (!credentials || !account?.login) {
       throw new ConflictException({
         type: ProblemType.conflict,
         title: 'GitHub not connected',
@@ -81,50 +110,69 @@ export class GitHubService {
       });
     }
     const integration = await this.ensureIntegration(userId);
+    const runStartedAt = integration.syncCursor ? (integration.syncRunStartedAt ?? now) : now;
     const since = integration.lastSyncAt
       ? new Date(integration.lastSyncAt.getTime() - SINCE_OVERLAP_MS)
       : null;
+    const query = searchQuery(account.login, since);
+    const withProjects = hasProjectScope(credentials.scopes);
+    const { timezone } = await this.userContext.forUser(userId);
 
-    let issues: GitHubIssue[];
+    const result: GitHubSyncResultDto = {
+      created: 0,
+      updated: 0,
+      completed: 0,
+      unchanged: 0,
+      more: false,
+    };
+    let cursor = integration.syncCursor;
+    const started = Date.now();
     try {
-      issues = await this.fetchAssignedIssues(credentials.token, since);
+      do {
+        const page = await fetchSearchPage(credentials.token, query, cursor, withProjects);
+        for (const issue of page.issues) {
+          const applied = await this.applyIssueSafely(userId, issue, timezone);
+          if (applied.kind === 'create') result.created++;
+          else if (applied.kind === 'update' && applied.completes) result.completed++;
+          else if (applied.kind === 'update') result.updated++;
+          else result.unchanged++;
+        }
+        cursor = page.hasNextPage ? page.endCursor : null;
+        result.more = cursor !== null;
+        // บันทึกทุกหน้า — function ถูกตัดกลางทางก็ดึงต่อจากหน้านี้ได้ (หน้าที่ทำค้างทำซ้ำได้: clientId กันซ้ำ)
+        await this.prisma.gitHubIntegration.update({
+          where: { userId },
+          data: {
+            syncCursor: cursor,
+            syncRunStartedAt: result.more ? runStartedAt : null,
+            ...(result.more ? {} : { lastSyncAt: runStartedAt }),
+            lastSyncCount: result.created + result.updated + result.completed,
+            lastSyncError: null,
+          },
+        });
+      } while (result.more && Date.now() - started < budgetMs);
     } catch (err) {
-      const message = err instanceof GitHubTokenError ? err.message : 'ติดต่อ GitHub ไม่สำเร็จ';
+      if (!(err instanceof GitHubSyncError)) throw err;
+      this.logger.warn(`ดึง issue ของ ${userId} ไม่สำเร็จ: ${err.message}`);
       await this.prisma.gitHubIntegration.update({
         where: { userId },
-        data: { lastSyncError: message },
+        data: { lastSyncError: err.code },
       });
-      throw new ConflictException({
-        type: ProblemType.conflict,
+      throw new BadGatewayException({
+        type: ProblemType.internal,
         title: 'GitHub sync failed',
-        message,
+        message:
+          SYNC_ERROR_TEXT[err.code as keyof typeof SYNC_ERROR_TEXT] ??
+          `GitHub ตอบผิดปกติ (${err.code})`,
       });
     }
-
-    const result: GitHubSyncResultDto = { created: 0, updated: 0, completed: 0, unchanged: 0 };
-    for (const issue of issues) {
-      const applied = await this.applyIssue(userId, issue);
-      if (applied.kind === 'create') result.created++;
-      else if (applied.kind === 'update' && applied.completes) result.completed++;
-      else if (applied.kind === 'update') result.updated++;
-      else result.unchanged++;
-    }
-
-    await this.prisma.gitHubIntegration.update({
-      where: { userId },
-      data: {
-        lastSyncAt: now,
-        lastSyncCount: result.created + result.updated + result.completed,
-        lastSyncError: null,
-      },
-    });
     return result;
   }
 
   /** เพิ่งเชื่อม GitHub → ดึงรอบแรกเลย ไม่ต้องรอ cron (ผู้ใช้เห็นงานทันทีที่กลับเข้าแอป) */
   @OnEvent(GITHUB_CONNECTED_EVENT, { promisify: true })
   async onConnected({ userId }: { userId: string }): Promise<void> {
-    await this.sync(userId).catch((err: unknown) => {
+    await this.sync(userId, new Date(), 0).catch((err: unknown) => {
       this.logger.warn(`ดึง issue รอบแรกของ ${userId} ไม่สำเร็จ: ${(err as Error).message}`);
     });
   }
@@ -150,7 +198,7 @@ export class GitHubService {
   }
 
   /** ใช้ทั้งตอนดึงและตอน webhook ส่ง event `issues` มา */
-  async applyIssue(userId: string, issue: GitHubIssue): Promise<IssuePlan> {
+  async applyIssue(userId: string, issue: GitHubIssue, timeZone?: string): Promise<IssuePlan> {
     const row = await this.prisma.entry.findFirst({
       where: { userId, clientId: issueClientId(issue) },
     });
@@ -161,13 +209,15 @@ export class GitHubService {
           title: row.title,
           status: row.status,
           deleted: row.deletedAt !== null,
+          hasDate: row.occurredAt !== null,
           github: taskPayloadSchema.parse(row.payload ?? {}).github,
         }
       : null;
 
-    const plan = planIssue(issue, existing);
+    const tz = timeZone ?? (await this.userContext.forUser(userId)).timezone;
+    const plan = planIssue(issue, existing, tz);
     if (plan.kind === 'create') {
-      await this.entries.create(userId, {
+      const created = await this.entries.create(userId, {
         module: 'task',
         title: plan.fields.title,
         description: plan.fields.description,
@@ -177,15 +227,47 @@ export class GitHubService {
         projectId: await this.githubProjectId(userId),
         clientId: issueClientId(issue),
       });
+      if (plan.completes) await this.completeAt(userId, created.id, plan.fields.completedAt);
     } else if (plan.kind === 'update') {
       await this.entries.update(userId, plan.id, {
         version: plan.version,
         ...plan.patch,
         payload: { github: plan.github },
       });
-      if (plan.completes) await this.entries.complete(userId, plan.id);
+      if (plan.completes) await this.completeAt(userId, plan.id, plan.completedAt);
     }
     return plan;
+  }
+
+  /**
+   * ดึงกับ webhook (หรือกด "ดึงตอนนี้" ระหว่างรอบแรกที่เริ่มเองตอนเชื่อม) ทำ issue เดียวกันพร้อมกันได้ →
+   * ฝั่งที่ช้ากว่าชน unique(clientId) หรือ version — อีกฝั่งทำให้แล้ว ถือว่าไม่ต้องทำอะไร ไม่ให้ทั้งรอบล้ม
+   */
+  private async applyIssueSafely(
+    userId: string,
+    issue: GitHubIssue,
+    timeZone: string,
+  ): Promise<IssuePlan> {
+    try {
+      return await this.applyIssue(userId, issue, timeZone);
+    } catch (err) {
+      const raced =
+        (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') ||
+        err instanceof ConflictException;
+      if (!raced) throw err;
+      return { kind: 'skip', reason: 'unchanged' };
+    }
+  }
+
+  /** ปิดงานผ่าน EntriesService (event/การเตือนครบ) แล้วตั้งวันที่เสร็จเป็นวันที่ปิดจริงบน GitHub — สถิติย้อนหลังถูกวัน */
+  private async completeAt(userId: string, id: string, closedAt: string | null): Promise<void> {
+    await this.entries.complete(userId, id);
+    if (closedAt) {
+      await this.prisma.entry.updateMany({
+        where: { id, userId },
+        data: { completedAt: new Date(closedAt) },
+      });
+    }
   }
 
   // ── webhook ─────────────────────────────────────────
@@ -314,40 +396,6 @@ export class GitHubService {
 
   // ── ภายใน ────────────────────────────────────────────
 
-  private async fetchAssignedIssues(token: string, since: Date | null): Promise<GitHubIssue[]> {
-    const all: GitHubIssue[] = [];
-    for (let page = 1; page <= MAX_PAGES; page++) {
-      const q = new URLSearchParams({
-        filter: 'assigned',
-        state: since ? 'all' : 'open',
-        sort: 'updated',
-        direction: 'desc',
-        per_page: '100',
-        page: String(page),
-        ...(since ? { since: since.toISOString() } : {}),
-      });
-      const res = await fetch(`https://api.github.com/issues?${q}`, {
-        headers: {
-          Accept: 'application/vnd.github+json',
-          Authorization: `Bearer ${token}`,
-          'User-Agent': 'NOSION',
-          'X-GitHub-Api-Version': '2022-11-28',
-        },
-        signal: AbortSignal.timeout(8_000),
-      });
-      if (res.status === 401) {
-        throw new GitHubTokenError(
-          'สิทธิ์เข้าถึง GitHub ถูกเพิกถอนหรือหมดอายุ — กดเชื่อม GitHub ใหม่',
-        );
-      }
-      if (!res.ok) throw new Error(`GitHub ตอบ ${res.status}`);
-      const batch = (await res.json()) as GitHubIssue[];
-      all.push(...batch);
-      if (batch.length < 100) break;
-    }
-    return all;
-  }
-
   private async ensureIntegration(userId: string) {
     return this.prisma.gitHubIntegration.upsert({
       where: { userId },
@@ -386,3 +434,16 @@ interface WebhookPayload {
     head?: { ref: string };
   };
 }
+
+/** `read:project` (หรือ `project` ที่ครอบคลุม) — อ่านช่องวันที่ของ GitHub Project ได้ */
+function hasProjectScope(scopes: string[]): boolean {
+  return scopes.includes('read:project') || scopes.includes('project');
+}
+
+/** ข้อความ (ไทย) ของ error จากการดึง — เว็บภาษาอังกฤษแปลจาก lastSyncError (รหัส) เอง */
+const SYNC_ERROR_TEXT = {
+  revoked: 'สิทธิ์เข้าถึง GitHub ถูกเพิกถอนหรือหมดอายุ — กดเชื่อม GitHub ใหม่',
+  forbidden: 'GitHub ไม่อนุญาตให้อ่านข้อมูลนี้ — org อาจยังไม่อนุมัติแอป NOSION',
+  rate_limited: 'เรียก GitHub ถี่เกินไป — รอสักครู่แล้วลองใหม่',
+  unreachable: 'ติดต่อ GitHub ไม่สำเร็จ — ลองใหม่อีกครั้ง',
+} as const;

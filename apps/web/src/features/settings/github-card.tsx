@@ -15,6 +15,7 @@ import {
   useGitHubIntegration,
   useGitHubSync,
   useRotateGitHubWebhook,
+  syncErrorText,
 } from './github';
 import { useTranslations } from 'next-intl';
 import { dateFormat } from '@/i18n/current';
@@ -24,7 +25,8 @@ const when = (iso: string) =>
 
 /**
  * GitHub → งาน/ปฏิทิน (Phase 8 ขั้น 5)
- *  • ดึง issue/PR ที่ได้รับมอบหมาย — วันจาก milestone ขึ้นปฏิทิน · ดึงเองทุกชั่วโมง + ปุ่มดึงตอนนี้
+ *  • ดึง issue/PR ที่ได้รับมอบหมาย (รวมที่ปิดแล้ว) — วันจากช่องวันที่ของ GitHub Project / milestone / วันที่ปิด
+ *    ขึ้นปฏิทิน · ดึงเองทุกชั่วโมง + ปุ่มดึงตอนนี้ (ดึงต่อเองจนครบ)
  *  • webhook (ไม่บังคับ) — เปลี่ยนบน GitHub แล้วเห็นทันที + PR merged ปิดงานที่อ้างถึง
  */
 export function GitHubCard() {
@@ -65,8 +67,13 @@ export function GitHubCard() {
                 </p>
                 {status.data.lastSyncError ? (
                   <p role="alert" className="mt-1 text-xs text-danger">
-                    {status.data.lastSyncError}
+                    {syncErrorText(status.data.lastSyncError)}
                   </p>
+                ) : status.data.syncInProgress ? (
+                  <p className="mt-1 text-xs text-fg-secondary">{t('syncInProgress')}</p>
+                ) : null}
+                {!status.data.projectDates ? (
+                  <p className="mt-1 text-xs text-fg-secondary">{t('noProjectDates')}</p>
                 ) : null}
               </div>
               <Button
@@ -117,7 +124,9 @@ function WebhookSection({
         <h3 id="gh-webhook-title" className="text-sm font-medium">
           {t('webhook')}
         </h3>
-        <p className="text-xs text-fg-secondary">{t.rich('webhookHint', { code })}</p>
+        <p className="text-xs text-fg-secondary">
+          {t.rich('webhookHint', { code, ref: `nosion:<${t('refPlaceholder')}>` })}
+        </p>
       </div>
 
       {created ? (

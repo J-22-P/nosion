@@ -115,13 +115,13 @@ model UserSettings {
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  timezone     String @default("Asia/Bangkok")
-  locale       String @default("th")
+  timezone     String  @default("Asia/Bangkok")
+  locale       String  @default("th")
   /// แสดงปีเป็นพุทธศักราช (สเปก 8.9 `th-u-ca-buddhist`) — มีผลเฉพาะภาษาไทย · ค่าเริ่มต้นเหมือน Intl `th-TH`
   buddhistEra  Boolean @default(true)
-  currency     String @default("THB")
-  weekStartsOn Int    @default(1)
-  theme        String @default("system")
+  currency     String  @default("THB")
+  weekStartsOn Int     @default(1)
+  theme        String  @default("system")
 
   quietHoursEnabled Boolean @default(true)
   quietHoursStart   String  @default("22:00")
@@ -245,10 +245,14 @@ model GitHubIntegration {
   webhookSecretEnc String?
   lastDeliveryAt   DateTime?
 
-  lastSyncAt    DateTime?
-  lastSyncCount Int?
+  lastSyncAt       DateTime?
+  lastSyncCount    Int?
   /// ข้อความ error ของการดึงครั้งล่าสุด (token ถูกเพิกถอน ฯลฯ) — null = สำเร็จ
-  lastSyncError String?
+  lastSyncError    String?
+  /// ดึงค้างอยู่กลางทาง: cursor ของ GraphQL search หน้าถัดไป · null = ไม่มีรอบที่ค้าง
+  syncCursor       String?
+  /// เวลาที่รอบที่ค้างเริ่ม — จบรอบแล้วใช้เป็น lastSyncAt (issue ที่แก้ระหว่างรอบถูกดึงในรอบหน้า)
+  syncRunStartedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
