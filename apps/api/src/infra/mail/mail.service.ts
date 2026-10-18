@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   copyFor,
   createMailTransport,
+  redactSmtpUrl,
   type EmailKind,
   type EmailLang,
   type EmailPropsByKind,
@@ -28,6 +29,12 @@ export class MailService {
       resendApiKey: config.RESEND_API_KEY,
       log: (mail) => this.logger.log(`[mail:log] → ${mail.to} : ${mail.subject}`),
     });
+    // ตั้งค่าอีเมลผิด → API ยังขึ้น (ส่งอีเมลไม่ได้อย่างเดียว) และบอกชัดว่าค่าไหนผิด โดยไม่พิมพ์รหัสผ่าน
+    if (this.transport.problem) {
+      this.logger.error(
+        `${this.transport.problem} · MAIL_DRIVER=${config.MAIL_DRIVER} · SMTP_URL=${redactSmtpUrl(config.SMTP_URL)} — อีเมลจะส่งไม่ได้จนกว่าจะแก้ค่าแล้ว redeploy`,
+      );
+    }
   }
 
   private get settingsUrl(): string {

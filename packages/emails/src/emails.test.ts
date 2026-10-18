@@ -157,8 +157,8 @@ describe('createMailTransport · resend', () => {
     expect((error as MailDeliveryError).permanent).toBe(permanent);
   });
 
-  it('driver=resend แต่ไม่มี key → ล้มตั้งแต่สร้าง (ไม่ไปล้มตอนส่งฉบับแรก)', () => {
-    expect(() => createMailTransport({ driver: 'resend', from: 'x' })).toThrow('RESEND_API_KEY');
+  it('driver=resend แต่ไม่มี key → สร้างได้ (ระบบไม่ล่ม) แต่บอกปัญหาไว้ใน problem ให้ log ตอนเริ่มระบบ', () => {
+    expect(createMailTransport({ driver: 'resend', from: 'x' }).problem).toMatch('RESEND_API_KEY');
   });
 });
 
