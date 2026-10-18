@@ -17,7 +17,12 @@ import {
   runDailyDigest,
   type ReminderDispatcher,
 } from '@nosion/notifications';
-import { createMailTransport, type MailDriver, type MailTransport } from '@nosion/emails';
+import {
+  createMailTransport,
+  redactSmtpUrl,
+  type MailDriver,
+  type MailTransport,
+} from '@nosion/emails';
 import { startReminderPipeline } from './reminders/pipeline';
 import { DEFAULT_JOB_OPTIONS, QUEUE } from './queues';
 
@@ -38,6 +43,13 @@ const mail: MailTransport = createMailTransport({
   resendApiKey: process.env.RESEND_API_KEY,
   log: (m) => logger.info({ to: m.to, subject: m.subject }, 'email (log only)'),
 });
+// ตั้งค่าอีเมลผิด → worker ยังทำงานส่วนอื่นต่อ (push · ล้างข้อมูล) · ไม่พิมพ์รหัสผ่าน
+if (mail.problem) {
+  logger.error(
+    { driver: mail.driver, smtpUrl: redactSmtpUrl(process.env.SMTP_URL) },
+    `${mail.problem} — อีเมลจะส่งไม่ได้จนกว่าจะแก้ค่าแล้ว redeploy`,
+  );
+}
 
 /**
  * Worker แยก container จาก API เพราะต้องเป็น long-running process

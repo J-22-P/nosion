@@ -140,14 +140,15 @@ wizard ทำ 10 ขั้น: ติดตั้ง/ล็อกอิน flyct
 
 หลังจากนั้น workflow "Deploy staging" deploy worker ให้เองทุกครั้งที่ CI เขียว (job `worker` — ไม่มี `FLY_API_TOKEN` = ข้ามเงียบ)
 
-| ค่า                                              | อยู่ที่                 | หมายเหตุ                                                                                         |
-| ------------------------------------------------ | ----------------------- | ------------------------------------------------------------------------------------------------ |
-| `VAPID_PUBLIC_KEY`                               | Fly worker + Vercel API | API ส่งให้เบราว์เซอร์ subscribe · เปลี่ยนภายหลัง = ทุกเครื่องต้องเปิดการแจ้งเตือนใหม่            |
-| `VAPID_PRIVATE_KEY`                              | Fly worker              |                                                                                                  |
-| `NOTIFICATION_ACTION_SECRET`                     | Fly worker + Vercel API | **ต้องเป็นค่าเดียวกัน** — worker เซ็นปุ่มใน notification / ลิงก์เลิกรับ · API ตรวจ               |
-| `MAIL_DRIVER` (+ `RESEND_API_KEY`, `EMAIL_FROM`) | Fly worker + Vercel API | `log` ไม่ส่งจริง · `resend` ต้องยืนยันโดเมนแล้ว                                                  |
-| `REDIS_URL`                                      | Fly worker              | `redis://default:…@nosion-staging-redis.internal:6379` — Redis ของ worker แยกจาก Upstash ของ API |
-| `APP_URL`, `API_URL`                             | Fly worker              | ทั้งคู่ = โดเมนของ web (API อยู่หลัง proxy)                                                      |
+| ค่า                                              | อยู่ที่                 | หมายเหตุ                                                                                                                                      |
+| ------------------------------------------------ | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VAPID_PUBLIC_KEY`                               | Fly worker + Vercel API | API ส่งให้เบราว์เซอร์ subscribe · เปลี่ยนภายหลัง = ทุกเครื่องต้องเปิดการแจ้งเตือนใหม่                                                         |
+| `VAPID_PRIVATE_KEY`                              | Fly worker              |                                                                                                                                               |
+| `NOTIFICATION_ACTION_SECRET`                     | Fly worker + Vercel API | **ต้องเป็นค่าเดียวกัน** — worker เซ็นปุ่มใน notification / ลิงก์เลิกรับ · API ตรวจ                                                            |
+| `MAIL_DRIVER` (+ `RESEND_API_KEY`, `EMAIL_FROM`) | Fly worker + Vercel API | `log` ไม่ส่งจริง · `resend` ต้องยืนยันโดเมนแล้ว                                                                                               |
+| `SMTP_URL` (เมื่อ `MAIL_DRIVER=smtp`)            | Fly worker + Vercel API | `smtps://ชื่อ%40gmail.com:รหัสผ่านแอปไม่มีช่องว่าง@smtp.gmail.com:465` · ผิดรูปแบบ = API ยังขึ้นแต่ส่งอีเมลไม่ได้ (log บอกเหตุผล ปิดรหัสผ่าน) |
+| `REDIS_URL`                                      | Fly worker              | `redis://default:…@nosion-staging-redis.internal:6379` — Redis ของ worker แยกจาก Upstash ของ API                                              |
+| `APP_URL`, `API_URL`                             | Fly worker              | ทั้งคู่ = โดเมนของ web (API อยู่หลัง proxy)                                                                                                   |
 
 ตรวจสุขภาพ: `flyctl checks list -a nosion-staging-worker` (ready = DB + Redis ต่อติด) · `flyctl logs -a nosion-staging-worker`
 · metrics ดูใน Grafana ของ Fly (fly-metrics.net) · กฎ alert อยู่ที่ `ops/prometheus/alerts.yml`
@@ -213,6 +214,7 @@ NOSION_API_KEY=nos_… pnpm import:github             # นำเข้า (ร�
 | worker: log บอก "ไม่ได้ตั้ง VAPID"                                                 | ตั้ง secrets แบบ `--stage` แล้วยังไม่ deploy — `flyctl deploy` ใหม่                                                                                                                                                                         |
 | กด "จ่ายแล้ว" จาก notification แล้วขึ้น "ทำรายการไม่สำเร็จ"                        | `NOTIFICATION_ACTION_SECRET` บน Vercel API ไม่ตรงกับของ worker หรือยังไม่ redeploy API                                                                                                                                                      |
 | API ล่มทั้งตัว `FUNCTION_INVOCATION_FAILED` หลังเพิ่ม env                          | env ผิดรูปแบบ — API ตรวจ env ตอน boot แล้วไม่ยอมขึ้น · ดูชื่อตัวแปรด้วย `vercel logs -p nosion-staging-api --level error --json` (ข้อความ "ตัวแปรสภาพแวดล้อมไม่ถูกต้อง") · ครั้งแรกเจอ `MAIL_DRIVER = "v MAIL_DRIVER"` (วางตัวคำสั่งแทนค่า) |
+| อีเมลไม่ออก · log มี `SMTP_URL ใช้ไม่ได้: …`                                       | `SMTP_URL` ผิดรูปแบบ (เช่น วางรหัสผ่านแอปของ Gmail มาเปล่า ๆ) — ตั้งตามรูปแบบในตาราง env ด้านบนแล้ว redeploy · ก่อนแก้ (18 ต.ค. 2026) ค่าแบบนี้ทำ API ล่มทั้งตัวและรหัสผ่านหลุดลง log                                                       |
 | deploy ใหม่สำเร็จแต่โดเมนยังเป็นของเก่า                                            | เคย Instant Rollback — Vercel หยุดย้ายโดเมน production อัตโนมัติ · `vercel promote <deployment-url>` แล้วจะกลับมาย้ายเองตามปกติ                                                                                                             |
 | ตรวจค่า env ไม่ได้ (เห็นแค่ `[SENSITIVE]`)                                         | ตั้งเป็นแบบ Secret — ค่าที่ไม่ลับ (`VAPID_PUBLIC_KEY`, `VAPID_SUBJECT`, `MAIL_DRIVER`, URL) ให้ตั้งเป็น Config จะตรวจเทียบได้                                                                                                               |
 | ปุ่ม Redeploy บน Vercel กดไม่ได้ ("Prebuilt deployments cannot be redeployed")     | staging build บน GitHub Actions — สั่ง `gh workflow run "Deploy staging"` แทน                                                                                                                                                               |
