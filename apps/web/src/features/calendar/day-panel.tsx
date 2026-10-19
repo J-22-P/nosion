@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
 import { baht } from '@/features/expenses/format';
 import { openTaskDetail } from '@/features/tasks/task-detail-dialog';
-import { canMove, longDayLabel, timeOf, type WeekSnapshot } from './grid';
+import { canMove, dayRangeLabel, longDayLabel, timeOf, type WeekSnapshot } from './grid';
 import { MODULE_ICON } from './views';
 import { tr } from '@/i18n/current';
 import { moduleLabel } from '@/i18n/current';
@@ -157,7 +157,11 @@ function DayEvent({
             <span>{moduleLabel(event.module)}</span>
             <span aria-hidden="true">·</span>
             <span className="font-mono">
-              {event.allDay ? tr('calendar.allDay') : timeOf(event.start, timeZone)}
+              {event.endDate
+                ? dayRangeLabel(event.date, event.endDate)
+                : event.allDay
+                  ? tr('calendar.allDay')
+                  : timeOf(event.start, timeZone)}
             </span>
             {event.ruleId ? <span title={tr('dayPanel.recurring')}>↻</span> : null}
           </p>

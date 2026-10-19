@@ -149,6 +149,49 @@ describe('Calendar (/calendar)', () => {
     expect(res.body.countsByModule).toEqual({ task: 0, expense: 0 });
   });
 
+  it('งานที่มีวันเริ่ม: ขึ้นในทุกช่วงที่แถบทับ · เสร็จแล้วแถบยาวถึงวันที่ทำเสร็จจริง', async () => {
+    const carol = await registerAndLogin(app, 'carol-calendar');
+    const ranged = await api()
+      .post('/api/v1/entries')
+      .set(as(carol))
+      .send({
+        module: 'task',
+        title: 'สปรินต์',
+        occurredAt: bkk(20),
+        payload: { startDate: bkk(10) },
+      })
+      .expect(201);
+    // ช่วงที่อยู่กลางแถบ (ไม่มีทั้งวันเริ่มและวันกำหนดอยู่ในช่วง)
+    const middle = await calendar(carol, bkk(12), bkk(15)).expect(200);
+    expect(middle.body.events).toMatchObject([
+      { entryId: ranged.body.id, date: bkk(10), endDate: bkk(20) },
+    ]);
+    expect((await calendar(carol, bkk(0), bkk(5)).expect(200)).body.events).toEqual([]);
+
+    // กำหนดเมื่อวาน แต่ปิดวันนี้ → แถบถึงวันนี้ · ช่วงที่เริ่มวันนี้ยังเห็น (ดึงด้วย completedAt)
+    const late = await api()
+      .post('/api/v1/entries')
+      .set(as(carol))
+      .send({
+        module: 'task',
+        title: 'เสร็จช้า',
+        occurredAt: bkk(-1),
+        payload: { startDate: bkk(-5) },
+      })
+      .expect(201);
+    await api().post(`/api/v1/entries/${late.body.id}/complete`).set(as(carol)).expect(201);
+    const today = await calendar(carol, bkk(0), bkk(3)).expect(200);
+    expect(today.body.events).toMatchObject([
+      { entryId: late.body.id, date: bkk(-5), endDate: bkk(0), status: 'done' },
+    ]);
+
+    await api()
+      .post('/api/v1/entries')
+      .set(as(carol))
+      .send({ module: 'task', title: 'x', payload: { startDate: '10/10/2026' } })
+      .expect(422);
+  });
+
   it('ช่วงผิด → 422 (to ก่อน from · เกิน 93 วัน · ไม่ใช่วันที่)', async () => {
     await calendar(alice, bkk(5), bkk(1)).expect(422);
     await calendar(alice, bkk(0), bkk(93)).expect(422);

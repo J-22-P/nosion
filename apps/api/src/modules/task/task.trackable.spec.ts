@@ -61,6 +61,25 @@ describe('TaskTrackableModule', () => {
       const event = module.toCalendarEvent(entry());
       expect(event).toMatchObject({ module: 'task', color: '#6366f1', allDay: true });
     });
+
+    it('มีวันเริ่ม → แถบจากวันเริ่มถึงวันกำหนด · เสร็จแล้ว → ถึงวันที่ทำเสร็จจริง', () => {
+      const payload = { ...entry().payload, startDate: '2026-09-10' };
+      expect(module.toCalendarEvent(entry({ payload }))).toMatchObject({
+        firstDay: '2026-09-10',
+        start: new Date('2026-09-18T03:00:00Z'),
+      });
+      const completedAt = new Date('2026-09-22T09:00:00Z');
+      expect(module.toCalendarEvent(entry({ payload, status: 'done', completedAt }))).toMatchObject(
+        { firstDay: '2026-09-10', start: completedAt },
+      );
+    });
+
+    it('งานจากกฎการเกิดซ้ำไม่ใช้วันเริ่ม (payload ชุดเดียวกันทุกรอบ)', () => {
+      const payload = { ...entry().payload, startDate: '2026-09-10' };
+      expect(
+        module.toCalendarEvent(entry({ payload, recurrenceRuleId: 'r1' }))?.firstDay,
+      ).toBeNull();
+    });
   });
 
   describe('summarizeToday', () => {

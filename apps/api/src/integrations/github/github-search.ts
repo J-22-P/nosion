@@ -113,12 +113,7 @@ function addDays(ymd: string, days: number): string {
  *  4. ช่องวันที่อื่น ๆ ตัวแรก
  */
 export function projectDueDate(node: Pick<SearchNode, 'projectItems'>): string | null {
-  const values = (node.projectItems?.nodes ?? [])
-    .flatMap((item) => item?.fieldValues.nodes ?? [])
-    .filter((v): v is FieldValue => Boolean(v));
-  const dates = values.filter((v) => v.date);
-  const named = (re: RegExp) => dates.find((v) => re.test(v.field?.name ?? ''))?.date ?? null;
-  const iteration = values.find((v) => v.startDate && v.duration);
+  const { dates, named, iteration } = projectFields(node);
   return (
     (
       named(DUE_NAME) ??
@@ -128,6 +123,27 @@ export function projectDueDate(node: Pick<SearchNode, 'projectItems'>): string |
       null
     )?.slice(0, 10) ?? null
   );
+}
+
+/**
+ * วันเริ่มจากช่องของ GitHub Project — ช่องที่ชื่อสื่อว่า "เริ่ม" (Start Date) ก่อน แล้วค่อยวันแรกของ iteration (Sprint)
+ * ไม่ได้อยู่ก่อนวันกำหนด (เช่น มีแต่ Start Date จึงถูกใช้เป็นวันกำหนดเอง) = null (งานวันเดียว)
+ */
+export function projectStartDate(node: Pick<SearchNode, 'projectItems'>): string | null {
+  const { named, iteration } = projectFields(node);
+  const start = (named(START_NAME) ?? iteration?.startDate ?? null)?.slice(0, 10) ?? null;
+  const due = projectDueDate(node);
+  return start && due && start < due ? start : null;
+}
+
+function projectFields(node: Pick<SearchNode, 'projectItems'>) {
+  const values = (node.projectItems?.nodes ?? [])
+    .flatMap((item) => item?.fieldValues.nodes ?? [])
+    .filter((v): v is FieldValue => Boolean(v));
+  const dates = values.filter((v) => v.date);
+  const named = (re: RegExp) => dates.find((v) => re.test(v.field?.name ?? ''))?.date ?? null;
+  const iteration = values.find((v) => v.startDate && v.duration);
+  return { dates, named, iteration };
 }
 
 /** ผลของ GraphQL → รูป REST ที่ planIssue ใช้ (node_id ของ GraphQL คือ node_id ตัวเดียวกับ REST/webhook) */
@@ -148,6 +164,7 @@ export function toIssue(node: SearchNode): GitHubIssue | null {
     assignees: (node.assignees?.nodes ?? []).filter((a): a is { login: string } => Boolean(a)),
     closed_at: node.closedAt ?? null,
     project_due_on: projectDueDate(node),
+    project_start_on: projectStartDate(node),
   };
 }
 

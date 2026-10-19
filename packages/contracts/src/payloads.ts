@@ -32,12 +32,23 @@ export const taskPayloadSchema = z.object({
        * ใช้ตัดสินว่า "วันเปลี่ยนบน GitHub" เหมือน milestoneDueOn (งานที่ซิงก์ก่อนมีช่องนี้ใช้ milestoneDueOn แทน)
        */
       dueOn: z.string().max(40).nullable().default(null),
+      /** วันเริ่มจาก GitHub ที่ซิงก์ครั้งล่าสุด (YYYY-MM-DD) — ช่อง Start Date / วันแรกของ Sprint · ใช้ตัดสินแบบเดียวกับ dueOn */
+      startOn: z.string().max(40).nullable().default(null),
       /** สถานะบน GitHub ที่ซิงก์ครั้งล่าสุด — ปิด/เปิดงานตาม "การเปลี่ยน" บน GitHub ไม่ทับที่ผู้ใช้ติ๊กเอง */
       state: z.enum(['open', 'closed']).nullable().default(null),
     })
     .nullable()
     .default(null),
   branchName: z.string().max(120).nullable().default(null),
+  /**
+   * วันเริ่ม (YYYY-MM-DD) — มีวันเริ่ม + วันกำหนด (occurredAt) = ปฏิทินแสดงเป็นแถบยาวตั้งแต่วันเริ่มถึงวันกำหนด
+   * (งานที่เสร็จแล้ว: ถึงวันที่ทำเสร็จจริง) · วันกำหนดยังเป็นตัวหลักของ Today / การเตือน / เลยกำหนด
+   */
+  startDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'วันเริ่มต้องเป็น YYYY-MM-DD')
+    .nullable()
+    .default(null),
   /** จำนวนครั้งที่ถูกเลื่อน — ใช้ทำสถิติ "งานที่ผัดบ่อยที่สุด" */
   deferCount: z.number().int().nonnegative().default(0),
 });

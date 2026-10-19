@@ -24,6 +24,7 @@ function fake(key: ModuleKey, withActions = true): TrackableModule<unknown> {
             start: e.occurredAt,
             end: null,
             allDay: e.isAllDay,
+            firstDay: (e.payload as { firstDay?: string }).firstDay ?? null,
             color: '#111',
             status: e.status,
           }
@@ -90,6 +91,40 @@ describe('buildCalendar', () => {
       TZ,
     );
     expect(events[0]?.date).toBe('2026-10-21');
+  });
+
+  it('หลายวัน: date = วันแรก · endDate = วันของ start · วันแรกไม่ก่อนวันสุดท้าย = วันเดียว', () => {
+    const { events } = buildCalendar(
+      [
+        source({ module: 'task', payload: { firstDay: '2026-10-14' } }),
+        source({ module: 'task', payload: { firstDay: '2026-10-25' } }),
+      ],
+      modules,
+      TZ,
+    );
+    expect(events.map((e) => [e.date, e.endDate])).toEqual([
+      ['2026-10-14', '2026-10-20'],
+      ['2026-10-20', null],
+    ]);
+  });
+
+  it('range: ตัดรายการที่ไม่ทับช่วงทิ้ง (ไม่นับใน countsByModule) · แถบที่เริ่มก่อนช่วงยังอยู่', () => {
+    const { events, countsByModule } = buildCalendar(
+      [
+        source({ module: 'task', title: 'คร่อมต้นช่วง', payload: { firstDay: '2026-10-10' } }),
+        source({
+          module: 'task',
+          title: 'จบก่อนช่วง',
+          occurredAt: new Date('2026-10-12T03:00:00Z'),
+        }),
+      ],
+      modules,
+      TZ,
+      undefined,
+      { from: '2026-10-19', to: '2026-10-25' },
+    );
+    expect(events.map((e) => e.title)).toEqual(['คร่อมต้นช่วง']);
+    expect(countsByModule.task).toBe(1);
   });
 
   it('เรียงตามวัน → ทั้งวันก่อน → เวลาเริ่ม', () => {

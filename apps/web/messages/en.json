@@ -1250,7 +1250,11 @@
     "descriptionMode": "Details view",
     "preview": "Preview",
     "write": "Write",
-    "noDescription": "No details yet — switch to Write to add some"
+    "noDescription": "No details yet — switch to Write to add some",
+    "start": "Start date",
+    "startHint": "Shows as a bar on the calendar until the due date",
+    "startNeedsDue": "Add a due date too",
+    "startAfterDue": "Start date can't be after the due date"
   },
   "markdown": {
     "imageGitHub": "Open image on GitHub",

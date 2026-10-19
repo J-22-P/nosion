@@ -8,6 +8,7 @@ import type { CalendarEventDto } from '@nosion/contracts';
  *  - บรรทัดต้องจบด้วย CRLF และยาวไม่เกิน 75 **octet** — ไทยหนึ่งตัว = 3 byte ใน UTF-8 จึงตัดตามจำนวนตัวอักษรไม่ได้
  *  - ข้อความต้อง escape `\` `;` `,` และขึ้นบรรทัดใหม่
  *  - รายการทั้งวันใช้ `VALUE=DATE` (ไม่มีโซนเวลา) และ DTEND เป็น **วันถัดไป** (exclusive)
+ *    ของวันสุดท้าย (รายการหลายวันใช้ endDate)
  */
 
 export interface IcalOptions {
@@ -86,10 +87,11 @@ export function buildIcal(events: CalendarEventDto[], options: IcalOptions): str
 
   for (const event of events) {
     lines.push('BEGIN:VEVENT', `UID:${eventUid(event)}`, `DTSTAMP:${stamp}`);
-    if (event.allDay) {
+    // หลายวัน (งานที่มีวันเริ่ม) ส่งเป็นช่วงทั้งวันเสมอ — Google/Apple แสดงเป็นแถบยาวเหมือนในแอป
+    if (event.allDay || event.endDate) {
       lines.push(
         `DTSTART;VALUE=DATE:${dateValue(event.date)}`,
-        `DTEND;VALUE=DATE:${dateValue(nextDay(event.date))}`,
+        `DTEND;VALUE=DATE:${dateValue(nextDay(event.endDate ?? event.date))}`,
       );
     } else {
       lines.push(`DTSTART:${utcStamp(new Date(event.start))}`);

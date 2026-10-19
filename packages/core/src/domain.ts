@@ -55,6 +55,11 @@ export interface CalendarEvent {
   start: Date;
   end: Date | null;
   allDay: boolean;
+  /**
+   * วันแรก (YYYY-MM-DD) ของรายการหลายวัน — แสดงเป็นแถบตั้งแต่วันนี้ถึงวันของ `start` (ตามโซนผู้ใช้)
+   * ไม่มี / ไม่ก่อนวันของ `start` = รายการวันเดียว
+   */
+  firstDay?: string | null;
   color: string;
   status: EntryStatus;
   meta?: Record<string, unknown>;

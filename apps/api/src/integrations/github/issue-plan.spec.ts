@@ -54,6 +54,15 @@ describe('taskFieldsFor', () => {
     expect(f.github).toMatchObject({ dueOn: '2026-10-16', milestoneDueOn: '2026-10-20T07:00:00Z' });
   });
 
+  it('Start Date ของ Project → วันเริ่ม (คู่กับวันกำหนดจาก Project เท่านั้น)', () => {
+    const f = taskFieldsFor(
+      issue({ project_due_on: '2026-10-16', project_start_on: '2026-10-12' }),
+    );
+    expect(f.startDate).toBe('2026-10-12');
+    expect(f.github.startOn).toBe('2026-10-12');
+    expect(taskFieldsFor(issue({ project_start_on: '2026-10-12' })).startDate).toBeNull();
+  });
+
   it('issue ปิดแล้วไม่มีวันกำหนด → ลงปฏิทินวันที่ปิดตามโซนผู้ใช้ · เปิดอยู่ไม่มีวัน → ไม่มีกำหนด', () => {
     // 18:30Z วันที่ 30 = 01:30 วันที่ 1 ตุลาคม เวลาไทย
     const closed = issue({ state: 'closed', milestone: null, closed_at: '2026-09-30T18:30:00Z' });
@@ -119,6 +128,19 @@ describe('planIssue', () => {
       patch: { occurredAt: '2026-10-23' },
       github: { dueOn: '2026-10-23' },
     });
+  });
+
+  it('วันเริ่มบน GitHub เปลี่ยน → เขียนทับวันเริ่ม · ไม่เปลี่ยน → ไม่แตะ · ลบบน GitHub → ไม่ลบของผู้ใช้', () => {
+    const ranged = issue({ project_due_on: '2026-10-16', project_start_on: '2026-10-12' });
+    const existing = synced({ github: { ...taskFieldsFor(ranged).github } });
+    expect(planIssue(ranged, existing)).toEqual({ kind: 'skip', reason: 'unchanged' });
+
+    const moved = planIssue({ ...ranged, project_start_on: '2026-10-09' }, existing);
+    expect(moved).toMatchObject({ kind: 'update', startDate: '2026-10-09' });
+
+    const removed = planIssue({ ...ranged, project_start_on: null }, existing);
+    expect(removed.kind).toBe('update');
+    expect(removed).not.toHaveProperty('startDate');
   });
 
   it('งานที่ซิงก์ก่อนมีช่อง dueOn (มีแค่ milestoneDueOn) → ไม่ถือว่าวันเปลี่ยน', () => {
