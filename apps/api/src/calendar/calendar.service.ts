@@ -2,7 +2,7 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import type { CalendarDto, CalendarFeedDto, CalendarQuery } from '@nosion/contracts';
 import { formatInTimeZone, resolveDateInput } from '@nosion/core';
 import { randomBytes } from 'node:crypto';
-import { EntryStatus } from '@prisma/client';
+import { EntryStatus, Prisma } from '@prisma/client';
 import { ModuleRegistryService } from '../core/registry/module-registry.service';
 import { toDomain } from '../entries/entry.mapper';
 import { APP_CONFIG, type AppConfig } from '../infra/config/env';
@@ -51,7 +51,18 @@ export class CalendarService {
           deletedAt: null,
           module: { in: modules.map((m) => m.key) },
           status: { not: EntryStatus.cancelled },
-          occurredAt: { gte: start, lt: end },
+          OR: [
+            { occurredAt: { gte: start, lt: end } },
+            // แถบหลายวัน (payload.startDate) ที่เริ่มก่อน/ในช่วง แต่วันกำหนด/วันที่เสร็จอยู่หลังต้นช่วง
+            // — ดึงเกินได้ (buildCalendar ตัดที่ไม่ทับช่วงทิ้ง) แต่ห้ามขาด
+            {
+              AND: [
+                { payload: { path: ['startDate'], not: Prisma.AnyNull } },
+                { payload: { path: ['startDate'], lte: query.to } },
+                { OR: [{ occurredAt: { gte: start } }, { completedAt: { gte: start } }] },
+              ],
+            },
+          ],
         },
         include: { reminders: { select: { fireAt: true, channel: true, status: true } } },
         orderBy: [{ occurredAt: 'asc' }, { sortOrder: 'asc' }],
@@ -67,7 +78,10 @@ export class CalendarService {
       from: query.from,
       to: query.to,
       timezone: ctx.timezone,
-      ...buildCalendar(sources, modules, ctx.timezone, query.module),
+      ...buildCalendar(sources, modules, ctx.timezone, query.module, {
+        from: query.from,
+        to: query.to,
+      }),
     };
   }
 

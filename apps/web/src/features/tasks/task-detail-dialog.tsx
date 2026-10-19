@@ -6,10 +6,11 @@ import { CircleDot, ExternalLink, GitPullRequest, Undo2, X } from 'lucide-react'
 import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { cn } from '@nosion/ui';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Input, Label, Select } from '@/components/ui/input';
+import { FieldError, Input, Label, Select } from '@/components/ui/input';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSession } from '@/features/auth/use-session';
@@ -122,9 +123,14 @@ function DetailForm({ entry, onClose }: { entry: EntryDto; onClose: () => void }
   const queryClient = useQueryClient();
 
   const initialDate = dateInZone(entry.occurredAt, timeZone);
+  const payload = taskPayloadSchema.safeParse(entry.payload ?? {});
+  const initialStart = (payload.success ? payload.data.startDate : null) ?? '';
+  // งานจากกฎการเกิดซ้ำไม่มีวันเริ่ม (ทุกรอบได้ payload ชุดเดียวกัน)
+  const canHaveStart = entry.recurrenceRuleId === null;
   const [title, setTitle] = useState(entry.title);
   const [description, setDescription] = useState(entry.description ?? '');
   const [date, setDate] = useState(initialDate);
+  const [start, setStart] = useState(initialStart);
   const [priority, setPriority] = useState<Priority>(entry.priority);
   // มีรายละเอียดอยู่แล้ว → เปิดมาเป็นหน้าแสดงผล (แบบ GitHub) · ยังว่าง → เปิดช่องเขียนเลย
   const [descriptionMode, setDescriptionMode] = useState<DescriptionMode>(
@@ -146,7 +152,16 @@ function DetailForm({ entry, onClose }: { entry: EntryDto; onClose: () => void }
     title.trim() !== entry.title ||
     description !== (entry.description ?? '') ||
     date !== initialDate ||
+    start !== initialStart ||
     priority !== entry.priority;
+  // วันเริ่มต้องมีวันครบกำหนดคู่ และไม่หลังวันครบกำหนด (แถบในปฏิทินคือ วันเริ่ม → วันครบกำหนด)
+  const startError = !start
+    ? null
+    : !date
+      ? t('startNeedsDue')
+      : start > date
+        ? t('startAfterDue')
+        : null;
 
   const refresh = (updated: EntryDto) => {
     queryClient.setQueryData(taskDetailKey(entry.id), updated);
@@ -164,6 +179,8 @@ function DetailForm({ entry, onClose }: { entry: EntryDto; onClose: () => void }
         ...(priority !== entry.priority ? { priority } : {}),
         // วันที่ล้วน = ทั้งวัน · ล้างวันที่ = ไม่มีกำหนด (งานที่มีเวลาอยู่แล้วเปลี่ยนแค่วัน → ใช้ทั้งวันแทน)
         ...(date !== initialDate ? { occurredAt: date || null, isAllDay: true } : {}),
+        // payload รวมกับของเดิมที่ API (แก้เฉพาะวันเริ่ม ไม่แตะ checklist / github)
+        ...(start !== initialStart ? { payload: { startDate: start || null } } : {}),
       }),
     onSuccess: (updated) => {
       refresh(updated);
@@ -194,7 +211,6 @@ function DetailForm({ entry, onClose }: { entry: EntryDto; onClose: () => void }
       }),
   });
 
-  const payload = taskPayloadSchema.safeParse(entry.payload ?? {});
   const github = payload.success ? payload.data.github : undefined;
   const projectName = entry.projectId
     ? projects.data?.find((p) => p.id === entry.projectId)?.name
@@ -208,7 +224,7 @@ function DetailForm({ entry, onClose }: { entry: EntryDto; onClose: () => void }
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        if (dirty && title.trim()) save.mutate();
+        if (dirty && title.trim() && !startError) save.mutate();
       }}
       className="space-y-4 p-5 text-sm"
     >
@@ -294,7 +310,31 @@ function DetailForm({ entry, onClose }: { entry: EntryDto; onClose: () => void }
         )}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className={cn('grid gap-4', canHaveStart ? 'sm:grid-cols-3' : 'sm:grid-cols-2')}>
+        {canHaveStart ? (
+          <div>
+            <Label htmlFor="task-detail-start">{t('start')}</Label>
+            <Input
+              id="task-detail-start"
+              type="date"
+              value={start}
+              max={date || undefined}
+              onChange={(e) => setStart(e.target.value)}
+              aria-invalid={startError !== null}
+              aria-describedby={startError ? 'task-detail-start-error' : 'task-detail-start-hint'}
+              className="font-mono"
+            />
+            {startError ? (
+              <div id="task-detail-start-error">
+                <FieldError>{startError}</FieldError>
+              </div>
+            ) : (
+              <p id="task-detail-start-hint" className="mt-1 text-xs text-fg-secondary">
+                {t('startHint')}
+              </p>
+            )}
+          </div>
+        ) : null}
         <div>
           <Label htmlFor="task-detail-due">{t('due')}</Label>
           <Input
@@ -353,7 +393,10 @@ function DetailForm({ entry, onClose }: { entry: EntryDto; onClose: () => void }
         <Button type="button" variant="ghost" onClick={onClose}>
           {t('cancel')}
         </Button>
-        <Button type="submit" disabled={!dirty || !title.trim() || save.isPending}>
+        <Button
+          type="submit"
+          disabled={!dirty || !title.trim() || startError !== null || save.isPending}
+        >
           {t('save')}
         </Button>
       </div>

@@ -53,8 +53,13 @@ export interface CalendarEventDto {
   start: string;
   end: string | null;
   allDay: boolean;
-  /** 'YYYY-MM-DD' ตามโซนผู้ใช้ — cell ของ grid ไม่ต้องแปลงเวลาเอง */
+  /** 'YYYY-MM-DD' ตามโซนผู้ใช้ — cell ของ grid ไม่ต้องแปลงเวลาเอง · รายการหลายวัน = วันแรก */
   date: string;
+  /**
+   * วันสุดท้าย (รวมวันนั้น) ของรายการหลายวัน เช่น งานที่มีวันเริ่ม — แสดงเป็นแถบตั้งแต่ `date` ถึงวันนี้
+   * null = รายการวันเดียว
+   */
+  endDate: string | null;
   status: EntryStatus;
   color: string;
   projected: boolean;

@@ -254,11 +254,17 @@ export function CalendarView() {
                       anchor={selected}
                       reminderDays={reminderDays}
                       tall={expanded}
+                      events={events}
                       onMove={moveById}
                       {...gridProps}
                     />
                   ) : state.view === 'week' ? (
-                    <WeekGrid days={calendar.range.days} onMove={moveById} {...gridProps} />
+                    <WeekGrid
+                      days={calendar.range.days}
+                      events={events}
+                      onMove={moveById}
+                      {...gridProps}
+                    />
                   ) : (
                     <AgendaList
                       days={calendar.range.days.filter(

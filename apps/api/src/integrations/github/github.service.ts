@@ -224,7 +224,7 @@ export class GitHubService {
         description: plan.fields.description,
         occurredAt: plan.fields.occurredAt,
         isAllDay: true,
-        payload: { github: plan.fields.github },
+        payload: { github: plan.fields.github, startDate: plan.fields.startDate },
         projectId: await this.githubProjectId(userId),
         clientId: issueClientId(issue),
       });
@@ -233,7 +233,10 @@ export class GitHubService {
       await this.entries.update(userId, plan.id, {
         version: plan.version,
         ...plan.patch,
-        payload: { github: plan.github },
+        payload: {
+          github: plan.github,
+          ...(plan.startDate !== undefined ? { startDate: plan.startDate } : {}),
+        },
       });
       if (plan.completes) await this.completeAt(userId, plan.id, plan.completedAt);
     }

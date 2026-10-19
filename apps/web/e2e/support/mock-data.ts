@@ -517,12 +517,14 @@ export const SUMMARY: ExpenseSummaryDto = {
 };
 
 // ── ปฏิทิน (สเปก 8.11.4) — "วันนี้" = พุธ 30 ก.ย. · งานหลายรายการในวันเดียวให้เห็น "+N" · บิลมีการเตือน · รอบ projected 1 รายการ
-type CalEvent = Omit<CalendarEventDto, 'color' | 'end' | 'meta' | 'version'> & {
+type CalEvent = Omit<CalendarEventDto, 'color' | 'end' | 'endDate' | 'meta' | 'version'> & {
+  endDate?: string | null;
   meta?: Record<string, unknown>;
 };
 const calEvent = (e: CalEvent): CalendarEventDto => ({
   color: '#000',
   end: null,
+  endDate: null,
   version: e.projected ? null : 3,
   ...e,
   meta: e.meta ?? {},
@@ -532,6 +534,22 @@ const PAY = [{ kind: 'complete' as const, label: 'จ่ายแล้ว', pre
 const calBill = (amountMinor: number) => ({ amountMinor, currency: 'THB', badge: 'ครบกำหนด' });
 
 const CALENDAR_EVENTS: CalendarEventDto[] = [
+  // งานหลายวัน (มีวันเริ่ม) — แถบยาวข้ามวันใน month/week
+  calEvent({
+    id: 'c0',
+    entryId: 't_c0',
+    ruleId: null,
+    module: 'task',
+    title: 'ระบบแจ้งเตือน v2',
+    start: '2026-10-07T17:00:00.000Z',
+    allDay: true,
+    date: '2026-10-06',
+    endDate: '2026-10-08',
+    status: 'pending',
+    projected: false,
+    hasReminder: false,
+    actions: TICK,
+  }),
   calEvent({
     id: 'c1',
     entryId: 't_c1',
@@ -680,7 +698,7 @@ const CALENDAR_EVENTS: CalendarEventDto[] = [
 
 /** GET /calendar — กรองตามช่วงที่ขอ เหมือน API จริง */
 export function calendarFor(from: string, to: string): CalendarDto {
-  const events = CALENDAR_EVENTS.filter((e) => e.date >= from && e.date <= to);
+  const events = CALENDAR_EVENTS.filter((e) => e.date <= to && (e.endDate ?? e.date) >= from);
   return {
     from,
     to,

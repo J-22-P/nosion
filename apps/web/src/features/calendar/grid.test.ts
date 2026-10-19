@@ -2,7 +2,9 @@ import type { CalendarEventDto } from '@nosion/contracts';
 import { describe, expect, it } from 'vitest';
 import {
   canMove,
+  groupByDate,
   isoWeek,
+  layoutWeek,
   longDayLabel,
   monthGridDays,
   monthTitle,
@@ -26,6 +28,7 @@ const event = (over: Partial<CalendarEventDto>): CalendarEventDto => ({
   end: null,
   allDay: false,
   date: '2026-10-20',
+  endDate: null,
   status: 'pending',
   color: '#000',
   projected: false,
@@ -124,10 +127,14 @@ describe('grid', () => {
     ).toEqual({
       occurredAt: '2026-10-22',
       start: '2026-10-21T17:00:00.000Z',
+      date: '2026-10-22',
+      endDate: null,
     });
     expect(moveTarget(event({}), '2026-10-23', 'Asia/Bangkok')).toEqual({
       occurredAt: '2026-10-23T03:00:00.000Z',
       start: '2026-10-23T03:00:00.000Z',
+      date: '2026-10-23',
+      endDate: null,
     });
     // 09:00 New York ก่อน DST สิ้นสุด (EDT, UTC−4) → หลัง (EST, UTC−5) ยังเป็น 09:00
     const ny = event({ start: '2026-10-30T13:00:00.000Z', date: '2026-10-30' });
@@ -135,6 +142,45 @@ describe('grid', () => {
       '2026-11-02T14:00:00.000Z',
     );
     expect(moveTarget(event({}), '2026-10-20', 'Asia/Bangkok')).toBeNull();
+  });
+
+  it('ย้ายแถบหลายวัน: วันเริ่มไปวันที่วาง · วันกำหนดเลื่อนเท่ากัน (ความยาวคงเดิม)', () => {
+    const ranged = event({
+      allDay: true,
+      date: '2026-10-12',
+      endDate: '2026-10-16',
+      start: '2026-10-15T17:00:00.000Z',
+    });
+    expect(moveTarget(ranged, '2026-10-19', 'Asia/Bangkok')).toEqual({
+      occurredAt: '2026-10-23',
+      start: '2026-10-22T17:00:00.000Z',
+      startDate: '2026-10-19',
+      date: '2026-10-19',
+      endDate: '2026-10-23',
+    });
+  });
+
+  it('รายการหลายวันอยู่ในทุกวันที่แถบผ่าน', () => {
+    const byDate = groupByDate([event({ date: '2026-10-19', endDate: '2026-10-21' })]);
+    expect([...byDate.keys()]).toEqual(['2026-10-19', '2026-10-20', '2026-10-21']);
+  });
+
+  it('จัดแถบลงแถวย่อย: ข้ามสัปดาห์ถูกตัด · ทับวันกันอยู่คนละแถว · ว่างแล้วใช้แถวเดิมซ้ำ', () => {
+    const week = weekDays('2026-10-19', 1); // จ. 19 – อา. 25
+    const segments = layoutWeek(
+      [
+        event({ id: 'long', date: '2026-10-14', endDate: '2026-10-21' }),
+        event({ id: 'mid', date: '2026-10-20', endDate: '2026-10-23' }),
+        event({ id: 'one', date: '2026-10-22' }),
+        event({ id: 'next', date: '2026-10-24', endDate: '2026-10-28' }),
+      ],
+      week,
+    );
+    const byId = Object.fromEntries(segments.map((s) => [s.event.id, s]));
+    expect(byId.long).toMatchObject({ column: 0, span: 3, lane: 0, continuesBefore: true });
+    expect(byId.mid).toMatchObject({ column: 1, span: 4, lane: 1 });
+    expect(byId.one).toMatchObject({ column: 3, span: 1, lane: 0 });
+    expect(byId.next).toMatchObject({ column: 5, span: 2, lane: 0, continuesAfter: true });
   });
 
   it('ย้ายได้เฉพาะ entry จริงที่ยังไม่เสร็จ', () => {
