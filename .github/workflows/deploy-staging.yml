@@ -8,6 +8,11 @@ on:
     types: [completed]
     branches: [main]
   workflow_dispatch:
+    inputs:
+      lighthouse:
+        description: 'วัด Lighthouse หลัง deploy (~7 นาทีของ Actions)'
+        type: boolean
+        default: false
 
 concurrency:
   group: deploy-staging
@@ -128,8 +133,10 @@ jobs:
 
   # Lighthouse ทุกหน้าหลักบน staging จริง (สเปก Phase 8: ≥ 90 ทุกหมวด) — มือถือ (จำลองเน็ต/CPU ช้า) + desktop
   # ใช้ demo login 1 ครั้งต่อ form factor (จำกัด 5 ครั้ง/ชม./IP — runner คนละ IP กับผู้ใช้)
+  # ~7 นาทีต่อรอบ → ไม่รันทุก deploy (นาทีของ Actions มีจำกัด) · วัดเมื่อกดเองจากแท็บ Actions แล้วติ๊ก lighthouse
   lighthouse:
     needs: smoke
+    if: github.event_name == 'workflow_dispatch' && inputs.lighthouse
     runs-on: ubuntu-24.04
     environment: staging
     steps:
