@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Delete,
   Get,
@@ -9,20 +10,24 @@ import {
   NotFoundException,
   Param,
   Post,
+  Put,
   Req,
   UnauthorizedException,
   UseGuards,
   type RawBodyRequest,
 } from '@nestjs/common';
 import { ApiExcludeController, ApiTags } from '@nestjs/swagger';
-import type {
-  GitHubIntegrationDto,
-  GitHubSyncResultDto,
-  GitHubWebhookSecretDto,
+import {
+  githubPersonalTokenSchema,
+  type GitHubIntegrationDto,
+  type GitHubPersonalTokenInput,
+  type GitHubSyncResultDto,
+  type GitHubWebhookSecretDto,
 } from '@nosion/contracts';
 import type { Request } from 'express';
 import { RateLimitGuard } from '../../auth/guards/rate-limit.guard';
 import { CurrentUser, Public, RateLimit } from '../../common/decorators';
+import { zodBody } from '../../common/zod-validation.pipe';
 import { APP_CONFIG, type AppConfig } from '../../infra/config/env';
 import { matches } from '../../recurrence/recurrence-cron.controller';
 import { GitHubService } from './github.service';
@@ -45,6 +50,22 @@ export class GitHubController {
   @RateLimit({ limit: 10, windowSeconds: 600, by: 'user' })
   sync(@CurrentUser('userId') userId: string): Promise<GitHubSyncResultDto> {
     return this.github.sync(userId);
+  }
+
+  /** ใส่/เปลี่ยน personal access token — ใช้ดึงแทน token ของ OAuth (ตรวจกับ GitHub ก่อนเก็บ) */
+  @Put('token')
+  @RateLimit({ limit: 10, windowSeconds: 3600, by: 'user' })
+  setToken(
+    @CurrentUser('userId') userId: string,
+    @Body(zodBody(githubPersonalTokenSchema)) dto: GitHubPersonalTokenInput,
+  ): Promise<GitHubIntegrationDto> {
+    return this.github.setPersonalToken(userId, dto);
+  }
+
+  @Delete('token')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async removeToken(@CurrentUser('userId') userId: string): Promise<void> {
+    await this.github.removePersonalToken(userId);
   }
 
   /** สร้าง/หมุน secret ของ webhook — แสดงครั้งเดียว */

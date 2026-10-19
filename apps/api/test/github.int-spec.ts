@@ -33,6 +33,13 @@ interface FakeIssue {
 let issues: FakeIssue[] = [];
 let lastSearch: { q: string; after: string | null; query: string } | null = null;
 let githubStatus = 200;
+/** token ที่ GraphQL ยอมรับ — OAuth (`gho_fake`) หรือ personal token ที่ผู้ใช้ใส่เอง */
+let expectedTokens = ['gho_fake'];
+/** personal token ที่ GitHub (GET /user) ยอมรับ → login + header X-OAuth-Scopes */
+const PERSONAL_TOKENS: Record<string, { login: string; scopes: string | null }> = {
+  ghp_yumyumClassicToken000000000000: { login: 'yumyum', scopes: 'repo, read:project' },
+  github_pat_yumyumFineGrained0000000000: { login: 'yumyum', scopes: null },
+};
 
 /** issue (รูป REST) → node ของ GraphQL search */
 function toNode(i: FakeIssue) {
@@ -134,8 +141,23 @@ describe('GitHub integration (Phase 8 ขั้น 5)', () => {
       init?: RequestInit,
     ) => {
       const url = new URL(String(input instanceof Request ? input.url : input));
+      if (url.href === 'https://api.github.com/user') {
+        const bearer = new Headers(init?.headers).get('authorization')?.replace('Bearer ', '');
+        const owner = bearer ? PERSONAL_TOKENS[bearer] : undefined;
+        if (!owner) {
+          return Promise.resolve(new Response('{"message":"Bad credentials"}', { status: 401 }));
+        }
+        return Promise.resolve(
+          new Response(JSON.stringify({ login: owner.login }), {
+            status: 200,
+            headers: owner.scopes === null ? {} : { 'X-OAuth-Scopes': owner.scopes },
+          }),
+        );
+      }
       if (url.href === 'https://api.github.com/graphql') {
-        expect(new Headers(init?.headers).get('authorization')).toBe('Bearer gho_fake');
+        expect(expectedTokens.map((t) => `Bearer ${t}`)).toContain(
+          new Headers(init?.headers).get('authorization'),
+        );
         if (githubStatus !== 200) {
           return Promise.resolve(
             new Response(JSON.stringify({ message: 'Resource protected by organization SAML' }), {
@@ -443,5 +465,80 @@ describe('GitHub integration (Phase 8 ขั้น 5)', () => {
       .set('Authorization', `Bearer ${other}`)
       .expect(409);
     expect(res.body.detail).toContain('ยังไม่ได้เชื่อม GitHub');
+  });
+
+  describe('personal access token (org จำกัด OAuth app)', () => {
+    const classic = 'ghp_yumyumClassicToken000000000000';
+    const fineGrained = 'github_pat_yumyumFineGrained0000000000';
+
+    afterEach(() => {
+      expectedTokens = ['gho_fake'];
+    });
+
+    it('รูปแบบผิด → 422 · GitHub ไม่รับ token → 422 · ไม่เก็บอะไร', async () => {
+      await auth(api().put('/api/v1/integrations/github/token')).send({ token: 'abc' }).expect(422);
+      const res = await auth(api().put('/api/v1/integrations/github/token'))
+        .send({ token: 'ghp_revokedToken0000000000000000' })
+        .expect(422);
+      expect(res.body.detail).toContain('GitHub ไม่รับ token นี้');
+      const status = await auth(api().get('/api/v1/integrations/github')).expect(200);
+      expect(status.body).toMatchObject({ tokenSource: 'oauth', login: 'octocat' });
+    });
+
+    it('ใส่ token → ใช้แทน OAuth · ค้นด้วย login ของเจ้าของ token · ดึงใหม่ทั้งหมด · เอาออก → กลับไปใช้ OAuth', async () => {
+      const saved = await auth(api().put('/api/v1/integrations/github/token'))
+        .send({ token: ` ${classic} ` })
+        .expect(200);
+      expect(saved.body).toMatchObject({
+        connected: true,
+        tokenSource: 'personal',
+        login: 'yumyum',
+        privateRepos: true,
+        projectDates: true,
+        lastSyncAt: null,
+      });
+      const row = await prisma.gitHubIntegration.findUniqueOrThrow({ where: { userId } });
+      expect(row.personalTokenEnc).not.toContain(classic);
+
+      expectedTokens = [classic];
+      issues = [fakeIssue(30, { assignees: [{ login: 'yumyum' }], title: 'งานใน repo ของ org' })];
+      await auth(api().post('/api/v1/integrations/github/sync')).expect(200);
+      expect(lastSearch?.q).toContain('assignee:yumyum');
+      expect(lastSearch?.q).not.toContain('updated:');
+      expect((await taskFor(30)).title).toBe('งานใน repo ของ org');
+
+      await auth(api().delete('/api/v1/integrations/github/token')).expect(204);
+      const status = await auth(api().get('/api/v1/integrations/github')).expect(200);
+      expect(status.body).toMatchObject({ tokenSource: 'oauth', login: 'octocat' });
+      expectedTokens = ['gho_fake'];
+      await auth(api().post('/api/v1/integrations/github/sync')).expect(200);
+      expect(lastSearch?.q).toContain('assignee:octocat');
+    });
+
+    it('ไม่เคยผูก GitHub ด้วย OAuth ก็ใช้ token แบบ fine-grained ดึงได้ (cron ก็ดึงให้)', async () => {
+      const other = await registerAndLogin(app, 'pat-only');
+      const saved = await api()
+        .put('/api/v1/integrations/github/token')
+        .set('Authorization', `Bearer ${other}`)
+        .send({ token: fineGrained })
+        .expect(200);
+      expect(saved.body).toMatchObject({
+        connected: true,
+        tokenSource: 'personal',
+        privateRepos: true,
+        projectDates: false,
+      });
+
+      // cron ดึงให้ผู้ใช้ OAuth คนเดิมด้วย
+      expectedTokens = ['gho_fake', fineGrained];
+      issues = [fakeIssue(31, { assignees: [{ login: 'yumyum' }] })];
+      const due = await app.get(GitHubService).syncDue(100);
+      expect(due.failed).toBe(0);
+      const me = await api().get('/api/v1/me').set('Authorization', `Bearer ${other}`).expect(200);
+      const task = await prisma.entry.findFirst({
+        where: { userId: me.body.user.id as string, clientId: 'gh:I_node31' },
+      });
+      expect(task).not.toBeNull();
+    });
   });
 });

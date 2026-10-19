@@ -466,7 +466,7 @@
     "description": "ดึง issue และ PR ที่มอบหมายให้คุณ (รวมงานที่ปิดไปแล้ว) มาเป็นงาน · วันในปฏิทินมาจากช่องวันที่ของ GitHub Project หรือ milestone · งานที่ปิดแล้วลงวันที่ปิด",
     "loadFailed": "โหลดสถานะ GitHub ไม่สำเร็จ",
     "serverDisabled": "เซิร์ฟเวอร์นี้ยังไม่ได้เปิดการเชื่อม GitHub",
-    "connectFirst": "เชื่อม GitHub ในการ์ด “บัญชีที่เชื่อม” ด้านบนก่อน — เชื่อมแล้วดึงงานให้ทันที",
+    "connectFirst": "เชื่อม GitHub ในการ์ด “บัญชีที่เชื่อม” ด้านบน หรือใส่ personal access token ด้านล่าง — เชื่อมแล้วดึงงานให้ทันที",
     "connectedAs": "เชื่อมกับ <b>{login}</b> · {scope}",
     "scope": {
       "private": "รวม repo ส่วนตัว",
@@ -509,7 +509,21 @@
       "other": "GitHub ตอบผิดปกติ ({code}) — ลองใหม่อีกครั้ง"
     },
     "nothingFound": "ไม่พบ issue ที่มอบหมายให้คุณเลย",
-    "nothingFoundHint": "ถ้างานอยู่ใน repo ของ organization: org อาจจำกัดแอปภายนอกไว้ (GitHub ซ่อนงานโดยไม่แจ้ง error) — ไปที่ github.com/settings/applications → NOSION → Organization access แล้วกด Request ให้ owner ของ org อนุมัติ"
+    "nothingFoundHint": "ถ้างานอยู่ใน repo ของ organization: org อาจจำกัดแอปภายนอกไว้ (GitHub ซ่อนงานโดยไม่แจ้ง error) — ไปที่ github.com/settings/applications → NOSION → Organization access แล้วกด Request ให้ owner ของ org อนุมัติ",
+    "token": "Personal access token (ไม่บังคับ)",
+    "tokenHint": "ใช้เมื่อ org จำกัดแอปภายนอกจนดึง issue ไม่ได้ — <link>สร้าง token แบบ classic</link> (ติ๊ก <code>repo</code> และ <code>read:project</code> ไว้ให้แล้ว) ถ้า org ใช้ SSO ให้กด Configure SSO → Authorize ที่ token ด้วย · token นี้ใช้ดึงแทนการเชื่อมผ่าน GitHub",
+    "tokenLabel": "Token",
+    "tokenSave": "บันทึกและดึงงาน",
+    "tokenSaving": "กำลังตรวจ token…",
+    "tokenSaved": "บันทึก token แล้ว — กำลังดึงงานใหม่ทั้งหมด",
+    "tokenSaveFailed": "บันทึก token ไม่สำเร็จ — ลองใหม่อีกครั้ง",
+    "tokenInUse": "ดึงงานด้วย token ของ <b>{login}</b>",
+    "tokenReplace": "เปลี่ยน token",
+    "tokenCancel": "ยกเลิก",
+    "tokenRemove": "เอา token ออก",
+    "tokenRemoved": "เอา token ออกแล้ว — กลับไปดึงผ่านบัญชี GitHub ที่เชื่อมไว้",
+    "tokenRemoveFailed": "เอา token ออกไม่สำเร็จ — ลองใหม่อีกครั้ง",
+    "tokenRevoked": "personal access token หมดอายุหรือถูกเพิกถอน — เปลี่ยน token ด้านล่าง"
   },
   "tasks": {
     "view": {

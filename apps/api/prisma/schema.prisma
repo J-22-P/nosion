@@ -254,6 +254,14 @@ model GitHubIntegration {
   /// เวลาที่รอบที่ค้างเริ่ม — จบรอบแล้วใช้เป็น lastSyncAt (issue ที่แก้ระหว่างรอบถูกดึงในรอบหน้า)
   syncRunStartedAt DateTime?
 
+  /// personal access token ที่ผู้ใช้วางเอง (เข้ารหัส · aad ผูกกับ id ของแถว) — มี = ใช้ดึงแทน token ของ OAuth
+  /// แยกจาก OAuthAccount: ล็อกอินด้วย GitHub อีกครั้งเขียน token ของ OAuth ทับ ไม่แตะอันนี้
+  personalTokenEnc    String?
+  /// login ของเจ้าของ token (จาก GET /user ตอนบันทึก) — ใช้ค้น `assignee:<login>`
+  personalTokenLogin  String?
+  /// scope ของ token classic (header X-OAuth-Scopes) คั่นด้วยช่องว่าง · fine-grained ไม่มี scope → ""
+  personalTokenScopes String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
