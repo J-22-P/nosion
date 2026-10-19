@@ -1,8 +1,15 @@
+import { z } from 'zod';
+
 /** GitHub integration (Phase 8 ขั้น 5 · สเปก 15 "GitHub integration (webhook ปิด task เมื่อ PR merged)") */
 
 export interface GitHubIntegrationDto {
-  /** เชื่อมบัญชี GitHub แล้ว (ผ่าน OAuth) */
+  /** ดึง issue ได้ — ผูก GitHub ผ่าน OAuth หรือใส่ personal access token ไว้ */
   connected: boolean;
+  /**
+   * token ที่ใช้ดึง · `personal` = token ที่ผู้ใช้วางเอง (ใช้ก่อน OAuth) — ทางออกเมื่อ org จำกัด OAuth app
+   * แต่ไม่จำกัด personal access token · null = ยังไม่มีทั้งสองแบบ
+   */
+  tokenSource: 'oauth' | 'personal' | null;
   login: string | null;
   /** ได้สิทธิ์ `repo` = เห็น issue ของ repo ส่วนตัวด้วย */
   privateRepos: boolean;
@@ -24,6 +31,21 @@ export interface GitHubIntegrationDto {
     lastDeliveryAt: string | null;
   };
 }
+
+/**
+ * personal access token ของ GitHub — classic (`ghp_`) ต้องมี scope `repo` (+ `read:project` ถ้าใช้วันที่ของ Project)
+ * fine-grained (`github_pat_`) ต้องให้สิทธิ์ Issues/Pull requests: Read ของ repo ที่ต้องการ
+ */
+export const githubPersonalTokenSchema = z.object({
+  token: z
+    .string()
+    .trim()
+    .regex(
+      /^(ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})$/,
+      'ไม่ใช่ personal access token ของ GitHub (ขึ้นต้นด้วย ghp_ หรือ github_pat_)',
+    ),
+});
+export type GitHubPersonalTokenInput = z.infer<typeof githubPersonalTokenSchema>;
 
 export interface GitHubSyncResultDto {
   created: number;

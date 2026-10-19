@@ -5,12 +5,14 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import {
   findNosionRefs,
   ProblemType,
   taskPayloadSchema,
   type GitHubIntegrationDto,
+  type GitHubPersonalTokenInput,
   type GitHubSyncResultDto,
   type GitHubWebhookSecretDto,
 } from '@nosion/contracts';
@@ -31,6 +33,7 @@ import {
   type IssuePlan,
   type SyncedTask,
 } from './issue-plan';
+import { fetchTokenOwner, isFineGrained } from './personal-token';
 import { verifyGitHubSignature } from './signature';
 
 /** ครั้งแรกดึงทุก issue/PR ที่มอบหมาย (รวมที่ปิดแล้ว) · ครั้งต่อไปเฉพาะที่เปลี่ยนหลังรอบก่อน (เผื่อ 1 ชม. กันนาฬิกาเหลื่อม) */
@@ -59,18 +62,16 @@ export class GitHubService {
   }
 
   async status(userId: string): Promise<GitHubIntegrationDto> {
-    const [account, integration] = await Promise.all([
-      this.prisma.oAuthAccount.findUnique({
-        where: { userId_provider: { userId, provider: 'github' } },
-      }),
+    const [credentials, integration] = await Promise.all([
+      this.credentials(userId),
       this.prisma.gitHubIntegration.findUnique({ where: { userId } }),
     ]);
-    const scopes = account?.scopes?.split(/[ ,]/) ?? [];
     return {
-      connected: Boolean(account?.accessTokenEnc),
-      login: account?.login ?? null,
-      privateRepos: scopes.includes('repo'),
-      projectDates: hasProjectScope(scopes),
+      connected: credentials !== null,
+      tokenSource: credentials?.source ?? null,
+      login: credentials?.login ?? null,
+      privateRepos: credentials ? seesPrivateRepos(credentials) : false,
+      projectDates: credentials ? hasProjectScope(credentials.scopes) : false,
       syncInProgress: Boolean(integration?.syncCursor),
       lastSyncAt: integration?.lastSyncAt?.toISOString() ?? null,
       lastSyncCount: integration?.lastSyncCount ?? null,
@@ -95,14 +96,8 @@ export class GitHubService {
     now = new Date(),
     budgetMs = SYNC_BUDGET_MS,
   ): Promise<GitHubSyncResultDto> {
-    const [credentials, account] = await Promise.all([
-      this.oauth.accessToken(userId, 'github'),
-      this.prisma.oAuthAccount.findUnique({
-        where: { userId_provider: { userId, provider: 'github' } },
-        select: { login: true },
-      }),
-    ]);
-    if (!credentials || !account?.login) {
+    const credentials = await this.credentials(userId);
+    if (!credentials) {
       throw new ConflictException({
         type: ProblemType.conflict,
         title: 'GitHub not connected',
@@ -114,7 +109,7 @@ export class GitHubService {
     const since = integration.lastSyncAt
       ? new Date(integration.lastSyncAt.getTime() - SINCE_OVERLAP_MS)
       : null;
-    const query = searchQuery(account.login, since);
+    const query = searchQuery(credentials.login, since);
     const withProjects = hasProjectScope(credentials.scopes);
     const { timezone } = await this.userContext.forUser(userId);
 
@@ -177,18 +172,24 @@ export class GitHubService {
     });
   }
 
-  /** cron: ผู้ใช้ที่เชื่อม GitHub แล้ว เรียงจากที่ซิงก์นานที่สุดก่อน — ทีละไม่กี่คน (ฟังก์ชันมีเวลา 10 วิ) */
+  /**
+   * cron: ผู้ใช้ที่ดึงได้ (ผูก OAuth หรือใส่ personal token) เรียงจากที่ซิงก์นานที่สุดก่อน
+   * — ทีละไม่กี่คน (ฟังก์ชันมีเวลา 10 วิ)
+   */
   async syncDue(limit = 10): Promise<{ users: number; failed: number }> {
-    const accounts = await this.prisma.oAuthAccount.findMany({
-      where: { provider: 'github', accessTokenEnc: { not: null }, user: { deletedAt: null } },
-      select: { userId: true, user: { select: { githubIntegration: true } } },
+    const users = await this.prisma.user.findMany({
+      where: {
+        deletedAt: null,
+        OR: [
+          { oauthAccounts: { some: { provider: 'github', accessTokenEnc: { not: null } } } },
+          { githubIntegration: { personalTokenEnc: { not: null } } },
+        ],
+      },
+      select: { id: true, githubIntegration: { select: { lastSyncAt: true } } },
     });
-    const due = accounts
-      .sort(
-        (a, b) =>
-          (a.user.githubIntegration?.lastSyncAt?.getTime() ?? 0) -
-          (b.user.githubIntegration?.lastSyncAt?.getTime() ?? 0),
-      )
+    const due = users
+      .map((u) => ({ userId: u.id, lastSyncAt: u.githubIntegration?.lastSyncAt?.getTime() ?? 0 }))
+      .sort((a, b) => a.lastSyncAt - b.lastSyncAt)
       .slice(0, limit);
     let failed = 0;
     for (const { userId } of due) {
@@ -268,6 +269,65 @@ export class GitHubService {
         data: { completedAt: new Date(closedAt) },
       });
     }
+  }
+
+  // ── personal access token ───────────────────────────
+
+  /**
+   * ใส่ token เอง — ทางออกเมื่อ org จำกัด OAuth app (GitHub ซ่อน issue จากแอปที่ยังไม่อนุมัติโดยไม่แจ้ง error)
+   * ตรวจกับ GitHub ก่อนเก็บ · ล้างจุดเริ่มให้รอบหน้าดึงใหม่ทั้งหมด (token ใหม่อาจเห็น issue เก่าที่เคยมองไม่เห็น)
+   */
+  async setPersonalToken(
+    userId: string,
+    { token }: GitHubPersonalTokenInput,
+  ): Promise<GitHubIntegrationDto> {
+    const owner = await fetchTokenOwner(token).catch((err: unknown) => {
+      if (!(err instanceof GitHubSyncError)) throw err;
+      if (err.code === 'revoked') {
+        throw new UnprocessableEntityException({
+          type: ProblemType.validationFailed,
+          title: 'Invalid GitHub token',
+          message: 'GitHub ไม่รับ token นี้ — หมดอายุ ถูกเพิกถอน หรือคัดลอกไม่ครบ',
+        });
+      }
+      throw new BadGatewayException({
+        type: ProblemType.internal,
+        title: 'GitHub token check failed',
+        message:
+          SYNC_ERROR_TEXT[err.code as keyof typeof SYNC_ERROR_TEXT] ??
+          `GitHub ตอบผิดปกติ (${err.code})`,
+      });
+    });
+    const integration = await this.ensureIntegration(userId);
+    await this.prisma.gitHubIntegration.update({
+      where: { id: integration.id },
+      data: {
+        personalTokenEnc: this.box.seal(token, `github-pat:${integration.id}`),
+        personalTokenLogin: owner.login,
+        personalTokenScopes: owner.scopes.join(' '),
+        lastSyncAt: null,
+        syncCursor: null,
+        syncRunStartedAt: null,
+        lastSyncError: null,
+      },
+    });
+    return this.status(userId);
+  }
+
+  /** เอา token ออก → กลับไปใช้ token ของ OAuth (ถ้ามี) ดึงใหม่ทั้งหมดด้วยสิทธิ์ของ OAuth */
+  async removePersonalToken(userId: string): Promise<void> {
+    await this.prisma.gitHubIntegration.updateMany({
+      where: { userId },
+      data: {
+        personalTokenEnc: null,
+        personalTokenLogin: null,
+        personalTokenScopes: null,
+        lastSyncAt: null,
+        syncCursor: null,
+        syncRunStartedAt: null,
+        lastSyncError: null,
+      },
+    });
   }
 
   // ── webhook ─────────────────────────────────────────
@@ -386,15 +446,44 @@ export class GitHubService {
       where: { userId, clientId: issueClientId(issue) },
     });
     if (known > 0) return true;
-    const account = await this.prisma.oAuthAccount.findUnique({
-      where: { userId_provider: { userId, provider: 'github' } },
-      select: { login: true },
-    });
-    const login = account?.login?.toLowerCase();
+    const login = (await this.credentials(userId))?.login.toLowerCase();
     return Boolean(login && issue.assignees?.some((a) => a.login.toLowerCase() === login));
   }
 
   // ── ภายใน ────────────────────────────────────────────
+
+  /** token ที่ใช้ดึง — personal token ก่อน (ผู้ใช้ตั้งใจใส่เพื่อเลี่ยงข้อจำกัดของ OAuth) แล้วค่อย OAuth */
+  private async credentials(userId: string): Promise<GitHubCredentials | null> {
+    const integration = await this.prisma.gitHubIntegration.findUnique({
+      where: { userId },
+      select: {
+        id: true,
+        personalTokenEnc: true,
+        personalTokenLogin: true,
+        personalTokenScopes: true,
+      },
+    });
+    if (integration?.personalTokenEnc && integration.personalTokenLogin) {
+      const token = this.box.open(integration.personalTokenEnc, `github-pat:${integration.id}`);
+      if (token) {
+        return {
+          source: 'personal',
+          token,
+          login: integration.personalTokenLogin,
+          scopes: integration.personalTokenScopes?.split(' ').filter(Boolean) ?? [],
+        };
+      }
+    }
+    const [oauth, account] = await Promise.all([
+      this.oauth.accessToken(userId, 'github'),
+      this.prisma.oAuthAccount.findUnique({
+        where: { userId_provider: { userId, provider: 'github' } },
+        select: { login: true },
+      }),
+    ]);
+    if (!oauth || !account?.login) return null;
+    return { source: 'oauth', token: oauth.token, login: account.login, scopes: oauth.scopes };
+  }
 
   private async ensureIntegration(userId: string) {
     return this.prisma.gitHubIntegration.upsert({
@@ -420,6 +509,18 @@ export class GitHubService {
   private webhookUrl(integrationId: string): string {
     return `${this.config.API_URL}/api/v1/webhooks/github/${integrationId}`;
   }
+}
+
+interface GitHubCredentials {
+  source: 'oauth' | 'personal';
+  token: string;
+  login: string;
+  scopes: string[];
+}
+
+/** `repo` = เห็น repo ส่วนตัว · token fine-grained ไม่มี scope แต่ผู้ใช้เลือก repo (รวมส่วนตัว) ไว้ตอนสร้าง */
+function seesPrivateRepos({ source, token, scopes }: GitHubCredentials): boolean {
+  return scopes.includes('repo') || (source === 'personal' && isFineGrained(token));
 }
 
 interface WebhookPayload {

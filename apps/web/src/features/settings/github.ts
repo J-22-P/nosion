@@ -112,6 +112,31 @@ export function useGitHubSync() {
   });
 }
 
+/** ใส่ personal access token → เซิร์ฟเวอร์ตรวจกับ GitHub แล้วเก็บ · สำเร็จแล้วดึงงานต่อเลย (ล้างจุดเริ่ม ดึงใหม่ทั้งหมด) */
+export function useSetGitHubToken() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (token: string) =>
+      apiFetch<GitHubIntegrationDto>('/integrations/github/token', {
+        method: 'PUT',
+        body: { token },
+      }),
+    onSuccess: (status) => queryClient.setQueryData(KEY, status),
+  });
+}
+
+export function useRemoveGitHubToken() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => apiFetch<void>('/integrations/github/token', { method: 'DELETE' }),
+    onSuccess: () => {
+      toast.success(tr('github.tokenRemoved'));
+      void queryClient.invalidateQueries({ queryKey: KEY });
+    },
+    onError: (error) => toast.error(errorText(error) ?? tr('github.tokenRemoveFailed')),
+  });
+}
+
 export function useRotateGitHubWebhook() {
   const queryClient = useQueryClient();
   return useMutation({

@@ -156,6 +156,7 @@ export async function mockApi(page: Page, options: { authenticated?: boolean } =
     if (method === 'GET' && path === '/integrations/github') {
       return json({
         connected: false,
+        tokenSource: null,
         login: null,
         privateRepos: false,
         lastSyncAt: null,
