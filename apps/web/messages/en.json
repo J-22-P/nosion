@@ -466,7 +466,7 @@
     "description": "Pulls issues and PRs assigned to you (including closed ones) in as tasks · calendar dates come from your GitHub Project date fields or milestone · closed items land on the day they were closed",
     "loadFailed": "Couldn't load GitHub status",
     "serverDisabled": "This server hasn't enabled GitHub",
-    "connectFirst": "Connect GitHub in “Connected accounts” above first — your tasks are pulled right away",
+    "connectFirst": "Connect GitHub in “Connected accounts” above or add a personal access token below — your tasks are pulled right away",
     "connectedAs": "Connected as <b>{login}</b> · {scope}",
     "scope": {
       "private": "including private repos",
@@ -509,7 +509,21 @@
       "other": "GitHub responded unexpectedly ({code}) — try again"
     },
     "nothingFound": "No issues assigned to you were found",
-    "nothingFoundHint": "If your work is in an organization's repos, the org may restrict third-party apps (GitHub hides them silently) — go to github.com/settings/applications → NOSION → Organization access and press Request so an org owner can approve"
+    "nothingFoundHint": "If your work is in an organization's repos, the org may restrict third-party apps (GitHub hides them silently) — go to github.com/settings/applications → NOSION → Organization access and press Request so an org owner can approve",
+    "token": "Personal access token (optional)",
+    "tokenHint": "Use this when an organization restricts third-party apps and issues can't be fetched — <link>create a classic token</link> (<code>repo</code> and <code>read:project</code> are pre-selected). If the org uses SSO, click Configure SSO → Authorize on the token too · this token is used instead of the GitHub sign-in connection",
+    "tokenLabel": "Token",
+    "tokenSave": "Save and fetch",
+    "tokenSaving": "Checking token…",
+    "tokenSaved": "Token saved — fetching all issues again",
+    "tokenSaveFailed": "Couldn't save the token — try again",
+    "tokenInUse": "Fetching with <b>{login}</b>'s token",
+    "tokenReplace": "Replace token",
+    "tokenCancel": "Cancel",
+    "tokenRemove": "Remove token",
+    "tokenRemoved": "Token removed — fetching through your connected GitHub account again",
+    "tokenRemoveFailed": "Couldn't remove the token — try again",
+    "tokenRevoked": "Your personal access token has expired or was revoked — replace it below"
   },
   "tasks": {
     "view": {
