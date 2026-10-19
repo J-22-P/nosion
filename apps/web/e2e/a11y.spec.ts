@@ -349,6 +349,34 @@ test.describe('Calendar · ลากเปลี่ยนวัน (Phase 5 ข�
     await expect(page.getByText('ย้ายวันแล้ว')).toBeVisible();
   });
 
+  test('ลากแถบหลายวัน → เลื่อนทั้งช่วง: วันที่จับอยู่ใต้เมาส์ · วันเริ่มกับวันกำหนดไปเท่ากัน', async ({
+    page,
+  }) => {
+    let body: Record<string, unknown> | null = null;
+    await page.route('**/api/v1/entries/t_c0', async (route) => {
+      body = route.request().postDataJSON() as Record<string, unknown>;
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"id":"t_c0"}' });
+    });
+    // แถวสัปดาห์ 5–11 ต.ค. ต้องอยู่ในจอทั้งแถว (ลาก HTML5 ข้ามขอบจอไม่ได้)
+    await page.setViewportSize({ width: 1440, height: 1200 });
+    await page.goto('/calendar');
+    // แถบ 6–8 ต.ค. — จับที่ปลายซ้าย (วันที่ 6) แล้ววางวันที่ 9 → 9–11 ต.ค.
+    const bar = page.getByText('ระบบแจ้งเตือน v2').filter({ visible: true }).first();
+    await expect(bar).toBeVisible({ timeout: 15_000 });
+    await bar.dragTo(cell(page, /^วันศุกร์ที่ 9 ตุลาคม 2569/), {
+      sourcePosition: { x: 8, y: 9 },
+    });
+    await expect
+      .poll(() => body)
+      .toEqual({
+        occurredAt: '2026-10-11',
+        isAllDay: true,
+        payload: { startDate: '2026-10-09' },
+        version: 3,
+      });
+    await expect(cell(page, /^วันอาทิตย์ที่ 11 ตุลาคม 2569 · 1 รายการ/)).toBeVisible();
+  });
+
   test('server ตอบ 409 → ย้อนกลับที่เดิมและบอกผู้ใช้', async ({ page }) => {
     await page.route('**/api/v1/entries/t_c5', (route) =>
       route.fulfill({
@@ -1485,4 +1513,39 @@ test.describe('Tasks · หน้าต่างรายละเอียด�
       });
     });
   }
+
+  test('วันเริ่ม: หลังวันครบกำหนดบันทึกไม่ได้ · ใส่ถูก → PATCH payload.startDate (แถบในปฏิทิน)', async ({
+    page,
+  }) => {
+    const base = ACTIVE_TASKS[0]!;
+    // ครบกำหนด 17 ต.ค. (เวลาไทย) · version ขยับ = dialog ใช้ข้อมูลล่าสุดแทนแคชในรายการ
+    const task = {
+      ...base,
+      occurredAt: '2026-10-16T17:00:00.000Z',
+      isAllDay: true,
+      version: base.version + 1,
+    };
+    let patch: Record<string, unknown> | null = null;
+    await page.route(`**/api/v1/entries/${task.id}`, async (route) => {
+      if (route.request().method() === 'PATCH') {
+        patch = route.request().postDataJSON() as Record<string, unknown>;
+        return route.fulfill({ json: { ...task, version: task.version + 1 } });
+      }
+      return route.fulfill({ json: task });
+    });
+    await page.goto('/tasks');
+    await page.getByRole('button', { name: `ดูรายละเอียด: ${task.title}` }).click();
+    const dialog = page.getByRole('dialog', { name: 'รายละเอียดงาน' });
+    const start = dialog.getByLabel('วันเริ่ม');
+    await start.fill('2026-10-20');
+    await expect(dialog.getByText('วันเริ่มต้องไม่หลังวันครบกำหนด')).toBeVisible();
+    await expect(start).toHaveAttribute('aria-invalid', 'true');
+    await expect(dialog.getByRole('button', { name: 'บันทึก' })).toBeDisabled();
+
+    await start.fill('2026-10-12');
+    await dialog.getByRole('button', { name: 'บันทึก' }).click();
+    await expect
+      .poll(() => patch)
+      .toEqual({ version: task.version, payload: { startDate: '2026-10-12' } });
+  });
 });

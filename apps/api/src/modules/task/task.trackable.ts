@@ -43,16 +43,24 @@ export class TaskTrackableModule implements TrackableModule<TaskPayload> {
   readonly supportsRecurrence = true;
   readonly supportsReminder = true;
 
+  /**
+   * มีวันเริ่ม → แถบหลายวัน: วันเริ่ม → วันกำหนด · เสร็จแล้ว → วันเริ่ม → วันที่ทำเสร็จจริง
+   * งานจากกฎการเกิดซ้ำไม่ใช้วันเริ่ม (ทุกรอบได้ payload ชุดเดียวกัน วันเริ่มคงที่จะผิดตั้งแต่รอบที่สอง)
+   */
   toCalendarEvent(entry: Entry): CalendarEvent | null {
     if (!entry.occurredAt) return null;
+    const parsed = taskPayloadSchema.safeParse(entry.payload);
+    const firstDay = parsed.success && !entry.recurrenceRuleId ? parsed.data.startDate : null;
+    const finished = entry.status === 'done' && entry.completedAt;
     return {
       id: `task:${entry.id}`,
       entryId: entry.id,
       module: this.key,
       title: entry.title,
-      start: entry.occurredAt,
+      start: firstDay && finished ? entry.completedAt! : entry.occurredAt,
       end: null,
       allDay: entry.isAllDay,
+      firstDay,
       color: this.meta.color,
       status: entry.status,
       meta: { priority: entry.priority },

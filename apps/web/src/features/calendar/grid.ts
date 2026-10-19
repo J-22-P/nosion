@@ -107,10 +107,79 @@ export function timeOf(iso: string, timeZone: string): string {
   }).format(new Date(iso));
 }
 
+/** จำนวนวันจาก a ถึง b (b − a) */
+export function daysBetween(a: string, b: string): number {
+  return Math.round((asDate(b).getTime() - asDate(a).getTime()) / 86_400_000);
+}
+
+/** วันสุดท้ายของรายการ (รวมวันนั้น) — รายการวันเดียว = date */
+export const lastDayOf = (e: CalendarEventDto) => e.endDate ?? e.date;
+
+/** รายการหลายวันแสดงเป็นแถบ (แถวทั้งวัน) เสมอ แม้วันกำหนดมีเวลา */
+export const isSpanning = (e: CalendarEventDto) => Boolean(e.endDate);
+
+/** รายการต่อวัน — รายการหลายวันอยู่ในทุกวันที่แถบผ่าน (day panel / agenda / จำนวนต่อวัน) */
 export function groupByDate(events: CalendarEventDto[]): Map<string, CalendarEventDto[]> {
   const map = new Map<string, CalendarEventDto[]>();
-  for (const e of events) map.set(e.date, [...(map.get(e.date) ?? []), e]);
+  const add = (day: string, e: CalendarEventDto) => map.set(day, [...(map.get(day) ?? []), e]);
+  for (const e of events) {
+    for (let day = e.date; day <= lastDayOf(e); day = addDays(day, 1)) add(day, e);
+  }
   return map;
+}
+
+/** "12 – 16 ต.ค." · "Oct 12 – 16" — ช่วงของรายการหลายวัน */
+export function dayRangeLabel(from: string, to: string): string {
+  return dateFormat({ day: 'numeric', month: 'short', timeZone: 'UTC' }).formatRange(
+    asDate(from),
+    asDate(to),
+  );
+}
+
+/** ชิ้นของรายการในแถวสัปดาห์หนึ่ง — รายการหลายวันที่ข้ามสัปดาห์ถูกตัดเป็นหลายชิ้น */
+export interface WeekSegment {
+  event: CalendarEventDto;
+  /** คอลัมน์แรก (0–6) และจำนวนคอลัมน์ */
+  column: number;
+  span: number;
+  /** แถวย่อยในช่อง (0 = บนสุด) — แถบที่ทับวันกันอยู่คนละแถว */
+  lane: number;
+  /** แถบเริ่มก่อน/ต่อหลังสัปดาห์นี้ (มุมด้านนั้นไม่โค้ง) */
+  continuesBefore: boolean;
+  continuesAfter: boolean;
+}
+
+/**
+ * วางรายการของสัปดาห์หนึ่งลงแถวย่อย (lane) แบบ Google Calendar — แถบหลายวันก่อน (ยาวก่อน) แล้วค่อยรายการวันเดียว
+ * แต่ละชิ้นได้ lane ต่ำสุดที่ว่างตลอดช่วงของมัน · `week` = 7 วันเรียงกัน
+ */
+export function layoutWeek(events: CalendarEventDto[], week: string[]): WeekSegment[] {
+  const first = week[0]!;
+  const last = week.at(-1)!;
+  const pieces = events
+    .filter((e) => e.date <= last && lastDayOf(e) >= first)
+    .map((event) => {
+      const from = event.date < first ? first : event.date;
+      const to = lastDayOf(event) > last ? last : lastDayOf(event);
+      return {
+        event,
+        column: daysBetween(first, from),
+        span: daysBetween(from, to) + 1,
+        continuesBefore: event.date < first,
+        continuesAfter: lastDayOf(event) > last,
+      };
+    })
+    // เรียงคงลำดับเดิมของ API (วัน → ทั้งวันก่อน → เวลา) ในกลุ่มเดียวกัน
+    .sort((a, b) => a.column - b.column || b.span - a.span);
+
+  /** lane → คอลัมน์สุดท้ายที่ถูกใช้ */
+  const laneEnds: number[] = [];
+  return pieces.map((piece) => {
+    let lane = laneEnds.findIndex((end) => end < piece.column);
+    if (lane === -1) lane = laneEnds.length;
+    laneEnds[lane] = piece.column + piece.span - 1;
+    return { ...piece, lane };
+  });
 }
 
 export interface WeekSnapshot {
@@ -132,7 +201,8 @@ export function weekSnapshot(
   week: string[],
   today: string,
 ): WeekSnapshot {
-  const inWeek = events.filter((e) => week.includes(e.date));
+  // รายการหลายวันนับในทุกสัปดาห์ที่แถบผ่าน
+  const inWeek = events.filter((e) => e.date <= week.at(-1)! && lastDayOf(e) >= week[0]!);
   const tasks = inWeek.filter((e) => e.module === 'task');
   const unpaid = (e: CalendarEventDto) =>
     e.module === 'expense' && e.status !== 'done' && typeof e.meta.amountMinor === 'number';
@@ -159,23 +229,35 @@ export function canMove(event: CalendarEventDto): boolean {
  * ย้ายรายการไปวันอื่นโดย "คงเวลาหน้าปัด" (สเปก 8.11.4 ลากเปลี่ยนวัน)
  *  - ทั้งวัน → ส่ง 'YYYY-MM-DD' ให้ API ตีความเป็นต้นวันตามโซนผู้ใช้
  *  - มีเวลา  → 10:00 วันเดิม = 10:00 วันใหม่ ตามโซนผู้ใช้ (ข้าม DST ก็ยังเป็น 10:00)
- * คืน `start` ไว้อัปเดตแคชแบบ optimistic ด้วย · วันเดิม = null (ไม่ต้องยิง API)
+ *  - หลายวัน → `toDate` คือวันแรกใหม่ · เลื่อนทั้งแถบ (วันเริ่ม + วันกำหนด) ไปเท่ากัน ความยาวคงเดิม
+ * คืน `start`/`date`/`endDate` ไว้อัปเดตแคชแบบ optimistic ด้วย · วันเดิม = null (ไม่ต้องยิง API)
  */
 export function moveTarget(
   event: CalendarEventDto,
   toDate: string,
   timeZone: string,
-): { occurredAt: string; start: string } | null {
+): {
+  occurredAt: string;
+  start: string;
+  /** วันเริ่มใหม่ (payload.startDate) — เฉพาะรายการหลายวัน */
+  startDate?: string;
+  date: string;
+  endDate: string | null;
+} | null {
   if (event.date === toDate) return null;
+  const dueDay = event.endDate ? addDays(event.endDate, daysBetween(event.date, toDate)) : toDate;
+  const span = event.endDate ? { startDate: toDate, endDate: dueDay } : { endDate: null };
   if (event.allDay) {
     return {
-      occurredAt: toDate,
-      start: zonedTimeToUtc(`${toDate}T00:00:00`, timeZone).toISOString(),
+      occurredAt: dueDay,
+      start: zonedTimeToUtc(`${dueDay}T00:00:00`, timeZone).toISOString(),
+      date: toDate,
+      ...span,
     };
   }
   const start = zonedTimeToUtc(
-    `${toDate}T${timeOf(event.start, timeZone)}:00`,
+    `${dueDay}T${timeOf(event.start, timeZone)}:00`,
     timeZone,
   ).toISOString();
-  return { occurredAt: start, start };
+  return { occurredAt: start, start, date: toDate, ...span };
 }

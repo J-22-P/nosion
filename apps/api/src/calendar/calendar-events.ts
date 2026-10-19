@@ -30,6 +30,8 @@ export function buildCalendar(
   modules: TrackableModule<unknown>[],
   timeZone: string,
   filter?: ModuleKey[],
+  /** ช่วงที่ขอ (YYYY-MM-DD รวมทั้งสองวัน) — ตัดรายการที่ไม่ทับช่วงทิ้ง (query ดึงแถบหลายวันเผื่อไว้) */
+  range?: { from: string; to: string },
 ): BuiltCalendar {
   const byKey = new Map(modules.map((m) => [m.key, m]));
   const countsByModule: Partial<Record<ModuleKey, number>> = Object.fromEntries(
@@ -42,6 +44,11 @@ export function buildCalendar(
     const module = byKey.get(entry.module);
     const event = module?.toCalendarEvent(entry);
     if (!module || !event) continue;
+    // วันของ start = วันสุดท้าย · firstDay ที่ไม่ได้อยู่ก่อนวันนั้น (เช่น ปิดงานก่อนวันเริ่ม) = รายการวันเดียว
+    const lastDay = formatInTimeZone(event.start, timeZone);
+    const multiDay = Boolean(event.firstDay && event.firstDay < lastDay);
+    const firstDay = multiDay ? event.firstDay! : lastDay;
+    if (range && (firstDay > range.to || lastDay < range.from)) continue;
     countsByModule[module.key] = (countsByModule[module.key] ?? 0) + 1;
     if (filter && !filter.includes(module.key)) continue;
 
@@ -56,7 +63,8 @@ export function buildCalendar(
       start: event.start.toISOString(),
       end: event.end?.toISOString() ?? null,
       allDay: event.allDay,
-      date: formatInTimeZone(event.start, timeZone),
+      date: firstDay,
+      endDate: multiDay ? lastDay : null,
       status: event.status,
       color: event.color,
       projected,

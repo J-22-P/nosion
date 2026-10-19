@@ -15,7 +15,14 @@ import { ApiError } from '@/lib/api-client';
 import { pushUndo } from '@/lib/shortcuts/undo-store';
 import { DEFAULT_TIME_ZONE } from '@/lib/format';
 import { calendarApi } from './api';
-import { CALENDAR_VIEWS, moveTarget, todayIn, viewRange, type CalendarView } from './grid';
+import {
+  CALENDAR_VIEWS,
+  lastDayOf,
+  moveTarget,
+  todayIn,
+  viewRange,
+  type CalendarView,
+} from './grid';
 import { errorText } from '@/i18n/errors';
 import { tr } from '@/i18n/current';
 
@@ -210,6 +217,8 @@ export function useMoveEvent(from: string, to: string, timeZone: string) {
       return entriesApi.update(event.entryId!, {
         occurredAt: target.occurredAt,
         isAllDay: event.allDay,
+        // หลายวัน: เลื่อนวันเริ่มไปพร้อมกัน (payload รวมกับของเดิมที่ API)
+        ...(target.startDate ? { payload: { startDate: target.startDate } } : {}),
         version: event.version!,
       });
     },
@@ -221,7 +230,9 @@ export function useMoveEvent(from: string, to: string, timeZone: string) {
         queryClient.setQueryData<CalendarDto>(key, {
           ...previous,
           events: previous.events.map((e) =>
-            e.id === event.id ? { ...e, date: toDate, start: target.start } : e,
+            e.id === event.id
+              ? { ...e, date: target.date, endDate: target.endDate, start: target.start }
+              : e,
           ),
         });
       }
@@ -235,8 +246,9 @@ export function useMoveEvent(from: string, to: string, timeZone: string) {
         run: () =>
           entriesApi
             .update(event.entryId!, {
-              occurredAt: event.allDay ? event.date : event.start,
+              occurredAt: event.allDay ? lastDayOf(event) : event.start,
               isAllDay: event.allDay,
+              ...(event.endDate ? { payload: { startDate: event.date } } : {}),
               version: moved.version,
             })
             .finally(() => queryClient.invalidateQueries({ queryKey: ['entries'] })),

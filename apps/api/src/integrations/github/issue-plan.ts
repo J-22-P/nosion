@@ -21,6 +21,8 @@ export interface GitHubIssue {
   closed_at?: string | null;
   /** วันจากช่องวันที่ของ GitHub Project (YYYY-MM-DD) — มีเมื่อดึงด้วย GraphQL และได้สิทธิ์ `read:project` */
   project_due_on?: string | null;
+  /** วันเริ่มจากช่องของ GitHub Project (YYYY-MM-DD · ก่อน project_due_on เสมอ) — งานเป็นแถบหลายวันในปฏิทิน */
+  project_start_on?: string | null;
 }
 
 /** งานที่มีอยู่แล้วใน NOSION (เฉพาะ field ที่ใช้ตัดสิน) */
@@ -40,6 +42,8 @@ export interface TaskFields {
   description: string;
   /** YYYY-MM-DD (ทั้งวัน) · null = ไม่มีกำหนด */
   occurredAt: string | null;
+  /** วันเริ่ม YYYY-MM-DD (payload.startDate) · null = งานวันเดียว */
+  startDate: string | null;
   /** วันที่ปิดบน GitHub (ISO) — issue ที่ปิดแล้ว */
   completedAt: string | null;
   github: NonNullable<TaskPayload['github']>;
@@ -52,6 +56,8 @@ export type IssuePlan =
       id: string;
       version: number;
       patch: { title?: string; occurredAt?: string; status?: EntryStatus };
+      /** วันเริ่มบน GitHub เปลี่ยน → เขียนทับ payload.startDate */
+      startDate?: string;
       github: NonNullable<TaskPayload['github']>;
       completes: boolean;
       completedAt: string | null;
@@ -83,6 +89,8 @@ export function taskFieldsFor(issue: GitHubIssue, timeZone = DEFAULT_TIME_ZONE):
   const milestoneDue = issue.milestone?.due_on ?? null;
   // milestone ของ GitHub เก็บเป็นวัน (เวลาในค่าไม่มีความหมาย) → เอาเฉพาะวันที่
   const due = issue.project_due_on ?? (milestoneDue ? milestoneDue.slice(0, 10) : null);
+  // วันเริ่มใช้คู่กับวันกำหนดจาก Project เท่านั้น (milestone ไม่มีวันเริ่ม)
+  const start = issue.project_due_on ? (issue.project_start_on ?? null) : null;
   const closedAt = issue.state === 'closed' ? (issue.closed_at ?? null) : null;
   const body = issue.body?.trim() ?? '';
   return {
@@ -94,6 +102,7 @@ export function taskFieldsFor(issue: GitHubIssue, timeZone = DEFAULT_TIME_ZONE):
       .filter(Boolean)
       .join('\n\n'),
     occurredAt: due ?? (closedAt ? formatInTimeZone(new Date(closedAt), timeZone) : null),
+    startDate: start,
     completedAt: closedAt,
     github: {
       repo,
@@ -103,6 +112,7 @@ export function taskFieldsFor(issue: GitHubIssue, timeZone = DEFAULT_TIME_ZONE):
       url: issue.html_url,
       milestoneDueOn: milestoneDue,
       dueOn: due,
+      startOn: start,
       state: issue.state,
     },
   };
@@ -134,6 +144,9 @@ export function planIssue(
   if (existing.title !== fields.title) patch.title = fields.title;
   const due = fields.github.dueOn;
   if (due && due !== syncedDue(before)) patch.occurredAt = due;
+  // แบบเดียวกับวันกำหนด: เขียนทับเมื่อวันเริ่มบน GitHub เปลี่ยน · ลบวันเริ่มบน GitHub ไม่ลบของผู้ใช้
+  const start = fields.github.startOn;
+  const startChanged = Boolean(start && start !== (before?.startOn ?? null));
 
   const stateChanged = (before?.state ?? 'open') !== issue.state;
   let completes = false;
@@ -150,10 +163,11 @@ export function planIssue(
   const githubChanged =
     before?.state !== fields.github.state ||
     syncedDue(before) !== due ||
+    (before?.startOn ?? null) !== start ||
     (before?.milestoneDueOn ?? null) !== fields.github.milestoneDueOn ||
     before?.url !== fields.github.url;
 
-  if (!completes && Object.keys(patch).length === 0 && !githubChanged) {
+  if (!completes && Object.keys(patch).length === 0 && !startChanged && !githubChanged) {
     return { kind: 'skip', reason: 'unchanged' };
   }
   return {
@@ -161,6 +175,7 @@ export function planIssue(
     id: existing.id,
     version: existing.version,
     patch,
+    ...(startChanged ? { startDate: start! } : {}),
     github: { ...fields.github, autoCloseOnMerge: before?.autoCloseOnMerge ?? true },
     completes,
     completedAt: fields.completedAt,

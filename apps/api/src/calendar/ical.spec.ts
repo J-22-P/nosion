@@ -13,6 +13,7 @@ const event = (over: Partial<CalendarEventDto> = {}): CalendarEventDto => ({
   end: null,
   allDay: false,
   date: '2026-10-20',
+  endDate: null,
   status: 'pending',
   color: '#000',
   projected: false,
@@ -63,6 +64,11 @@ describe('ical', () => {
     expect(ics.startsWith('BEGIN:VCALENDAR\r\n')).toBe(true);
     expect(ics.endsWith('END:VCALENDAR\r\n')).toBe(true);
     expect(ics.split('\r\n').every((l) => !l.includes('\n'))).toBe(true);
+  });
+
+  it('หลายวัน = ช่วงทั้งวัน DTSTART วันแรก · DTEND วันถัดจากวันสุดท้าย (แม้งานมีเวลา)', () => {
+    const ics = buildIcal([event({ date: '2026-10-20', endDate: '2026-10-24' })], opts);
+    expect(ics).toContain('DTSTART;VALUE=DATE:20261020\r\nDTEND;VALUE=DATE:20261025');
   });
 
   it('งานเสร็จแล้วมีเครื่องหมาย ✓', () => {

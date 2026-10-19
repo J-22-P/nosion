@@ -4,7 +4,19 @@ import type { CalendarEventDto, ModuleKey } from '@nosion/contracts';
 import { cn, MODULE_THEME } from '@nosion/ui';
 import { CircleCheck, Dumbbell, Repeat, Wallet, type LucideIcon } from 'lucide-react';
 import * as React from 'react';
-import { canMove, longDayLabel, sameMonth, weekdayShort, timeOf, weekdayOf } from './grid';
+import {
+  addDays,
+  canMove,
+  daysBetween,
+  isSpanning,
+  layoutWeek,
+  longDayLabel,
+  sameMonth,
+  weekdayShort,
+  timeOf,
+  weekdayOf,
+  type WeekSegment,
+} from './grid';
 import { openTaskDetail } from '@/features/tasks/task-detail-dialog';
 import { tr } from '@/i18n/current';
 
@@ -30,13 +42,27 @@ const DRAG_TYPE = 'application/x-nosion-event';
 
 export type MoveHandler = (eventId: string, toDate: string) => void;
 
-/** รายการที่ลากได้ส่ง id ไปกับ dataTransfer · projected/เสร็จแล้วลากไม่ได้ */
-function dragProps(event: CalendarEventDto, onMove?: MoveHandler) {
+/**
+ * รายการที่ลากได้ส่ง id ไปกับ dataTransfer · projected/เสร็จแล้วลากไม่ได้
+ * แถบหลายวันส่ง "จับที่วันที่เท่าไรของแถบ" ไปด้วย — วางแล้ววันที่จับอยู่ใต้เมาส์ (ไม่ใช่วันแรกกระโดดมาที่เมาส์)
+ */
+function dragProps(
+  event: CalendarEventDto,
+  onMove?: MoveHandler,
+  grab?: { firstDay: string; span: number },
+) {
   if (!onMove || !canMove(event)) return {};
   return {
     draggable: true,
-    onDragStart: (e: React.DragEvent) => {
-      e.dataTransfer.setData(DRAG_TYPE, event.id);
+    onDragStart: (e: React.DragEvent<HTMLElement>) => {
+      let offset = 0;
+      if (grab) {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const column = Math.floor(((e.clientX - rect.left) / rect.width) * grab.span);
+        offset =
+          daysBetween(event.date, grab.firstDay) + Math.min(Math.max(column, 0), grab.span - 1);
+      }
+      e.dataTransfer.setData(DRAG_TYPE, `${event.id}|${offset}`);
       e.dataTransfer.effectAllowed = 'move';
     },
   };
@@ -61,10 +87,10 @@ function useDropZone(day: string, onMove?: MoveHandler) {
       onDragLeave: () => setOver(false),
       onDrop: (e: React.DragEvent) => {
         setOver(false);
-        const id = e.dataTransfer.getData(DRAG_TYPE);
+        const [id, offset] = e.dataTransfer.getData(DRAG_TYPE).split('|');
         if (!id) return;
         e.preventDefault();
-        onMove(id, day);
+        onMove(id, addDays(day, -Number(offset ?? 0)));
       },
     },
   };
@@ -112,6 +138,8 @@ interface MonthGridProps {
   today: string;
   selected: string;
   byDate: Map<string, CalendarEventDto[]>;
+  /** รายการทั้งช่วง (ไม่กระจายรายวัน) — วางเป็นแถบหลายวันได้ */
+  events: CalendarEventDto[];
   reminderDays: Set<string>;
   timeZone: string;
   onSelect: (day: string) => void;
@@ -121,7 +149,8 @@ interface MonthGridProps {
 }
 
 export function MonthGrid(props: MonthGridProps) {
-  const { days } = props;
+  const { days, events } = props;
+  const weeks = Array.from({ length: days.length / 7 }, (_, i) => days.slice(i * 7, i * 7 + 7));
   return (
     <div>
       <div className="grid grid-cols-7 border-b border-hairline pb-2 text-center text-xs text-fg-secondary">
@@ -129,42 +158,153 @@ export function MonthGrid(props: MonthGridProps) {
           <span key={d}>{weekdayShort(weekdayOf(d))}</span>
         ))}
       </div>
-      <div className="grid grid-cols-7 gap-1 pt-2">
-        {days.map((day) => (
-          <MonthCell key={day} day={day} {...props} />
+      <div className="space-y-1 pt-2">
+        {weeks.map((week) => (
+          <MonthWeek key={week[0]} week={week} segments={layoutWeek(events, week)} {...props} />
         ))}
       </div>
     </div>
   );
 }
 
+/** ความสูงของหนึ่งแถวย่อย (lane) + ระยะห่าง — ต้องตรงกับ EventLine (text-[11px] · py-0.5) */
+const LANE_PX = 18;
+const LANE_GAP_PX = 2;
+/** หัวช่อง: p-1.5 + เลขวัน size-6 + ช่องว่างก่อนรายการแรก */
+const CELL_HEAD_PX = 32;
+
 /**
- * ช่องหนึ่งวัน: ปุ่มเลือกวันปูเต็มช่อง (คีย์บอร์ด/screen reader ใช้ตัวนี้) + รายการวางทับด้านบน
- * ไม่ห่อรายการไว้ใน <button> — ของที่ลากได้ซ้อนในปุ่มลากไม่ขึ้นในบางเบราว์เซอร์
+ * หนึ่งสัปดาห์ของ month grid เป็น CSS grid เดียว: ช่องวัน 7 ช่อง (เลือกวัน / รับการวาง) กินทุกแถว
+ * รายการวางในแถวย่อย (lane) ทับด้านบน — แถบหลายวันกินหลายคอลัมน์ต่อกันได้ · ความสูงขยายตามจำนวนแถว
+ */
+function MonthWeek({
+  week,
+  segments,
+  ...props
+}: MonthGridProps & { week: string[]; segments: WeekSegment[] }) {
+  const maxLanes = props.tall ? MAX_IN_CELL_TALL : MAX_IN_CELL;
+  // ระหว่างลาก: รายการไม่รับเมาส์ → ปล่อยบนแถบก็วางลงช่องวันข้างใต้
+  const [dragging, setDragging] = React.useState(false);
+  const hidden = week.map(
+    (_, column) =>
+      segments.filter((s) => s.lane >= maxLanes && s.column <= column && column < s.column + s.span)
+        .length,
+  );
+  const lanes =
+    Math.min(Math.max(0, ...segments.map((s) => s.lane + 1)), maxLanes) +
+    (hidden.some(Boolean) ? 1 : 0);
+  return (
+    <div
+      className={cn(
+        'grid min-h-[104px] grid-cols-7 gap-x-1',
+        // 6 แถวเต็มความสูงจอ (หักหัวหน้า + แถบชื่อวัน)
+        props.tall && 'min-h-[max(104px,calc((100dvh_-_260px)/6))]',
+      )}
+      style={{
+        gridTemplateRows: `${CELL_HEAD_PX}px repeat(${lanes}, ${LANE_PX}px) minmax(6px, 1fr)`,
+        rowGap: LANE_GAP_PX,
+      }}
+      onDragStart={() => setTimeout(() => setDragging(true), 0)}
+      onDragEnd={() => setDragging(false)}
+      onDrop={() => setDragging(false)}
+    >
+      {week.map((day, column) => (
+        <MonthCell key={day} day={day} column={column} {...props} />
+      ))}
+      {/* รายการเป็นแค่ภาพ (ข้อมูลเดียวกันอยู่ใน aria-label ของปุ่มวัน + day panel) */}
+      {segments
+        .filter((s) => s.lane < maxLanes)
+        .map((s) => (
+          <SegmentLine
+            key={s.event.id}
+            segment={s}
+            week={week}
+            timeZone={props.timeZone}
+            onSelect={props.onSelect}
+            onMove={props.onMove}
+            className={cn('relative', dragging && 'pointer-events-none')}
+            row={s.lane + 2}
+          />
+        ))}
+      {hidden.map((count, column) =>
+        count ? (
+          <span
+            key={week[column]}
+            aria-hidden="true"
+            className="pointer-events-none relative px-3 text-[11px] leading-[18px] text-fg-secondary"
+            style={{ gridColumn: column + 1, gridRow: maxLanes + 2 }}
+          >
+            +{count}
+          </span>
+        ) : null,
+      )}
+    </div>
+  );
+}
+
+/** ชิ้นของรายการในแถวสัปดาห์ — แถบที่ต่อจาก/ไปสัปดาห์อื่นชิดขอบและไม่โค้งด้านนั้น */
+function SegmentLine({
+  segment,
+  week,
+  timeZone,
+  onSelect,
+  onMove,
+  className,
+  row,
+}: {
+  segment: WeekSegment;
+  week: string[];
+  timeZone: string;
+  onSelect?: (day: string) => void;
+  onMove?: MoveHandler;
+  className?: string;
+  /** แถวของ grid ที่วาง (ค่าเริ่มต้น = lane + 1) */
+  row?: number;
+}) {
+  const { event, column, span, lane, continuesBefore, continuesAfter } = segment;
+  const firstDay = week[column]!;
+  return (
+    <EventLine
+      event={event}
+      timeZone={timeZone}
+      onClick={() => selectAndOpen(event, firstDay, onSelect)}
+      aria-hidden="true"
+      className={cn(
+        'h-[18px]',
+        continuesBefore ? 'rounded-l-none' : 'ml-1.5',
+        continuesAfter ? 'rounded-r-none' : 'mr-1.5',
+        className,
+      )}
+      style={{ gridColumn: `${column + 1} / span ${span}`, gridRow: row ?? lane + 1 }}
+      {...dragProps(event, onMove, isSpanning(event) ? { firstDay, span } : undefined)}
+    />
+  );
+}
+
+/**
+ * ช่องหนึ่งวัน (กินทุกแถวของสัปดาห์): ปุ่มเลือกวันปูเต็มช่อง (คีย์บอร์ด/screen reader ใช้ตัวนี้)
+ * รายการเป็นพี่น้องใน grid ของสัปดาห์ วางทับด้านบน — ไม่ห่อไว้ใน <button> (ของที่ลากได้ซ้อนในปุ่มลากไม่ขึ้นในบางเบราว์เซอร์)
  */
 function MonthCell({
   day,
+  column,
   anchor,
   today,
   selected,
   byDate,
   reminderDays,
-  timeZone,
   onSelect,
   onMove,
-  tall = false,
-}: MonthGridProps & { day: string }) {
+}: MonthGridProps & { day: string; column: number }) {
   const items = byDate.get(day) ?? [];
-  const maxInCell = tall ? MAX_IN_CELL_TALL : MAX_IN_CELL;
   const isToday = day === today;
   const drop = useDropZone(day, onMove);
   return (
     <div
       {...drop.props}
+      style={{ gridColumn: column + 1, gridRow: '1 / -1' }}
       className={cn(
-        'relative flex min-h-[104px] flex-col gap-1 rounded-row p-1.5 transition-colors duration-[180ms]',
-        // 6 แถวเต็มความสูงจอ (หักหัวหน้า + แถบชื่อวัน)
-        tall && 'min-h-[max(104px,calc((100dvh_-_260px)/6))]',
+        'relative rounded-row p-1.5 transition-colors duration-[180ms]',
         isToday ? 'bg-surface shadow-card' : 'hover:bg-wash',
         day === selected && 'ring-1 ring-hairline-strong',
         drop.over && 'bg-accent-soft ring-2 ring-accent',
@@ -194,23 +334,6 @@ function MonthCell({
           className="absolute right-2 top-2 size-1.5 rounded-full bg-accent"
         />
       ) : null}
-      {/* รายการเป็นแค่ภาพ (ข้อมูลเดียวกันอยู่ใน aria-label ของปุ่ม + day panel) */}
-      <span aria-hidden="true" className="relative flex flex-col gap-0.5">
-        {items.slice(0, maxInCell).map((e) => (
-          <EventLine
-            key={e.id}
-            event={e}
-            timeZone={timeZone}
-            onClick={() => selectAndOpen(e, day, onSelect)}
-            {...dragProps(e, onMove)}
-          />
-        ))}
-        {items.length > maxInCell ? (
-          <span className="pointer-events-none px-1.5 text-[11px] text-fg-secondary">
-            +{items.length - maxInCell}
-          </span>
-        ) : null}
-      </span>
     </div>
   );
 }
@@ -230,6 +353,7 @@ export function WeekGrid({
   today,
   selected,
   byDate,
+  events,
   timeZone,
   onSelect,
   onMove,
@@ -238,6 +362,8 @@ export function WeekGrid({
   today: string;
   selected: string;
   byDate: Map<string, CalendarEventDto[]>;
+  /** รายการทั้งช่วง (ไม่กระจายรายวัน) — แถวทั้งวันวางเป็นแถบหลายวัน */
+  events: CalendarEventDto[];
   timeZone: string;
   onSelect: (day: string) => void;
   onMove?: MoveHandler;
@@ -274,15 +400,13 @@ export function WeekGrid({
         <span className="pr-2 pt-2 text-right font-mono text-[10px] text-fg-tertiary">
           {tr('calendar.allDay')}
         </span>
-        {days.map((day) => (
-          <WeekAllDay
-            key={day}
-            day={day}
-            events={byDate.get(day) ?? []}
-            timeZone={timeZone}
-            onMove={onMove}
-          />
-        ))}
+        <WeekAllDayRow
+          days={days}
+          events={events}
+          timeZone={timeZone}
+          onSelect={onSelect}
+          onMove={onMove}
+        />
 
         {/* time grid */}
         <div className="relative" style={{ height: HOURS.length * 44 }}>
@@ -318,29 +442,76 @@ interface WeekCellProps {
   onMove?: MoveHandler;
 }
 
-function WeekAllDay({ day, events, timeZone, onMove }: WeekCellProps) {
+/**
+ * แถวทั้งวันของ week view — รายการทั้งวัน + แถบหลายวัน (กินหลายคอลัมน์) · ช่องวันข้างใต้รับการวาง
+ * แสดงทุกแถวย่อย (ไม่ตัด +N เหมือน month — สัปดาห์เดียวมีที่พอ)
+ */
+function WeekAllDayRow({
+  days,
+  events,
+  timeZone,
+  onSelect,
+  onMove,
+}: {
+  days: string[];
+  events: CalendarEventDto[];
+  timeZone: string;
+  onSelect: (day: string) => void;
+  onMove?: MoveHandler;
+}) {
+  const [dragging, setDragging] = React.useState(false);
+  const segments = layoutWeek(
+    events.filter((e) => e.allDay || isSpanning(e)),
+    days,
+  );
+  const lanes = Math.max(1, ...segments.map((s) => s.lane + 1));
+  return (
+    <div
+      aria-hidden="true"
+      className="col-span-7 grid grid-cols-7"
+      style={{
+        gridTemplateRows: `4px repeat(${lanes}, ${LANE_PX}px) 4px`,
+        rowGap: LANE_GAP_PX,
+      }}
+      onDragStart={() => setTimeout(() => setDragging(true), 0)}
+      onDragEnd={() => setDragging(false)}
+      onDrop={() => setDragging(false)}
+    >
+      {days.map((day, column) => (
+        <WeekAllDayCell key={day} day={day} column={column} onMove={onMove} />
+      ))}
+      {segments.map((s) => (
+        <SegmentLine
+          key={s.event.id}
+          segment={s}
+          week={days}
+          timeZone={timeZone}
+          onSelect={onSelect}
+          onMove={onMove}
+          className={cn('relative', dragging && 'pointer-events-none')}
+          row={s.lane + 2}
+        />
+      ))}
+    </div>
+  );
+}
+
+function WeekAllDayCell({
+  day,
+  column,
+  onMove,
+}: {
+  day: string;
+  column: number;
+  onMove?: MoveHandler;
+}) {
   const drop = useDropZone(day, onMove);
   return (
     <div
       {...drop.props}
-      aria-hidden="true"
-      className={cn(
-        'flex min-h-9 flex-col gap-0.5 border-b border-l border-hairline p-1',
-        drop.over && 'bg-accent-soft',
-      )}
-    >
-      {events
-        .filter((e) => e.allDay)
-        .map((e) => (
-          <EventLine
-            key={e.id}
-            event={e}
-            timeZone={timeZone}
-            onClick={() => selectAndOpen(e, day)}
-            {...dragProps(e, onMove)}
-          />
-        ))}
-    </div>
+      style={{ gridColumn: column + 1, gridRow: '1 / -1' }}
+      className={cn('min-h-9 border-b border-l border-hairline', drop.over && 'bg-accent-soft')}
+    />
   );
 }
 
@@ -365,7 +536,7 @@ function WeekColumn({
       }}
     >
       {events
-        .filter((e) => !e.allDay)
+        .filter((e) => !e.allDay && !isSpanning(e))
         .map((e) => {
           const offset = Math.min(
             Math.max(minutesOf(e.start, timeZone) - DAY_START_MIN, 0),
