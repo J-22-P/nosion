@@ -17,9 +17,40 @@ env:
   JWT_SECRET: ci-only-not-a-real-secret-ci-only-not-a-real-secret
 
 jobs:
-  # ── งานเบา รันขนานกันทั้งหมด ────────────────────────────
-  lint:
-    name: Lint · Format · Typecheck
+  # ── นาทีของ GitHub Actions มีจำกัด (repo private · 2,000 นาที/เดือน) ──
+  # แต่ละ job ต้อง checkout + ติดตั้ง dependency ใหม่ (~1 นาที) และถูกปัดขึ้นเป็นนาทีเต็ม
+  # → งานเบาที่ต้องใช้ dependency ชุดเดียวกันรวมไว้ job เดียว · job หนัก (UI / docker) รันเฉพาะเมื่อไฟล์ที่เกี่ยวเปลี่ยน
+
+  # ไฟล์ที่เปลี่ยนใน push/PR นี้ → ตัดสินว่า job หนักต้องรันไหม (job ที่ข้าม = ไม่เสียนาที)
+  changes:
+    name: Changed paths
+    runs-on: ubuntu-24.04
+    outputs:
+      web: ${{ steps.filter.outputs.web }}
+      worker: ${{ steps.filter.outputs.worker }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            web:
+              - 'apps/web/**'
+              - 'packages/**'
+              - 'pnpm-lock.yaml'
+              - '.github/workflows/ci.yml'
+              - '.github/actions/**'
+            worker:
+              - 'apps/worker/**'
+              - 'apps/api/prisma/**'
+              - 'packages/**'
+              - 'docker/worker.Dockerfile'
+              - 'pnpm-lock.yaml'
+              - '.github/workflows/ci.yml'
+
+  # lint · format · typecheck · unit · build ทุกแอป · กฎ alert — เดิมแยก 6 job (ติดตั้ง dependency 6 รอบ)
+  verify:
+    name: Lint · Typecheck · Unit · Build
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
@@ -27,14 +58,15 @@ jobs:
       - run: pnpm lint
       - run: pnpm format:check
       - run: pnpm typecheck
-
-  unit:
-    name: Unit tests
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v5
-      - uses: ./.github/actions/setup
       - run: pnpm test:unit
+      - run: pnpm turbo run build --filter=@nosion/web --filter=@nosion/api --filter=@nosion/worker
+      # กฎ alert ของ Prometheus (สเปก 14.4) — ตรวจไวยากรณ์และ unit test ด้วย promtool (ไม่ต้องมี Prometheus จริง)
+      - name: Alert rules (promtool check + test)
+        run: |
+          docker run --rm -v "$PWD/ops/prometheus:/rules" -w /rules --entrypoint promtool \
+            prom/prometheus:v3.5.0 check rules alerts.yml
+          docker run --rm -v "$PWD/ops/prometheus:/rules" -w /rules --entrypoint promtool \
+            prom/prometheus:v3.5.0 test rules alerts.test.yml
 
   integration:
     name: Integration tests
@@ -71,9 +103,11 @@ jobs:
           MAILPIT_API_URL: http://localhost:8025
 
   # image ที่ deploy ขึ้น Fly.io — เดิม CI build แค่ด้วย turbo จึงไม่มีใครเห็นว่า image พังมาตลอด (Phase 4 ขั้น 7)
+  # ~6 นาที — รันเฉพาะเมื่อโค้ดที่อยู่ใน image เปลี่ยน
   worker-image:
     name: Docker image (worker)
-    needs: [lint, unit]
+    needs: [changes, verify]
+    if: needs.changes.outputs.worker == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
@@ -99,19 +133,6 @@ jobs:
             require('fs').accessSync('dist/main.js');
             console.log('worker image ok');
           "
-
-  # กฎ alert ของ Prometheus (สเปก 14.4) — ตรวจไวยากรณ์และ unit test ด้วย promtool (ไม่ต้องมี Prometheus จริง)
-  alerts:
-    name: Alert rules
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v5
-      - name: promtool check + test
-        run: |
-          docker run --rm -v "$PWD/ops/prometheus:/rules" -w /rules --entrypoint promtool \
-            prom/prometheus:v3.5.0 check rules alerts.yml
-          docker run --rm -v "$PWD/ops/prometheus:/rules" -w /rules --entrypoint promtool \
-            prom/prometheus:v3.5.0 test rules alerts.test.yml
 
   security:
     name: Security scan
@@ -147,9 +168,11 @@ jobs:
           ignore-unfixed: true
 
   # ── UI: visual regression + axe (API ปลอมด้วย page.route — ไม่ต้องมี DB) ──
+  # ~8 นาที — รันเฉพาะเมื่อเว็บ (หรือแพ็กเกจที่เว็บใช้) เปลี่ยน
   ui:
     name: UI · visual + a11y
-    needs: [lint, unit]
+    needs: [changes, verify]
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-24.04
     # image เดียวกับ scripts/playwright-docker.sh → ฟอนต์/การ render ตรงกับภาพ baseline
     container:
@@ -178,16 +201,3 @@ jobs:
         with:
           name: playwright-report
           path: apps/web/playwright-report
-
-  build:
-    name: Build ${{ matrix.app }}
-    needs: [lint, unit]
-    runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        app: [web, api, worker]
-    steps:
-      - uses: actions/checkout@v5
-      - uses: ./.github/actions/setup
-      - run: pnpm turbo run build --filter=@nosion/${{ matrix.app }}
