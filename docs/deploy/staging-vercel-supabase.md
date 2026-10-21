@@ -15,8 +15,8 @@ GitHub Actions: CI เขียวบน main → Deploy staging → migrate (Su
 - **web กับ API คนละ project** แต่ผู้ใช้เห็นโดเมนเดียว — `/api/v1/*` ถูก proxy ผ่าน web (`API_PROXY_TARGET`)
   refresh cookie (`HttpOnly; Secure; SameSite=Strict; Path=/api/v1/auth`) จึงเป็น first-party
 - **API** รันผ่าน 📁 `apps/api/api/index.js` → 📁 `src/serverless.ts` (สร้างแอป Nest ครั้งเดียวต่อ instance) — ตั้งค่า HTTP ชุดเดียวกับ `main.ts` (`app.setup.ts`)
-- **worker รันบน Fly.io** (Phase 4) — Vercel Functions ไม่รัน process ค้าง แต่ sweeper ของการเตือนต้องรันทุกนาที → ดูหัวข้อ 6
-- อีเมล: `MAIL_DRIVER=log` (ค่าเริ่มต้น) บันทึก log อย่างเดียว · ตั้ง `resend` + `RESEND_API_KEY` เมื่อยืนยันโดเมนแล้ว (Phase 4)
+- **การเตือน · สรุปรายวัน · ดึง GitHub** — Vercel Functions ไม่รัน process ค้าง จึงให้ cron-job.org เรียก endpoint ของ API ตามรอบ → ดูหัวข้อ 5b (worker บน Fly.io ในหัวข้อ 6 เป็นทางเลือก ยังไม่ได้ใช้)
+- อีเมล: ส่งผ่าน SMTP (`MAIL_DRIVER=smtp` + `SMTP_URL` ของ Gmail) · `log` = บันทึก log อย่างเดียว · `resend` ใช้ได้เมื่อยืนยันโดเมนแล้ว
 
 ## 1. Supabase (ฐานข้อมูล)
 

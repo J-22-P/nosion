@@ -3,23 +3,6 @@
 > Phase 8 ขั้น 7 · workflow พร้อมแล้ว (📁 `.github/workflows/deploy-production.yml` · `rollback-production.yml`)
 > แต่ **ยังไม่มีโปรเจกต์ production** (เจ้าของเลือกสร้างทีหลัง) — ระหว่างนี้ push tag แล้ว workflow ข้ามเงียบ ไม่ทำให้แดง
 
-## ภาพรวม
-
-```
-git tag v1.2.0 && git push origin v1.2.0
-        │
-        ▼
- check   ── tag อยู่บน main? CI ของ commit เขียว?  (ไม่ผ่าน = หยุด ยังไม่แตะอะไร)
-        │
-        ▼  ⏸ รอคนกดอนุมัติ (environment "production" · required reviewers)
- deploy  ── จำ deployment ปัจจุบัน → pg_dump เข้ารหัส age → migrate → api → web → (worker) → smoke
-        │        ล้มหลังเริ่มแตะ production → vercel rollback api/web (+ worker) → เปิด issue
-        ▼
- release ── GitHub Release พร้อม release notes อัตโนมัติ
-```
-
-โครงเดียวกับ staging (📁 `staging-vercel-supabase.md`) — Vercel 2 project (api · web) + Supabase + Upstash (+ Fly.io ถ้าใช้ worker)
-
 ## 1. สร้างโครงสร้างพื้นฐาน (ครั้งเดียว)
 
 ทำตามหัวข้อ 1–3 ของคู่มือ staging ทุกข้อ โดยตั้งชื่อเป็น production:
