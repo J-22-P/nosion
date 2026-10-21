@@ -9,14 +9,14 @@
 
 ```mermaid
 flowchart TB
-  user["👤 ผู้ใช้<br/><small>จัดการงาน เงิน นิสัย<br/>บนเว็บ / มือถือ (PWA)</small>"]
-  dev["👩‍💻 สคริปต์ของผู้ใช้<br/><small>เรียก Public API<br/>ด้วย API key</small>"]
+  user["ผู้ใช้<br/><small>จัดการงาน เงิน นิสัย<br/>บนเว็บ / มือถือ (PWA)</small>"]
+  dev["สคริปต์ของผู้ใช้<br/><small>เรียก Public API<br/>ด้วย API key</small>"]
 
   nosion[["NOSION<br/><small>Personal productivity OS<br/>งาน · การเงิน · นิสัย · ปฏิทิน · การเตือน</small>"]]
 
   google["Google<br/><small>OAuth / OpenID Connect</small>"]
   github["GitHub<br/><small>OAuth · REST API · Webhooks</small>"]
-  mail["Resend<br/><small>อีเมล (ยืนยัน · สรุปรายวัน · เตือน)</small>"]
+  mail["SMTP (Gmail)<br/><small>อีเมล (ยืนยัน · สรุปรายวัน · เตือน)</small>"]
   push["Web Push service<br/><small>FCM · Mozilla · Apple</small>"]
   cal["แอปปฏิทิน<br/><small>Google / Apple Calendar</small>"]
   cron["cron-job.org<br/><small>ปลุกงานตามเวลา</small>"]
@@ -60,9 +60,10 @@ flowchart TB
     worker["Worker<br/><small>BullMQ · การเตือน · digest</small>"]
   end
 
+  cron["cron-job.org<br/><small>เรียก /internal/cron/* ตามรอบ</small>"]
   db[("PostgreSQL 17<br/><small>Supabase</small>")]
-  redis[("Redis<br/><small>Upstash · rate limit · คิว</small>")]
-  out["Web Push / อีเมล"]
+  redis[("Redis<br/><small>Upstash · rate limit · คิวของ worker</small>")]
+  out["Web Push / อีเมล (SMTP)"]
 
   ui -- "HTTPS" --> web
   sw -. "sync เมื่อกลับมาออนไลน์" .-> web
@@ -71,6 +72,7 @@ flowchart TB
   api -- ioredis --> redis
   worker -- Prisma --> db
   worker -- BullMQ --> redis
+  cron -- "การเตือน · digest · GitHub" --> api
   api -- "cron endpoint" --> out
   worker --> out
 

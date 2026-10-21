@@ -38,8 +38,10 @@ NOSION รวมสามเรื่องนี้ไว้ในแอปเ�
 
 - เพิ่มงานด้วยประโยคเดียว เช่น `ส่งรายงาน พรุ่งนี้ 5 โมง !high #work`
 - จัดงานด้วยโปรเจกต์ แท็ก ความสำคัญ และงานย่อย
+- ตั้งวันเริ่มและวันครบกำหนด งานหลายวันขึ้นเป็นแถบยาวในปฏิทิน
+- เปิดรายละเอียดงานเพื่ออ่านคำอธิบายแบบ Markdown เหมือนบน GitHub
 - ดูงานแยกเป็น Inbox, วันนี้, 7 วันข้างหน้า หรือแยกตามโปรเจกต์
-- เลื่อนงานไปพรุ่งนี้ได้ในคลิกเดียว ลบแล้วกู้คืนได้
+- เลื่อนงานไปพรุ่งนี้ได้ในคลิกเดียว กดเสร็จผิดก็ยกเลิกได้ ลบแล้วกู้คืนได้
 - จับเวลาโฟกัสจากการ์ดงาน และดูเวลาโฟกัสรวมของวัน
 - ตั้งงานซ้ำทุกวัน ทุกสัปดาห์ หรือทุกสิ้นเดือน
 
@@ -71,7 +73,7 @@ NOSION รวมสามเรื่องนี้ไว้ในแอปเ�
 
 ### ปฏิทิน (Calendar)
 
-- เห็นงาน บิล และนิสัยในปฏิทินเดียว สลับมุมมองเดือน สัปดาห์ หรือรายการ
+- เห็นงาน บิล และนิสัยในปฏิทินเดียว สลับมุมมองเดือน สัปดาห์ หรือรายการ และขยายเต็มจอได้
 - กรองตามโมดูล แล้วกดวันเพื่อดูรายละเอียด
 - Subscribe ด้วย iCal เพื่อเปิดใน Google Calendar หรือ Apple Calendar
 
@@ -111,29 +113,30 @@ NOSION รวมสามเรื่องนี้ไว้ในแอปเ�
 ### เชื่อมต่อภายนอก
 
 - **เข้าสู่ระบบ:** ด้วยอีเมล, Google หรือ GitHub และผูกหลายบัญชีกับผู้ใช้คนเดียวได้
-- **GitHub:** issue และ PR ที่มอบหมายให้คุณกลายเป็นงาน วันของ milestone ขึ้นในปฏิทิน และงานปิดให้เองเมื่อ PR merge
+- **GitHub:** issue และ PR ที่มอบหมายให้คุณกลายเป็นงาน วันของ milestone ขึ้นในปฏิทิน และงานปิดให้เองเมื่อ PR merge แอปดึงข้อมูลใหม่ทุกชั่วโมง ถ้า organization จำกัดสิทธิ์ OAuth app ให้ใส่ personal access token แทน
 - **Public API:** สร้าง API key แบบอ่านอย่างเดียวหรืออ่าน-เขียน และเพิกถอนได้ เอกสาร Swagger อยู่ที่ `/api/v1/docs`
 
 ---
 
 ## Tech Stack
 
-| ส่วน               | ใช้อะไร                                |
-| ------------------ | -------------------------------------- |
-| หน้าเว็บ           | Next.js 15, React 19                   |
-| หน้าตา             | Tailwind CSS 4                         |
-| ข้อมูลฝั่งหน้าเว็บ | TanStack Query, Zustand                |
-| เซิร์ฟเวอร์        | NestJS 11, Node 22                     |
-| ฐานข้อมูล          | PostgreSQL 17, Prisma 6                |
-| คิวและแคช          | Redis 7, BullMQ                        |
-| ตรวจข้อมูล         | Zod                                    |
-| ล็อกอิน            | JWT, Argon2id, OAuth (Google, GitHub)  |
-| ภาษา               | next-intl                              |
-| อีเมล              | React Email, Resend                    |
-| แจ้งเตือน          | Web Push                               |
-| ทดสอบ              | Vitest, Playwright, axe, Lighthouse    |
-| Deploy             | Vercel, Supabase, Upstash, Fly.io      |
-| Monorepo           | pnpm workspaces, Turborepo, TypeScript |
+| ส่วน               | ใช้อะไร                                   |
+| ------------------ | ----------------------------------------- |
+| หน้าเว็บ           | Next.js 15, React 19                      |
+| หน้าตา             | Tailwind CSS 4                            |
+| ข้อมูลฝั่งหน้าเว็บ | TanStack Query, Zustand                   |
+| เซิร์ฟเวอร์        | NestJS 11, Node 22                        |
+| ฐานข้อมูล          | PostgreSQL 17, Prisma 6                   |
+| Rate limit         | Redis (Upstash)                           |
+| งานตามเวลา         | cron-job.org                              |
+| ตรวจข้อมูล         | Zod                                       |
+| ล็อกอิน            | JWT, Argon2id, OAuth (Google, GitHub)     |
+| ภาษา               | next-intl                                 |
+| อีเมล              | React Email, Nodemailer (SMTP)            |
+| แจ้งเตือน          | Web Push                                  |
+| ทดสอบ              | Vitest, Playwright, axe, Lighthouse       |
+| Deploy             | Vercel, Supabase, Upstash, GitHub Actions |
+| Monorepo           | pnpm workspaces, Turborepo, TypeScript    |
 
 ---
 
@@ -141,14 +144,14 @@ NOSION รวมสามเรื่องนี้ไว้ในแอปเ�
 
 ```mermaid
 flowchart LR
-  user["👤 ผู้ใช้"] -- HTTPS --> web["Web<br/><small>Next.js PWA · Vercel</small>"]
+  user["ผู้ใช้<br/><small>เว็บ / มือถือ (PWA)</small>"] -- HTTPS --> web["Web<br/><small>Next.js · Vercel</small>"]
   web -- "/api/v1" --> api["API<br/><small>NestJS · Vercel Function</small>"]
+  cron["cron-job.org"] -- "การเตือน ทุก 1 นาที<br/>สรุปรายวัน ทุก 15 นาที<br/>ดึง GitHub ทุก 1 ชม." --> api
   api --> db[("PostgreSQL<br/><small>Supabase</small>")]
-  api --> redis[("Redis<br/><small>Upstash</small>")]
-  worker["Worker<br/><small>BullMQ · Fly.io</small>"] --> db
-  worker --> redis
+  api --> redis[("Redis<br/><small>Upstash · rate limit</small>")]
   api -- "OAuth · issue · webhook" --- github["GitHub / Google"]
-  api -- "push · อีเมล" --> notify["Web Push · Resend"]
+  api -- "push" --> push["Web Push"]
+  api -- "อีเมล" --> smtp["SMTP<br/><small>Gmail</small>"]
 ```
 
 โค้ดแบ่งเป็นสามแอปกับแพ็กเกจที่ใช้ร่วมกัน:
@@ -157,7 +160,7 @@ flowchart LR
 apps/
   web/      หน้าเว็บ (Next.js)
   api/      REST API (NestJS)
-  worker/   งานเบื้องหลัง เช่น ส่งการเตือน (BullMQ)
+  worker/   ตัวส่งการเตือนแบบรันค้าง (BullMQ) ใช้แทน cron-job.org ได้ถ้ามีเซิร์ฟเวอร์
 packages/
   contracts/      Zod schema และ type ที่หน้าเว็บกับ API ใช้ร่วมกัน
   core/           interface ของโมดูล ฟังก์ชันเวลา ตัวแปลงประโยคเป็นงาน
@@ -165,6 +168,8 @@ packages/
   notifications/  ตัวส่ง push และอีเมล
   ui/             design token
 ```
+
+Vercel Function ไม่รันค้าง staging จึงให้ cron-job.org เรียก endpoint `/api/v1/internal/cron/*` ของ API ตามรอบเวลา แทนการรัน worker
 
 แผนภาพละเอียดขึ้น (C4) อยู่ที่ [docs/diagrams](./docs/diagrams/README.md)
 
