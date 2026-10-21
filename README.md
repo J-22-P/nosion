@@ -1,6 +1,6 @@
 # NOSION
 
-**[ลองใช้ demo](https://nosion-staging-web.vercel.app)** · [เอกสารการตัดสินใจ (ADR)](./docs/adr) · [แผนภาพระบบ](./docs/diagrams/README.md)
+**[ลองใช้ demo](https://nosion-staging-web.vercel.app)** · [แผนภาพระบบ](./docs/diagrams/README.md)
 
 แอปจัดการชีวิตประจำวันในที่เดียว: งาน การเงิน และนิสัย
 คุณเปิดหน้า "วันนี้" หน้าเดียว แล้วเห็นงานที่ต้องทำ เงินที่ใช้ไป และนิสัยที่ยังไม่ได้ทำ โดยไม่ต้องสลับไปมาหลายแอป
