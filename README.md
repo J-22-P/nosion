@@ -1,109 +1,148 @@
-# NOSION — Personal Productivity OS
+# NOSION
 
-ระบบจัดการชีวิตที่ต่อโมดูลเพิ่มได้ — งาน การเงิน ออกกำลังกาย และนิสัย
-อยู่บนโครงสร้างข้อมูลเดียวกัน จึงดูรวมกันได้ในหน้าเดียวโดยไม่ต้องสลับแอป
+**[ลองใช้ demo](https://nosion-staging-web.vercel.app)** · [เอกสารการตัดสินใจ (ADR)](./docs/adr) · [แผนภาพระบบ](./docs/diagrams/README.md)
 
-> **สถานะปัจจุบัน:** Phase 0–8 เสร็จแล้ว (Phase 6 ทำเฉพาะ Habit — ตัด Workout · Phase 8 ข้าม Import CSV/Todoist)
-> — ดู [แผนงานเต็ม](#ทำอะไรต่อ) ท้ายเอกสาร · บันทึกรายขั้นที่ [docs/phases](docs/phases/README.md)
+แอปจัดการชีวิตประจำวันในที่เดียว: งาน การเงิน และนิสัย
+คุณเปิดหน้า "วันนี้" หน้าเดียว แล้วเห็นงานที่ต้องทำ เงินที่ใช้ไป และนิสัยที่ยังไม่ได้ทำ โดยไม่ต้องสลับไปมาหลายแอป
 
-**ลองใช้:** เปิดเว็บแล้วกด **"ลองใช้ทันที"** — ได้บัญชีทดลองพร้อมข้อมูลตัวอย่างใน 1 คลิก ไม่ต้องสมัคร
-(สลับ ไทย / English ได้ที่หน้าแรก) · บัญชีจริงเข้าด้วยอีเมล หรือ **Google / GitHub** ก็ได้
+![หน้าวันนี้: งาน การเงิน และนิสัยรวมในหน้าเดียว](docs/images/today-light.png)
 
----
-
-## นี่คืออะไร
-
-To-do list เป็นโปรเจกต์ที่ถูกทำซ้ำมากที่สุดใน GitHub โปรเจกต์นี้จึงไม่ได้ตั้งใจทำ CRUD ให้สวย
-แต่ตั้งใจเลือกโจทย์ที่**มีความยากทางเทคนิคที่จับต้องได้** แล้วแก้ให้ถูกต้องจริง
-
-สิ่งที่ใช้งานได้แล้วตอนนี้:
-
-- สมัคร / เข้าสู่ระบบ / ออกจากระบบ พร้อม refresh token rotation และ reuse detection
-- บัญชีทดลอง — กดปุ่มเดียวจากหน้าแรก เข้าใช้ได้ทันทีพร้อมข้อมูลตัวอย่าง
-- จัดการงาน: สร้าง ค้นหา กรอง เรียง ทำเสร็จ เลื่อน ลบ กู้คืน พร้อม optimistic update
-- โปรเจกต์และแท็ก, การตั้งค่าผู้ใช้ (โซนเวลา ภาษา สกุลเงิน โมดูลที่เปิด)
-- การเงิน: บันทึกด่วน "กาแฟ 65", งบประมาณ, บิลประจำ, คาดการณ์สิ้นเดือน, กราฟย้อนหลัง
-- การเกิดซ้ำ (RRULE + timezone + DST + วันสิ้นเดือน) และการเตือนผ่าน Web Push / อีเมล
-- ปฏิทินรวมทุกโมดูล + iCal feed · Command Palette ⌘K สร้างรายการจากประโยคภาษาไทย/อังกฤษ · ปุ่มลัดครบ
-- นิสัย: นับจำนวน / ติ๊ก / ก่อนเวลา / รายสัปดาห์ พร้อม streak · สรุปรายสัปดาห์รวมทุกโมดูล
-- ใช้ตอนไม่มีเน็ตได้ (outbox + sync + แก้ชนระดับ field) · ติดตั้งเป็นแอปบนมือถือได้ (PWA)
-- **ภาษาไทย / อังกฤษ** ทั้งแอป อีเมล และการแจ้งเตือน · เลือกแสดงปี พ.ศ./ค.ศ. ได้
-- เข้าสู่ระบบด้วย **Google / GitHub** (OAuth + PKCE) · ผูกหลายบัญชีกับผู้ใช้คนเดียวได้
-- **GitHub → งานและปฏิทิน:** issue/PR ที่มอบหมายให้เรากลายเป็นงาน (milestone = วันในปฏิทิน) · webhook ปิดงานเมื่อ PR merged
-- **Public API** + API key (สิทธิ์ read/write · เพิกถอนได้ · 60 ครั้ง/นาที) · Swagger ที่ `/api/v1/docs`
-- บัญชีใหม่มีการ์ด "เริ่มต้นใช้งาน" พาทำทีละขั้น — คนที่ไม่ใช่ dev ใช้เองได้โดยไม่ต้องมีคนอธิบาย
-- API: health check แยก liveness/readiness · error ตามมาตรฐาน RFC 9457
+**ลองใช้:** เปิดเว็บแล้วกด **"ลองใช้ทันที"** ระบบสร้างบัญชีทดลองพร้อมข้อมูลตัวอย่างให้ในคลิกเดียว ไม่ต้องสมัคร
+ถ้าจะใช้จริง เข้าด้วยอีเมล Google หรือ GitHub ก็ได้ สลับภาษาไทย/อังกฤษได้ที่หน้าแรก
 
 ---
 
-## ทำไมถึงน่าสนใจทางเทคนิค
+## วัตถุประสงค์ของโปรเจกต์
 
-### 1. Plugin Architecture — เพิ่มโมดูลโดยแก้โค้ดเดิม 0 บรรทัด
+คนส่วนใหญ่จดงานในแอปหนึ่ง จดรายจ่ายในอีกแอป และติ๊กนิสัยในแอปที่สาม พอจะดูภาพรวมของวัน คุณต้องเปิดสามแอปแล้วต่อภาพเอง
 
-ทุกโมดูล implement interface เดียวกัน (`TrackableModule` ใน `packages/core`)
-แล้วติด decorator `@RegisterModule()` จากนั้น `ModuleRegistry` จะค้นเจอเองตอน bootstrap
-ผ่าน DiscoveryService ของ NestJS
+NOSION รวมสามเรื่องนี้ไว้ในแอปเดียว:
 
-ผลลัพธ์คือ **ไม่มี `if (module === 'expense')` อยู่ใน core แม้แต่ที่เดียว** —
-หน้า Today, Calendar, Weekly Review และ NL Parser วนลูปบนทะเบียนโมดูลทั้งหมด
+- **เห็นภาพรวมของวันในหน้าเดียว:** งานที่ต้องทำ เงินที่ใช้ไปเทียบกับงบ และนิสัยที่ยังไม่ได้ทำ
+- **จดได้เร็ว:** พิมพ์เป็นประโยคธรรมดา แอปแยกให้เองว่าเป็นงาน รายจ่าย หรือนิสัย
+- **ไม่พลาดของสำคัญ:** แอปเตือนก่อนถึงกำหนดงานและวันจ่ายบิล
+- **ใช้ได้ทุกที่:** เปิดบนคอมหรือมือถือ ใช้ตอนไม่มีเน็ตได้ และใช้ได้ทั้งภาษาไทยและอังกฤษ
 
-การเพิ่มโมดูลใหม่ = สร้างไฟล์ใหม่หนึ่งชุดใน `apps/api/src/modules/<ชื่อ>/` แล้วเพิ่ม
-หนึ่งบรรทัดใน `AppModule` เท่านั้น
-
-**พิสูจน์แล้วด้วยโมดูลที่สาม (Phase 6):** เพิ่ม **HabitModule (API 662 บรรทัด + เทสต์ 388 บรรทัด)** โดยแก้โค้ดใน `core/`
-(`apps/api/src/core` + `packages/core`) **0 บรรทัด** — แตะโค้ดเดิมแค่ `AppModule` 2 บรรทัด
-แล้วหน้า Today, ปฏิทินรวม, iCal, Weekly Review, ⌘K และ NL parser รองรับนิสัยทันที
-(integration test ยืนยัน: ปิดโมดูล → parser ไม่เสนอนิสัย · เปิด → "ดื่มน้ำ 8 แก้ว ทุกวัน" กลายเป็นนิสัยและขึ้นทุกหน้า)
-— ตัวเลขนับด้วย `git diff --numstat` เทียบก่อนเริ่ม Phase 6 · ดู [docs/phases/phase-6-habit.md](docs/phases/phase-6-habit.md)
-
-### 2. กฎสถาปัตยกรรมที่ CI บังคับให้ ไม่ใช่แค่เขียนไว้ใน README
-
-ขอบเขตทั้ง 5 ข้อถูกแปลงเป็น lint rule จริง (ดู [ADR-006](./docs/adr/006-architecture-boundaries-as-lint.md)):
-`core/` ห้ามรู้จัก `modules/`, โมดูลห้าม import ข้ามกัน, controller ห้ามแตะ Prisma,
-และ domain logic ห้ามผูกกับ NestJS
-
-ข้อสุดท้ายทำให้ business logic ทดสอบได้โดยไม่ต้อง bootstrap framework —
-unit test ทั้งชุดจบใน ~1 วินาที
-
-### 3. Auth ระดับ production ไม่ใช่แค่เรียก library
-
-- access token อายุ 15 นาที เก็บใน memory เท่านั้น — ไม่แตะ localStorage
-- refresh token เป็น opaque random 32 bytes เก็บเฉพาะ SHA-256 hash ลงฐานข้อมูล
-- ทุกครั้งที่ refresh จะหมุน token ใหม่ ถ้าใบเก่าถูกใช้ซ้ำ = มีคนถือสำเนาอยู่
-  → เพิกถอนทั้ง family ทันที + แจ้งอีเมล ([ADR-005](./docs/adr/005-refresh-token-rotation.md))
-- Argon2id ตามพารามิเตอร์ที่ OWASP แนะนำ + เผาเวลาให้เท่ากันเมื่อไม่พบผู้ใช้ กัน user enumeration
-- Prisma client extension เติม `where: { userId }` อัตโนมัติเป็นเกราะชั้นที่สองกัน IDOR
-
-### 4. JSONB ที่มี schema จริง
-
-โมดูลแต่ละตัวมี field ไม่เหมือนกันเลย แต่ต้อง query รวมกันได้ในคำขอเดียว
-จึงใช้ตารางกลาง + `payload JSONB` และบังคับรูปแบบด้วย Zod schema ต่อโมดูลที่ระดับ
-application layer — schema ตัวเดียวกันถูกใช้ทั้ง validate ที่ backend, validate ฟอร์มที่
-frontend และ generate TypeScript type ทั้งสองฝั่ง ([ADR-003](./docs/adr/003-jsonb-payload.md))
-
-### 5. Optimistic concurrency ที่ไม่เขียนทับงานคนอื่น
-
-ทุก `PATCH /entries/:id` ต้องส่ง `version` ที่ client เห็นล่าสุดมาด้วย
-ถ้าไม่ตรงกับในฐานข้อมูล API ตอบ 409 พร้อมเวอร์ชันปัจจุบัน แทนที่จะเขียนทับเงียบ ๆ
-
-### 6. ใช้ได้ตอนไม่มีเน็ต — ส่งซ้ำไม่ซ้ำ แก้ชนไม่เงียบ
-
-ทำตอนออฟไลน์ → เข้าคิว (outbox) ใน IndexedDB → เน็ตกลับมาส่ง `POST /sync/push` ตามลำดับ
-· ทุก operation มี `opId` ส่งซ้ำได้ผลเดิม (เลื่อนวัน/สร้างกฎไม่ซ้ำ) · สองเครื่องแก้คนละช่องรวมกันเอง
-ช่องเดียวกัน server ชนะและผู้ใช้เห็น diff (ตัดสินจาก "ค่าก่อนแก้" ที่ client ส่งมา) · รีเฟรชตอนออฟไลน์ยังเปิดแอปได้
-(service worker + แคชของ query ใน IndexedDB) — พิสูจน์ด้วย E2E กับ API จริง:
-ตัดเน็ต → รีเฟรช → สร้าง 3 งาน → ต่อเน็ต → server มีครบ 3 ไม่ซ้ำ ([ADR-014](./docs/adr/014-offline-outbox-and-field-merge.md))
+ผมทำโปรเจกต์นี้คนเดียวเป็น portfolio ครบทั้งระบบ ตั้งแต่หน้าเว็บ API ฐานข้อมูล ระบบแจ้งเตือน การทดสอบ ไปจนถึง deploy
 
 ---
 
-## สถาปัตยกรรม
+## Feature
 
-แผนภาพ C4 เต็ม (Context · Container · Component) อยู่ที่ [docs/diagrams](./docs/diagrams/README.md) — ระดับ Container:
+### วันนี้ (Today)
+
+หน้าแรกหลังเข้าสู่ระบบ รวมงานของวันนี้ ยอดใช้จ่ายเทียบงบ บิลที่ใกล้ครบกำหนด และนิสัยของวันไว้ในหน้าเดียว
+บัญชีใหม่จะเห็นการ์ด "เริ่มต้นใช้งาน" ที่พาลองใช้ทีละขั้น (ภาพหน้าวันนี้อยู่ด้านบนสุดของหน้านี้)
+
+### งาน (Tasks)
+
+- เพิ่มงานด้วยประโยคเดียว เช่น `ส่งรายงาน พรุ่งนี้ 5 โมง !high #work`
+- จัดงานด้วยโปรเจกต์ แท็ก ความสำคัญ และงานย่อย
+- ดูงานแยกเป็น Inbox, วันนี้, 7 วันข้างหน้า หรือแยกตามโปรเจกต์
+- เลื่อนงานไปพรุ่งนี้ได้ในคลิกเดียว ลบแล้วกู้คืนได้
+- จับเวลาโฟกัสจากการ์ดงาน และดูเวลาโฟกัสรวมของวัน
+- ตั้งงานซ้ำทุกวัน ทุกสัปดาห์ หรือทุกสิ้นเดือน
+
+![หน้างาน: รายการงาน โปรเจกต์ แท็ก และเวลาโฟกัส](docs/images/tasks-light.png)
+
+### การเงิน (Finance)
+
+- พิมพ์ `กาแฟ 65` แล้วบันทึกรายจ่ายได้เลย
+- ตั้งงบรายเดือนแยกตามหมวด แอปเตือนเมื่อหมวดไหนใกล้เกินงบ
+- จดบิลประจำ เช่น ค่าเน็ต ค่าไฟ แล้วกดว่าจ่ายแล้ว
+- ดูคาดการณ์ยอดใช้จ่ายสิ้นเดือน
+- ส่งออกรายการของเดือนเป็นไฟล์ CSV
+
+![หน้าการเงิน: ยอดใช้จ่ายเทียบงบ คาดการณ์สิ้นเดือน บิลประจำ และรายการล่าสุด](docs/images/finance.png)
+
+หน้าวิเคราะห์แสดงสัดส่วนตามหมวด รายรับเทียบรายจ่าย 6 เดือนล่าสุด และค่าใช้จ่ายคงที่เทียบผันแปร
+
+![หน้าวิเคราะห์การเงิน](docs/images/finance-analytics.png)
+
+### นิสัย (Habits)
+
+- นับจำนวน เช่น ดื่มน้ำ 8 แก้ว
+- ติ๊กว่าทำแล้ว เช่น อ่านหนังสือ
+- ทำให้ทันก่อนเวลา เช่น นอนก่อน 23:45
+- เป้าหมายรายสัปดาห์ เช่น วิ่ง 3 ครั้งต่อสัปดาห์
+- นับวันที่ทำต่อเนื่อง (streak) และดูย้อนหลัง 7 วัน
+
+![หน้านิสัย: นิสัย 4 แบบพร้อม streak](docs/images/habits.png)
+
+### ปฏิทิน (Calendar)
+
+- เห็นงาน บิล และนิสัยในปฏิทินเดียว สลับมุมมองเดือน สัปดาห์ หรือรายการ
+- กรองตามโมดูล แล้วกดวันเพื่อดูรายละเอียด
+- Subscribe ด้วย iCal เพื่อเปิดใน Google Calendar หรือ Apple Calendar
+
+![ปฏิทินรวมทุกโมดูล ธีมมืด](docs/images/calendar-dark.png)
+
+### สรุปสัปดาห์ (Weekly Review)
+
+สรุปว่าสัปดาห์นี้ทำงานเสร็จกี่ชิ้น ใช้เงินไปกับอะไรมากที่สุด และนิสัยไหนทำสม่ำเสมอหรือควรใส่ใจ
+
+![หน้าสรุปสัปดาห์](docs/images/review.png)
+
+### Command Palette (⌘K)
+
+กด ⌘K จากหน้าไหนก็ได้ แล้วค้นหา เปิดหน้า หรือพิมพ์ประโยคเพื่อสร้างรายการ
+ตัวอย่าง: พิมพ์ `จ่ายค่าเน็ต 599 ทุกวันที่ 5` แอปเสนอให้สร้างเป็นบิลประจำเดือนพร้อมการเตือน หรือสลับเป็นงานประจำก็ได้
+
+![Command Palette แปลงประโยคเป็นบิลประจำ](docs/images/command-palette.png)
+
+### ใช้บนมือถือ
+
+- ติดตั้งลงหน้าจอมือถือเป็นแอปได้ (PWA) มีธีมสว่างและธีมมืด
+- ใช้ตอนไม่มีเน็ตได้ แอปเก็บสิ่งที่คุณทำไว้ในเครื่อง แล้วส่งขึ้นเซิร์ฟเวอร์เมื่อเน็ตกลับมา ถ้าแก้จากสองเครื่อง แอปรวมให้โดยไม่สร้างรายการซ้ำ
+- เตือนผ่าน push notification หรืออีเมล ตั้งช่วงห้ามรบกวนได้
+
+| การเงิน                                                                          | วันนี้ (ธีมมืด)                                                                           |
+| -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| <img src="docs/images/finance-mobile.png" alt="หน้าการเงินบนมือถือ" width="300"> | <img src="docs/images/today-dark-mobile.png" alt="หน้าวันนี้บนมือถือ ธีมมืด" width="300"> |
+
+### ตั้งค่า
+
+- เลือกธีม สว่าง มืด หรือตามเครื่อง
+- สลับภาษาไทยหรืออังกฤษ ทั้งแอป อีเมล และการแจ้งเตือน เลือกแสดงปี พ.ศ. หรือ ค.ศ. ได้
+- เปิดเฉพาะโมดูลที่ใช้ ปิดแล้วข้อมูลเดิมไม่หาย
+
+![หน้าตั้งค่า](docs/images/settings.png)
+
+### เชื่อมต่อภายนอก
+
+- **เข้าสู่ระบบ:** ด้วยอีเมล, Google หรือ GitHub และผูกหลายบัญชีกับผู้ใช้คนเดียวได้
+- **GitHub:** issue และ PR ที่มอบหมายให้คุณกลายเป็นงาน วันของ milestone ขึ้นในปฏิทิน และงานปิดให้เองเมื่อ PR merge
+- **Public API:** สร้าง API key แบบอ่านอย่างเดียวหรืออ่าน-เขียน และเพิกถอนได้ เอกสาร Swagger อยู่ที่ `/api/v1/docs`
+
+---
+
+## Tech Stack
+
+| ส่วน               | ใช้อะไร                                |
+| ------------------ | -------------------------------------- |
+| หน้าเว็บ           | Next.js 15, React 19                   |
+| หน้าตา             | Tailwind CSS 4                         |
+| ข้อมูลฝั่งหน้าเว็บ | TanStack Query, Zustand                |
+| เซิร์ฟเวอร์        | NestJS 11, Node 22                     |
+| ฐานข้อมูล          | PostgreSQL 17, Prisma 6                |
+| คิวและแคช          | Redis 7, BullMQ                        |
+| ตรวจข้อมูล         | Zod                                    |
+| ล็อกอิน            | JWT, Argon2id, OAuth (Google, GitHub)  |
+| ภาษา               | next-intl                              |
+| อีเมล              | React Email, Resend                    |
+| แจ้งเตือน          | Web Push                               |
+| ทดสอบ              | Vitest, Playwright, axe, Lighthouse    |
+| Deploy             | Vercel, Supabase, Upstash, Fly.io      |
+| Monorepo           | pnpm workspaces, Turborepo, TypeScript |
+
+---
+
+## ภาพรวมระบบ
 
 ```mermaid
 flowchart LR
   user["👤 ผู้ใช้"] -- HTTPS --> web["Web<br/><small>Next.js PWA · Vercel</small>"]
-  web -- "proxy /api/v1 + IP จริง" --> api["API<br/><small>NestJS · Vercel Function</small>"]
+  web -- "/api/v1" --> api["API<br/><small>NestJS · Vercel Function</small>"]
   api --> db[("PostgreSQL<br/><small>Supabase</small>")]
   api --> redis[("Redis<br/><small>Upstash</small>")]
   worker["Worker<br/><small>BullMQ · Fly.io</small>"] --> db
@@ -112,173 +151,76 @@ flowchart LR
   api -- "push · อีเมล" --> notify["Web Push · Resend"]
 ```
 
-โครงสร้าง monorepo:
+โค้ดแบ่งเป็นสามแอปกับแพ็กเกจที่ใช้ร่วมกัน:
 
 ```
 apps/
-  api/      NestJS — REST API, auth, entries, โมดูลโดเมน
-  web/      Next.js 15 (App Router)
-  worker/   BullMQ consumer — แยก container เพราะต้องรันค้าง
+  web/      หน้าเว็บ (Next.js)
+  api/      REST API (NestJS)
+  worker/   งานเบื้องหลัง เช่น ส่งการเตือน (BullMQ)
 packages/
-  contracts/      Zod schema + type ที่ FE/BE ใช้ร่วมกัน
-  core/           TrackableModule interface, domain type, ฟังก์ชันเวลา, NL parser, ข้อความฝั่งเซิร์ฟเวอร์ (th/en)
-  emails/         template อีเมล (React Email) ไทย/อังกฤษ
-  notifications/  ตัวส่งการเตือน (push · อีเมล) ใช้ร่วมกันระหว่าง API กับ worker
-  ui/             design token + helper ของ UI
+  contracts/      Zod schema และ type ที่หน้าเว็บกับ API ใช้ร่วมกัน
+  core/           interface ของโมดูล ฟังก์ชันเวลา ตัวแปลงประโยคเป็นงาน
+  emails/         template อีเมล
+  notifications/  ตัวส่ง push และอีเมล
+  ui/             design token
 ```
 
----
-
-## Tech Stack และเหตุผล
-
-| ชั้น         | เทคโนโลยี                         | เหตุผลสั้น ๆ                                                 |
-| ------------ | --------------------------------- | ------------------------------------------------------------ |
-| Frontend     | Next.js 15 + React 19             | App Router, RSC, ระบบนิเวศใหญ่                               |
-| Styling      | Tailwind CSS 4 + design token     | คุมดีไซน์เองได้ ไม่ใช่เทมเพลตสำเร็จรูป                       |
-| Client state | TanStack Query + Zustand          | แยก server state ออกจาก UI state ให้ชัด                      |
-| Backend      | NestJS 11 (Node 22)               | มี DI container จริง = เงื่อนไขจำเป็นของ Plugin Architecture |
-| ORM          | Prisma 6                          | type-safe, migration ดี                                      |
-| Database     | PostgreSQL 17                     | JSONB + partial index + window function                      |
-| Cache/Queue  | Redis 7 + BullMQ                  | scheduling, rate limit, session revocation                   |
-| Auth         | JWT + refresh rotation + Argon2id | ควบคุมรายละเอียดด้านความปลอดภัยเอง                           |
-| OAuth        | Google OIDC · GitHub OAuth + PKCE | เขียนเอง ~300 บรรทัด — เห็นทุกขั้น ไม่ซ่อนใน library         |
-| i18n         | next-intl + ICU MessageFormat     | พหูพจน์อังกฤษ · ทุกหน้ายัง static ทั้งสองภาษา                |
-| Deploy       | Vercel + Supabase + Upstash       | ฟรีทั้งชุดสำหรับ staging · production จาก tag + rollback     |
-| Monorepo     | pnpm workspaces + Turborepo       | แชร์ type, cache build                                       |
-
-เหตุผลเต็มของการตัดสินใจสำคัญอยู่ใน [docs/adr](./docs/adr)
+แผนภาพละเอียดขึ้น (C4) อยู่ที่ [docs/diagrams](./docs/diagrams/README.md)
 
 ---
 
-## เอกสารเรียนรู้เบื้องหลังโปรเจกต์
-
-[`docs/learn/`](./docs/learn) อธิบายทุกอย่างที่อยู่เบื้องหลังโค้ดตั้งแต่ศูนย์ — ใช้เทคโนโลยีอะไร
-เพราะอะไร หลักการทำงานเป็นอย่างไร และข้อเสียที่ยอมรับแลกมาคืออะไร
-เปิด [`docs/learn/index.html`](./docs/learn/index.html) ในเบราว์เซอร์เพื่อดูสารบัญ
-
-| ไฟล์                                                                         | เนื้อหา                                                                            |
-| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| [01](./docs/learn/01-foundations-web-architecture.md)                        | พื้นฐานสถาปัตยกรรมเว็บ: process, HTTP, REST, ทำไมต้องแยก 3 แอป                     |
-| [02](./docs/learn/02-phase0-monorepo-and-tooling.md)                         | Phase 0 · monorepo, pnpm, Turborepo, TypeScript, ESLint boundaries, Docker, CI     |
-| [03](./docs/learn/03-phase0-database-and-prisma.md)                          | Phase 0 · ฐานข้อมูล, index, JSONB, transaction, migration, Prisma                  |
-| [04](./docs/learn/04-phase1-auth-deep-dive.md)                               | Phase 1 · รหัสผ่าน, JWT, cookie, refresh rotation, IDOR, rate limit                |
-| [05](./docs/learn/05-phase1-plugin-architecture-and-di.md)                   | Phase 1 · SOLID, DI container, decorator, metadata, registry pattern               |
-| [06](./docs/learn/06-phase1-api-design-and-validation.md)                    | Phase 1 · REST, RFC 9457, cursor pagination, Zod, optimistic concurrency           |
-| [07](./docs/learn/07-phase1-frontend-data-layer.md)                          | Phase 1 · React, RSC, TanStack Query, Zustand, Tailwind token, a11y                |
-| [08](./docs/learn/08-testing-and-quality.md)                                 | การทดสอบ: pyramid, test double, coverage, flaky test, CI gate                      |
-| [09](./docs/learn/09-glossary.md)                                            | อภิธานศัพท์ทั้งหมดที่ใช้ในโปรเจกต์                                                 |
-| [10–14](./docs/learn/10-phase2a-design-system-and-theming.md)                | Phase 2a · design system สองธีม · component ที่เข้าถึงได้ · PWA · visual/a11y test |
-| [15](./docs/learn/15-phase2b-money-months-and-second-module.md)              | Phase 2b · เงินเป็นจำนวนเต็ม · เดือนตามโซนผู้ใช้ · โมดูลที่สอง                     |
-| [16](./docs/learn/16-phase3-recurrence-floating-time-and-materialization.md) | Phase 3 · RRULE · floating time · สิ้นเดือน · materialization                      |
-| [17](./docs/learn/17-phase4-reminders-push-email-and-worker.md)              | Phase 4 · การเตือน · Web Push · อีเมล · worker · quiet hours                       |
-| [18](./docs/learn/18-phase5-nl-parser-calendar-and-palette.md)               | Phase 5 · NL parser ภาษาไทย · ปฏิทินรวม · ⌘K                                       |
-| [19](./docs/learn/19-phase6-habit-and-plugin-proof.md)                       | Phase 6 · นิสัย = กฎการเกิดซ้ำ · พิสูจน์ "แก้ core 0 บรรทัด"                       |
-| [20](./docs/learn/20-phase7-offline-sync.md)                                 | Phase 7 · offline-first · outbox · idempotency · merge ระดับ field                 |
-| [21](./docs/learn/21-phase8-integrations-i18n-and-release.md)                | Phase 8 · API key · OAuth · webhook · i18n · production release                    |
-
----
-
-## เริ่มใช้งาน
+## รันบนเครื่อง
 
 ต้องมี **Node 22+**, **pnpm 10+** และ **Docker**
 
 ```bash
 pnpm install
-pnpm setup:dev     # คัดลอก .env, ยก postgres/redis/mailpit, สร้าง migration + seed
+pnpm setup:dev     # สร้าง .env, เปิด postgres/redis/mailpit, สร้างตาราง และใส่ข้อมูลตัวอย่าง
 pnpm dev           # web :3000 · api :3001 · worker
 ```
 
-เปิด http://localhost:3000 แล้วกด "ลองใช้ทันที" หรือเข้าสู่ระบบด้วยบัญชีที่ seed ไว้:
+เปิด http://localhost:3000 แล้วกด "ลองใช้ทันที" หรือเข้าด้วยบัญชีตัวอย่าง:
 
 ```
 demo@nosion.dev / nosion-demo-2026
 ```
 
-`pnpm setup:dev` จัดการ migration ให้ครบตั้งแต่ครั้งแรก (สร้าง migration จาก schema →
-เพิ่ม GIN/partial index → seed) ถ้าอยากทำทีละขั้นเองก็ได้:
+ระหว่างพัฒนา: ดูอีเมลที่ระบบส่งได้ที่ Mailpit http://localhost:8025 และเอกสาร API ที่ http://localhost:3001/api/v1/docs
 
-```bash
-pnpm db:migrate --name init    # สร้าง migration แรกจาก schema
-pnpm db:migrate:indexes        # เพิ่ม GIN/partial index ที่ Prisma ประกาศเองไม่ได้
-pnpm db:migrate:deploy
-pnpm db:seed
-```
-
-บริการอื่นระหว่าง dev: Mailpit http://localhost:8025 · Swagger http://localhost:3001/api/v1/docs
-
-เข้าสู่ระบบด้วย Google/GitHub ในเครื่อง: ใส่ `GOOGLE_*` / `GITHUB_*` ใน `.env` (ไม่ใส่ = ปุ่มซ่อนเอง) — ขั้นตอนสร้าง OAuth app อยู่ใน
-[docs/deploy/staging-vercel-supabase.md](./docs/deploy/staging-vercel-supabase.md) หัวข้อ 7
-
-### Deploy
-
-| สภาพแวดล้อม | ขึ้นเมื่อไร                                                                                           | คู่มือ                                                                 |
-| ----------- | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| staging     | push ขึ้น `main` แล้ว CI เขียว → migrate → deploy → smoke → Lighthouse                                | [staging-vercel-supabase.md](./docs/deploy/staging-vercel-supabase.md) |
-| production  | push tag `v*.*.*` → อนุมัติ → backup (เข้ารหัส) → migrate → deploy → smoke → ล้ม = rollback อัตโนมัติ | [production.md](./docs/deploy/production.md)                           |
-
-> **หมายเหตุเรื่อง MinIO:** เราใช้ MinIO จำลอง S3/R2 สำหรับไฟล์แนบ ซึ่งเริ่มใช้จริงใน Phase 2
-> MinIO ถอด image ออกจาก Docker Hub แล้ว compose จึงดึงจาก `quay.io/minio/minio` และ
-> ตั้ง profile ไว้ไม่ให้ขึ้นอัตโนมัติ — เปิดเมื่อต้องใช้ด้วย
-> `docker compose --profile storage up -d minio` (คอนโซลที่ http://localhost:9001)
+ล็อกอินด้วย Google/GitHub บนเครื่อง: ใส่ `GOOGLE_*` / `GITHUB_*` ใน `.env` (ถ้าไม่ใส่ ปุ่มจะซ่อน) วิธีสร้าง OAuth app อยู่ใน [คู่มือ staging](./docs/deploy/staging-vercel-supabase.md) หัวข้อ 7
 
 ### คำสั่งที่ใช้บ่อย
 
 ```bash
-pnpm dev            # รันทั้งสามแอปพร้อมกัน
-pnpm verify         # lint + format + typecheck + unit + build — รันก่อน push
-pnpm test:unit      # unit test ทุก package
-pnpm test:int:local # integration test บนเครื่อง — ใช้ฐาน nosion_test แยก ไม่ล้างข้อมูล dev
-pnpm test:int       # integration test ด้วย DATABASE_URL ปัจจุบัน (CI) ⚠ ล้างทุกตาราง
+pnpm dev            # รันทั้งสามแอป
+pnpm verify         # lint + format + typecheck + unit test + build (รันก่อน push)
+pnpm test:unit      # unit test
+pnpm test:int:local # integration test บนฐาน nosion_test แยก ข้อมูล dev ไม่หาย
 pnpm test:e2e       # Playwright
-pnpm db:studio      # Prisma Studio
-pnpm db:reset       # ล้างฐานข้อมูลแล้ว migrate + seed ใหม่
+pnpm db:studio      # เปิด Prisma Studio ดูข้อมูล
+pnpm db:reset       # ล้างฐานข้อมูลแล้วสร้างใหม่พร้อมข้อมูลตัวอย่าง
 ```
+
+> `pnpm test:int` ใช้ `DATABASE_URL` ปัจจุบันและล้างทุกตาราง ใช้ใน CI เท่านั้น
+
+### Deploy
+
+| ที่ไหน     | ขึ้นเมื่อไร                                                                 | คู่มือ                                                                 |
+| ---------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| staging    | merge เข้า `main` แล้ว CI ผ่าน                                              | [staging-vercel-supabase.md](./docs/deploy/staging-vercel-supabase.md) |
+| production | push tag `v*.*.*` แล้วกดอนุมัติ ถ้า smoke test ไม่ผ่าน ระบบ rollback ให้เอง | [production.md](./docs/deploy/production.md)                           |
 
 ---
 
 ## การทดสอบ
 
-| ระดับ       | เครื่องมือ                         | ครอบคลุมอะไร                                                                                                                      |
-| ----------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Unit        | Vitest                             | ตรรกะบริสุทธิ์: การคำนวณเวลา/timezone/DST, ทะเบียนโมดูล, การ parse sort และ defer, schema ของ contract                            |
-| Integration | Vitest + supertest + Postgres จริง | auth flow เต็ม, refresh rotation + reuse detection, entry CRUD, **IDOR ทุก resource**, version conflict, idempotency ของ clientId |
-| E2E         | Playwright + API จริง              | ลองใช้ทันที → สร้างงาน · ⌘K สร้างบิลพร้อมการเตือน · ออฟไลน์แล้ว sync ไม่ซ้ำ · ผู้ใช้ใหม่ทำตามการ์ดเริ่มต้นใช้งาน                  |
-| UI          | Playwright + API ปลอม              | axe 0 serious ทุกหน้า **สองธีม · สองภาษา** · visual regression 6 หน้า × 2 ธีม × 2 จอ (≤ 0.2%) · ปุ่มลัด/dialog/โฟกัส              |
-| Performance | Lighthouse (มัธยฐาน 3 รอบ)         | ทุกหน้าหลัก มือถือ + desktop บน staging จริงหลังทุก deploy                                                                        |
-| ข้อความแปล  | `check-messages.mjs`               | th/en มี key ครบเท่ากัน · ICU ถูก · ทุก key ที่โค้ดเรียกมีจริง                                                                    |
+| ระดับ       | เครื่องมือ             | ตรวจอะไร                                                            |
+| ----------- | ---------------------- | ------------------------------------------------------------------- |
+| Unit        | Vitest                 | การคำนวณเวลา เขตเวลา งานซ้ำ ตัวแปลงประโยค                           |
+| Integration | Vitest + Postgres จริง | ล็อกอินทั้งวงจร, ผู้ใช้คนหนึ่งเปิดข้อมูลของอีกคนไม่ได้, การแก้ชนกัน |
+| E2E         | Playwright + API จริง  | ลองใช้ทันทีแล้วสร้างงาน, ใช้ตอนออฟไลน์แล้ว sync ไม่ซ้ำ              |
+| UI          | Playwright + axe       | การเข้าถึง (a11y) ทุกหน้า สองธีม สองภาษา และเทียบภาพหน้าจอ          |
+| Performance | Lighthouse             | หน้าหลักบนมือถือและเดสก์ท็อป (กดรันเองได้)                          |
 
-integration test ไม่ mock ฐานข้อมูล เพราะบั๊กที่เจ็บที่สุดในระบบแบบนี้คือ constraint,
-cascade และ transaction ซึ่ง mock จับไม่ได้
-
-**สิ่งที่จงใจไม่ทดสอบ:** getter/setter, การ render ของ component ที่ไม่มีตรรกะ,
-และโค้ดของ framework เอง
-
----
-
-## สิ่งที่เรียนรู้
-
-- **DI container ไม่ใช่ของฟุ่มเฟือย** — Plugin Architecture ที่ค้นหา provider เองตอน bootstrap
-  ทำได้เพราะ NestJS มี DiscoveryService ถ้าเลือก framework ที่ไม่มี DI จริง
-  จะต้องมาเขียน registry ด้วยมือและ import ทุกโมดูลเอง ซึ่งพังเป้าหมายตั้งแต่ต้น
-- **กฎที่ไม่มีเครื่องมือบังคับ คือกฎที่จะถูกละเมิด** — ตอนเขียน registry เกือบจะ import
-  `@nestjs/core` เข้า domain logic ด้วยความเคยชิน lint rule จับได้ก่อน commit
-- **`import type` กับ `emitDecoratorMetadata` ชนกัน** — กฎ lint ที่ดีในโปรเจกต์ทั่วไป
-  ทำให้ DI ของ NestJS พังตอน runtime ทั้งที่ compile ผ่าน จึงต้องปิดเฉพาะฝั่ง API พร้อมบันทึกเหตุผลไว้
-- **timezone ต้องคิดตั้งแต่ schema** — การเก็บ UTC เสมอแล้วแปลงที่ application layer
-  ทำให้ทดสอบ DST ได้ด้วยฟังก์ชันบริสุทธิ์ โดยไม่ต้องมีฐานข้อมูล
-
----
-
-## ทำอะไรต่อ
-
-- [x] **Phase 0** — monorepo, lint boundaries, docker-compose, Prisma schema, CI
-- [x] **Phase 1** — auth เต็มรูปแบบ, ModuleRegistry, entry CRUD, TaskModule, หน้า Tasks
-- [x] **Phase 2** — ExpenseModule, budget, หน้า Today ที่ประกอบจาก widget ของทุกโมดูล
-- [x] **Phase 3** — Recurrence Engine (RRULE + timezone + DST + edge case สิ้นเดือน)
-- [x] **Phase 4** — Reminder Engine (idempotency, retry, DLQ, quiet hours) _(รอทดสอบ push บนมือถือจริง)_
-- [x] **Phase 5** — Calendar รวมทุกโมดูล, NL Parser, Command Palette (⌘K)
-- [x] **Phase 6** — HabitModule + Weekly Review (บททดสอบจริงของ "แก้ core 0 บรรทัด") · _ตัด WorkoutModule_
-- [x] **Phase 7** — Offline-first sync พร้อมการแก้ conflict (outbox · idempotency · merge ระดับ field · PWA)
-- [x] **Phase 8** — axe/visual/Lighthouse ≥ 90 · API key + Public API · Google/GitHub sign-in · GitHub → งาน/ปฏิทิน + webhook · i18n ไทย/อังกฤษ · deploy production + rollback · onboarding _(ข้าม Import CSV/Todoist)_
-
-รายละเอียดทั้งหมดอยู่ใน [NOSION-SPEC.md](../NOSION-SPEC.md) · ที่ยังค้าง: วิดีโอสาธิต 2 นาที · production จริง (workflow พร้อมแล้ว)
+integration test ใช้ฐานข้อมูลจริงแทน mock เพราะ mock จับบั๊กเรื่อง constraint และ transaction ไม่ได้
