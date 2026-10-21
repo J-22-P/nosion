@@ -3,7 +3,7 @@
   "framework": null,
   "regions": ["sin1"],
   "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
-  "buildCommand": "cd ../.. && pnpm turbo run build --filter=@nosion/api && mkdir -p apps/api/public && echo ok > apps/api/public/health.txt",
+  "buildCommand": "cd ../.. && pnpm db:generate && pnpm turbo run build --filter=@nosion/api && mkdir -p apps/api/public && echo ok > apps/api/public/health.txt",
   "outputDirectory": "public",
   "functions": {
     "api/index.js": {

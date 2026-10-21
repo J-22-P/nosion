@@ -26,3 +26,6 @@ _tmp_*
 next-env.d.ts
 .vercel
 apps/web/lighthouse-report/
+
+# Redis snapshot ที่เครื่อง dev สร้างเอง
+dump.rdb
