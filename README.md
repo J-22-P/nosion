@@ -224,13 +224,3 @@ pnpm db:reset       # ล้างฐานข้อมูลแล้วสร�
 | Performance | Lighthouse             | หน้าหลักบนมือถือและเดสก์ท็อป (กดรันเองได้)                          |
 
 integration test ใช้ฐานข้อมูลจริงแทน mock เพราะ mock จับบั๊กเรื่อง constraint และ transaction ไม่ได้
-
----
-
-## อ่านต่อ
-
-- [docs/learn](./docs/learn): บทเรียน 21 ตอน อธิบายเทคโนโลยีทุกตัวในโปรเจกต์ตั้งแต่พื้นฐาน เปิด [index.html](./docs/learn/index.html) เพื่อดูสารบัญ
-- [docs/adr](./docs/adr): บันทึกการตัดสินใจทางสถาปัตยกรรม
-- [docs/phases](./docs/phases/README.md): บันทึกการทำงานทีละ Phase (Phase 0–8 เสร็จแล้ว)
-
-งานที่ยังค้าง: วิดีโอสาธิต 2 นาที, เปิด production จริง (workflow พร้อมแล้ว), ทดสอบ push บนมือถือจริง
