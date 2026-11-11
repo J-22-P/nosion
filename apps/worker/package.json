@@ -32,8 +32,8 @@
   "devDependencies": {
     "@nosion/eslint-config": "workspace:*",
     "@nosion/tsconfig": "workspace:*",
-    "@types/node": "22.20.3",
-    "tsx": "4.23.13",
+    "@types/node": "22.20.5",
+    "tsx": "4.23.15",
     "typescript": "5.9.3",
     "vitest": "3.2.7"
   }
