@@ -16,13 +16,13 @@
   "dependencies": {
     "@nosion/contracts": "workspace:*",
     "clsx": "2.1.1",
-    "tailwind-merge": "3.7.0"
+    "tailwind-merge": "3.7.1"
   },
   "devDependencies": {
     "@nosion/eslint-config": "workspace:*",
     "@nosion/tsconfig": "workspace:*",
     "typescript": "5.9.3",
     "vitest": "3.2.7",
-    "@types/node": "22.20.3"
+    "@types/node": "22.20.5"
   }
 }
