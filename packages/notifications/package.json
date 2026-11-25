@@ -33,7 +33,7 @@
     "@nosion/eslint-config": "workspace:*",
     "@nosion/tsconfig": "workspace:*",
     "@prisma/client": "6.19.3",
-    "@types/node": "22.20.3",
+    "@types/node": "22.20.5",
     "@types/web-push": "3.6.4",
     "typescript": "5.9.3",
     "vitest": "3.2.7"
